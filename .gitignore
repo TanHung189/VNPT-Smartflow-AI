@@ -1,9 +1,18 @@
-node_modules
-.env
-dist
-build
-
-venv
-__pycache__
-.env
+# Môi trường ảo (Python)
+.venv/        # Đảm bảo có dấu chấm để khớp với tên thư mục của em
+venv/
+env/
+__pycache__/
 *.pyc
+
+# Thư viện Frontend
+node_modules/
+
+# Các thư mục build (khi đóng gói dự án)
+dist/
+build/
+.cache/
+
+# File cấu hình cá nhân (Rất quan trọng)
+.env
+.vscode/      
