@@ -1,16 +1,14 @@
 import os
+import json
 from dotenv import load_dotenv
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
-import google.generativeai as genai
 import uvicorn
+import google.generativeai as genai
 
-# 1. Tải cấu hình từ file .env
 load_dotenv()
-
 app = FastAPI()
 
-# 2. Cấu hình CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -19,31 +17,26 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 3. Cấu hình api key
 api_key = os.getenv("GEMINI_API_KEY")
-if not api_key:
-    print("LỖI: Chưa có GEMINI_API_KEY trong file .env")
-    exit()
-
 genai.configure(api_key=api_key)
-
-# Sử dụng model flash để có tốc độ phản hồi nhanh nhất
 model = genai.GenerativeModel('gemini-3-flash-preview')
 
-# Trong main.py
 @app.get("/api/generate-flow")
 async def generate_flow(text: str = Query(..., description="Văn bản quy trình")):
-    # Prompt mới: Yêu cầu AI xuất mã Mermaid
+    # Prompt yêu cầu JSON thay vì mã Mermaid
     prompt = (
-        f"Bạn là chuyên gia quy trình VNPT. Hãy chuyển văn bản sau thành mã Mermaid JS định dạng 'graph TD'. "
-        f"CHỈ trả về mã, không giải thích. Quy trình: {text}"
+        f"Bạn là chuyên gia quy trình VNPT. Hãy phân tích văn bản sau thành cấu trúc JSON để vẽ sơ đồ bằng React Flow. "
+        f"Cấu trúc JSON yêu cầu: {{ 'nodes': [{{ 'id': '1', 'data': {{ 'label': 'Tên bước' }}, 'position': {{ 'x': 250, 'y': 5 }} }}], 'edges': [{{ 'id': 'e1-2', 'source': '1', 'target': '2' }}] }}. "
+        f"Hãy tính toán vị trí y tăng dần (cách nhau 100 đơn vị) để sơ đồ dàn hàng dọc. "
+        f"CHỈ trả về JSON, không giải thích. Quy trình: {text}"
     )
     
     try:
         response = model.generate_content(prompt)
-        # Làm sạch mã để chỉ lấy phần nội dung biểu đồ
-        clean_code = response.text.replace("```mermaid", "").replace("```", "").strip()
-        return {"result": clean_code}
+        # Làm sạch chuỗi JSON từ AI
+        clean_json = response.text.replace("```json", "").replace("```", "").strip()
+        data = json.loads(clean_json)
+        return {"result": "SUCCESS", "data": data}
     except Exception as e:
         return {"result": "ERROR", "message": str(e)}
 
