@@ -1,18 +1,39 @@
-# Môi trường ảo (Python)
-.venv/        # Đảm bảo có dấu chấm để khớp với tên thư mục của em
+# --- PYTHON / BACKEND ---
+# Môi trường ảo
+.venv/
 venv/
 env/
+ENV/
+
+# Tệp biên dịch và bộ nhớ đệm
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+.pytest_cache/
 
-# Thư viện Frontend
+# --- NODE / FRONTEND ---
 node_modules/
+.pnp
+.pnp.js
 
-# Các thư mục build (khi đóng gói dự án)
+# Các thư mục build 
 dist/
 build/
-.cache/
+out/
+.next/
 
-# File cấu hình cá nhân (Rất quan trọng)
+# --- CẤU HÌNH CÁ NHÂN & BẢO MẬT ---
 .env
-.vscode/      
+.env.local
+.env.*.local
+
+# Cấu hình của trình soạn thảo
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Hệ điều hành
+.DS_Store
+Thumbs.db
