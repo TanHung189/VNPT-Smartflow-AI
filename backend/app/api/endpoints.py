@@ -1,3 +1,7 @@
+#==============================================================
+#Cổng kết nối (API Router) giữa người dùng và hệ thống Backend.
+#==============================================================
+
 from fastapi import APIRouter , Query
 from app.services.ai_service import ai_service
 
