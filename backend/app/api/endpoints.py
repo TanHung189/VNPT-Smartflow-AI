@@ -2,7 +2,11 @@
 #Cổng kết nối (API Router) giữa người dùng và hệ thống Backend.
 #==============================================================
 
+<<<<<<< HEAD
 from fastapi import APIRouter , Query, UploadFile, File
+=======
+from fastapi import APIRouter , Query
+>>>>>>> 31b6b10a81a68a7a1e97dc1d30b4d6babd75ff5a
 from app.services.ai_service import ai_service
 import docx
 import PyPDF2
@@ -17,6 +21,7 @@ async def generate_flow(text: str = Query(..., description="Văn bản quy trìn
         return {"result" : "SUCCESS", "data" : data}
     except Exception as e:
         return {"result" : "ERROR", "message" : str(e)}
+<<<<<<< HEAD
 
 #API upload và đọc file
 @router.post("/api/upload-process")
@@ -39,3 +44,5 @@ async def upload_process(file: UploadFile = File(...)):
         return {"result": "SUCCESS", "data": data}
     except Exception as e:
         return {"result": "ERROR", "message": f"Lỗi đọc file: {str(e)}"}
+=======
+>>>>>>> 31b6b10a81a68a7a1e97dc1d30b4d6babd75ff5a
