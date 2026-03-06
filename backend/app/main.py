@@ -3,6 +3,7 @@ from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from app.services.ai_service import ai_service # Import module xử lý AI đã tách
 from app.core.config import settings # Import cấu hình hệ thống
+from app.api.endpoints import router as api_router
 
 app = FastAPI(title="VNPT SmartFlow AI")
 
@@ -14,6 +15,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(api_router)
 
 @app.get("/api/generate-flow")
 async def generate_flow(text: str = Query(..., description="Văn bản quy trình nghiệp vụ")):

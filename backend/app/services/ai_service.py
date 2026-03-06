@@ -40,7 +40,12 @@ class AIService:
                 f"VĂN BẢN QUY TRÌNH: {text}"
             ) 
             response = model.generate_content(prompt)
-            clean_json = response.text.replace("```json", "").replace("```", "").strip()
+            clean_json = response.text.strip()
+            if clean_json.startswith("```json"):
+                clean_json = clean_json.replace("```json", "", 1)
+            if clean_json.endswith("```"):
+                clean_json = clean_json.rsplit("```", 1)[0]
+            clean_json = clean_json.strip()
             return json.loads(clean_json)
             
         except Exception as e:

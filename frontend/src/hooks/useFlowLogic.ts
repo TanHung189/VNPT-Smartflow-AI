@@ -68,16 +68,12 @@ export const useFlowLogic = () => {
           const { nodes: layoutedNodes, edges: layoutedEdges } =
             getLayoutedElements(resData.data.nodes, resData.data.edges);
 
-          // layoutedNodes may have positional fields inferred as plain strings by Dagre;
-          // cast to the Node[] type expected by the flow state to satisfy TypeScript.
           setNodes(layoutedNodes as unknown as Node[]);
           setEdges(layoutedEdges as unknown as Edge[]);
         } else {
-          // Nếu backend trả về lỗi (ví dụ quota/rate-limit), báo cho người dùng
           const message = resData?.message || "Lỗi khi tạo sơ đồ";
           console.error("GenerateFlow error:", message);
 
-          // Nếu đang ở môi trường development, cung cấp fallback mock để phát triển giao diện
           if (process.env.NODE_ENV === "development") {
             // ví dụ mock nodes/edges
             const mock = {
@@ -123,5 +119,47 @@ export const useFlowLogic = () => {
     [setNodes, setEdges],
   );
 
-  return { nodes, edges, onNodesChange, onEdgesChange, loading, generateFlow };
+  const uploadFileAndGenerate = useCallback(
+    async (file: File) => {
+      setLoading(true);
+      const formData = new FormData();
+      formData.append("file", file);
+
+      try {
+        const response = await fetch(
+          "http://127.0.0.1:8000/api/upload-process",
+          {
+            method: "POST",
+            body: formData,
+          },
+        );
+
+        const resData = await response.json();
+        if (resData.result === "SUCCESS") {
+          // Sử dụng logic Dagre đã có để dàn trang
+          const { nodes: layoutedNodes, edges: layoutedEdges } =
+            getLayoutedElements(resData.data.nodes, resData.data.edges);
+          setNodes(layoutedNodes as unknown as Node[]);
+          setEdges(layoutedEdges as unknown as Edge[]);
+        } else {
+          alert("Lỗi: " + resData.message);
+        }
+      } catch (error) {
+        alert("Không thể kết nối Backend!");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [getLayoutedElements, setNodes, setEdges],
+  );
+
+  return {
+    nodes,
+    edges,
+    onNodesChange,
+    onEdgesChange,
+    loading,
+    generateFlow,
+    uploadFileAndGenerate,
+  };
 };

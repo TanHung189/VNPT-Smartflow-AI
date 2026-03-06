@@ -15,5 +15,5 @@ class settings:
     ]
     PORT = int(os.getenv("PORT", 8000))
 
-settings = Settings()
+settings = settings()
 

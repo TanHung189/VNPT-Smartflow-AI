@@ -7,12 +7,23 @@ import FlowCanvas from "./features/flow/FlowCanvas";
 import { MousePointer2 } from "lucide-react";
 
 function SmartFlowEditor() {
-  const { nodes, edges, onNodesChange, onEdgesChange, loading, generateFlow } =
-    useFlowLogic();
+  const {
+    nodes,
+    edges,
+    onNodesChange,
+    onEdgesChange,
+    loading,
+    generateFlow,
+    uploadFileAndGenerate,
+  } = useFlowLogic();
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-50 font-sans">
-      <Sidebar onGenerate={generateFlow} loading={loading} />
+      <Sidebar
+        onGenerate={generateFlow}
+        onUpload={uploadFileAndGenerate}
+        loading={loading}
+      />
 
       <main className="flex-1 flex flex-col relative">
         <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-8 shadow-sm z-10">
