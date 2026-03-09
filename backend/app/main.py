@@ -4,13 +4,34 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.services.ai_service import ai_service # Import module xử lý AI đã tách
 from app.core.config import settings # Import cấu hình hệ thống
 from app.api.endpoints import router as api_router
+from app.database import init_db
+from contextlib import asynccontextmanager
 
-app = FastAPI(title="VNPT SmartFlow AI")
+@asynccontextmanager
+async def  lifespan(app: FastAPI):
+    print("--- 🔄 Hệ thống đang khởi tạo Cơ sở dữ liệu")
+    try:
+        init_db()
+        print("Đã tạo bảng thành công trong pgAdmin 4")
+    except Exception as e:
+        print(f"Lỗi khởi tạo: {e}")
+    yield  
+    print("Hệ thống đang đóng kết nối")
 
+app = FastAPI(title="VNPT SmartFlow AI", lifespan=lifespan)
+
+
+origins=[
+    "http://localhost:3000"
+    "http://127.0.0.1:3000"
+    #thêm sau
+]
+
+    
 #cấu hình CORSMiddleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -39,3 +60,4 @@ if __name__ == "__main__":
         port=settings.PORT, 
         reload=True
     )
+
