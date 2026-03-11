@@ -53,6 +53,58 @@ export const useFlowLogic = () => {
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [loading, setLoading] = useState(false);
 
+  const normalizeGraph = (data: any) => {
+    const modernNodeStyle = {
+      background: "rgba(255, 255, 255, 0.9)",
+      backdropFilter: "blur(8px)",
+      border: "1px solid rgba(226, 232, 240, 0.8)",
+      borderRadius: "16px",
+      boxShadow:
+        "0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02)",
+      padding: "15px 25px",
+      fontSize: "13px",
+      fontWeight: "600",
+      color: "#0f172a",
+      textAlign: "center" as const,
+      minWidth: "180px",
+    };
+
+    const rawNodes = data?.nodes ?? [];
+    const rawEdges = data?.edges ?? [];
+
+    const nodesOut: Node[] = rawNodes.map((n: any, i: number) => {
+      const id = n.id ?? n.key ?? n.name ?? `n${i + 1}`;
+      const label =
+        (n.data && n.data.label) ??
+        n.label ??
+        n.name ??
+        n.title ??
+        `Step ${i + 1}`;
+
+      return {
+        id: String(id),
+        data: { label },
+        position: n.position ?? { x: 0, y: 0 },
+        style: modernNodeStyle, // QUAN TRỌNG: Gán style hiện đại vào đây
+      };
+    });
+
+    const edgesOut: Edge[] = rawEdges
+      .map((e: any, i: number) => {
+        const source = e.source ?? e.from ?? e.src ?? e.sourceId ?? null;
+        const target = e.target ?? e.to ?? e.dst ?? e.targetId ?? null;
+        const id = e.id ?? `e${i}-${source ?? "s"}-${target ?? "t"}`;
+        return {
+          id: String(id),
+          source: String(source ?? ""),
+          target: String(target ?? ""),
+        } as unknown as Edge;
+      })
+      .filter((ed: any) => ed.source && ed.target);
+
+    return { nodes: nodesOut, edges: edgesOut };
+  };
+
   const generateFlow = useCallback(
     async (text: string) => {
       if (!text) return;
@@ -63,10 +115,12 @@ export const useFlowLogic = () => {
         );
         const resData = await response.json();
 
+        console.debug("generateFlow response:", resData);
         if (resData.result === "SUCCESS") {
-          // Tự động tính toán vị trí dàn trải ngay tại đây
+          // Normalize incoming data to expected node/edge shape then layout
+          const normalized = normalizeGraph(resData.data);
           const { nodes: layoutedNodes, edges: layoutedEdges } =
-            getLayoutedElements(resData.data.nodes, resData.data.edges);
+            getLayoutedElements(normalized.nodes, normalized.edges);
 
           setNodes(layoutedNodes as unknown as Node[]);
           setEdges(layoutedEdges as unknown as Edge[]);
@@ -135,10 +189,11 @@ export const useFlowLogic = () => {
         );
 
         const resData = await response.json();
+        console.debug("uploadProcess response:", resData);
         if (resData.result === "SUCCESS") {
-          // Sử dụng logic Dagre đã có để dàn trang
+          const normalized = normalizeGraph(resData.data);
           const { nodes: layoutedNodes, edges: layoutedEdges } =
-            getLayoutedElements(resData.data.nodes, resData.data.edges);
+            getLayoutedElements(normalized.nodes, normalized.edges);
           setNodes(layoutedNodes as unknown as Node[]);
           setEdges(layoutedEdges as unknown as Edge[]);
         } else {
@@ -150,7 +205,7 @@ export const useFlowLogic = () => {
         setLoading(false);
       }
     },
-    [getLayoutedElements, setNodes, setEdges],
+    [setNodes, setEdges],
   );
 
   return {
@@ -158,6 +213,8 @@ export const useFlowLogic = () => {
     edges,
     onNodesChange,
     onEdgesChange,
+    setNodes,
+    setEdges,
     loading,
     generateFlow,
     uploadFileAndGenerate,

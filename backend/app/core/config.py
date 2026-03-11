@@ -3,17 +3,19 @@
 #================================================================
 
 import os
-from dotenv import load_dotenv #dotenv thư viện giúp python đoc được file .env
+from dotenv import load_dotenv
 
 load_dotenv()
 
-class settings:
-    GEMINI_API_KEYS = [
-        os.getenv("GEMINI_API_KEY_1"),
-        os.getenv("GEMINI_API_KEY_2"),
-        os.getenv("GEMINI_API_KEY_3")
-    ]
-    PORT = int(os.getenv("PORT", 8000))
+class Settings:
+    PORT: int = int(os.getenv("PORT", "8000"))
 
-settings = settings()
+    # Gom các GEMINI_API_KEY_* thành 1 danh sách theo thứ tự khóa tên
+    GEMINI_API_KEYS = []
+    for k in sorted([key for key in os.environ.keys() if key.startswith("GEMINI_API_KEY_")]):
+        val = os.getenv(k)
+        if val:
+            GEMINI_API_KEYS.append(val)
+
+settings = Settings()
 

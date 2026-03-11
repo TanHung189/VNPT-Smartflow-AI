@@ -9,6 +9,8 @@ body {
     "Cantarell", "Fira Sans", "Droid Sans", "Helvetica Neue", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  letter-spacing: -0.01em; /* Làm chữ sát lại một chút trông sẽ sang hơn */
+  -webkit-font-smoothing: antialiased; /* Làm nét chữ mượt hơn trên máy Mac/Windows */
 }
 
 code {

@@ -1,6 +1,7 @@
-import React, { useState } from "react";
-import { Sparkles, Loader2, Send, FileUp } from "lucide-react";
+import React, { useState } from "react"; // tạo component + useState để lưu dữ liệu trong component
+import { Sparkles, Loader2, Send, FileUp } from "lucide-react"; // lucide-react là thư viên icon
 
+//dđịnh nghĩa kiểu dữ liệu props
 interface SidebarProps {
   onGenerate: (text: string) => void;
   onUpload: (file: File) => void;
@@ -11,18 +12,13 @@ const Sidebar: React.FC<SidebarProps> = ({ onGenerate, onUpload, loading }) => {
   const [text, setText] = useState("");
 
   return (
-    <aside className="w-85 bg-white border-r flex flex-col shadow-xl z-20 transition-all duration-300">
+    <aside className="w-85 bg-white border-r border-slate-100 flex flex-col shadow-[4px_0_24px_rgba(0,0,0,0.02)]">
       {/* Header Section */}
-      <div className="p-6 border-b border-slate-100 bg-gradient-to-b from-slate-50 to-white">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="p-2 bg-[#0054a6] rounded-lg shadow-blue-200 shadow-lg">
-            <Sparkles className="text-white w-5 h-5" />
-          </div>
-          <h2 className="text-xl font-bold text-slate-800">SmartFlow AI</h2>
+      <div className="p-6 bg-gradient-to-br from-blue-50/50 to-transparent">
+        {/* Icon với màu Electric Blue */}
+        <div className="p-2 bg-[#0062ff] rounded-xl shadow-[0_8px_16px_rgba(0,98,255,0.2)]">
+          <Sparkles className="text-white w-5 h-5" />
         </div>
-        <p className="text-xs text-slate-500">
-          Trực quan hóa quy trình bằng trí tuệ nhân tạo
-        </p>
       </div>
 
       {/* Input Section */}

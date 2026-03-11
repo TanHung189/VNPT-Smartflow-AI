@@ -40,19 +40,65 @@ class AIService:
                 f"VĂN BẢN QUY TRÌNH: {text}"
             ) 
             response = model.generate_content(prompt)
-            clean_json = response.text.strip()
-            if clean_json.startswith("```json"):
-                clean_json = clean_json.replace("```json", "", 1)
-            if clean_json.endswith("```"):
-                clean_json = clean_json.rsplit("```", 1)[0]
-            clean_json = clean_json.strip()
-            return json.loads(clean_json)
+            raw_text = response.text.strip()
             
+            # Dùng regex để bóc tách JSON chính xác hơn nếu AI trả về văn bản thừa
+            import re
+            json_match = re.search(r'(\{.*\}|\[.*\])', raw_text, re.DOTALL)
+            if json_match:
+                clean_json = json_match.group(0)
+            else:
+                clean_json = raw_text
+
+            # Thêm bước kiểm tra tọa độ (Tránh lỗi chồng node)
+            data = json.loads(clean_json)
+            self._ensure_node_positions(data)
+            return data
+        
         except Exception as e:
             if "429" in str(e) and self.current_key_index < len(settings.GEMINI_API_KEYS) - 1:
                 self.current_key_index += 1
                 return self._call_gemini_with_retry(text) # Thử lại với Key dự phòng
             raise e
             
+    def _ensure_node_positions(self, data: dict):
+        """
+        Đảm bảo mỗi node có 'id' và 'position'.
+        Nếu thiếu position thì đặt theo lưới; tránh trùng tọa độ bằng cách dịch phải.
+        """
+        nodes = data.get("nodes", [])
+        if not isinstance(nodes, list):
+            return
 
+        used = set()
+        col_width = 220
+        row_height = 120
+
+        for i, node in enumerate(nodes):
+            # Đảm bảo có ID (ưu tiên id -> key -> n1, n2...)
+            node_id = str(node.get("id") or node.get("key") or f"n{i+1}")
+            node["id"] = node_id
+
+            # Lấy hoặc khởi tạo tọa độ
+            pos = node.get("position") or {}
+            x = pos.get("x")
+            y = pos.get("y")
+
+            # Nếu thiếu tọa độ, tính toán theo lưới 4 cột
+            if x is None or y is None:
+                col = i % 4
+                row = i // 4
+                x = col * col_width
+                y = row * row_height
+
+            # Xử lý tránh trùng lặp: dịch phải nếu tọa độ đã bị chiếm
+            key = (int(x), int(y))
+            while key in used:
+                x += col_width // 2
+                key = (int(x), int(y))
+
+            used.add(key)
+            node["position"] = {"x": x, "y": y}
+        
+        data["nodes"] = nodes
 ai_service = AIService()

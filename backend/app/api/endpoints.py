@@ -10,7 +10,7 @@ import io
 
 router = APIRouter()
 
-@router.get("/api/generate-flow")
+@router.post("/api/generate-flow")
 async def generate_flow(text: str = Query(..., description="Văn bản quy trình")):
     try:
         data = ai_service.generate_smart_flow(text)
