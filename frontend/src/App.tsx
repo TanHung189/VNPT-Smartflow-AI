@@ -5,6 +5,7 @@ import "@xyflow/react/dist/style.css";
 
 import Home from "./pages/Home";
 import Navbar from "./components/Navbar";
+import Footer from "./components/Footer";
 import DrawDiagram from "./pages/DrawDiagram";
 // import Dashboard from "./pages/Dashboard"; // Mở ra khi em đã tạo file này
 
@@ -27,6 +28,7 @@ export default function App() {
           {/* Route dự phòng: Nếu gõ sai địa chỉ sẽ quay về Home */}
           <Route path="*" element={<Home />} />
         </Routes>
+        <Footer />
       </Router>
     </ReactFlowProvider>
   );

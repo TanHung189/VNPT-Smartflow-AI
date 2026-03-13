@@ -6,6 +6,7 @@ import {
   MiniMap,
   BackgroundVariant,
 } from "@xyflow/react";
+import SmartNode from "../../components/SmartNode";
 
 interface FlowCanvasProps {
   nodes: any[];
@@ -14,6 +15,10 @@ interface FlowCanvasProps {
   onEdgesChange: any;
 }
 
+const nodeTypes = {
+  customNode: SmartNode,
+};
+
 const FlowCanvas: React.FC<FlowCanvasProps> = ({
   nodes,
   edges,
@@ -21,34 +26,45 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
   onEdgesChange,
 }) => {
   return (
-    <div className="w-full h-full bg-[#f8fafc]">
+    <div className="w-full h-full bg-[#0f172a] transition-colors duration-500">
       <ReactFlow
         nodes={nodes}
         edges={edges}
+        nodeTypes={nodeTypes}
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         fitView
+        // Tăng khoảng cách an toàn khi kéo thả
         snapToGrid={true}
-        snapGrid={[15, 15]}
+        snapGrid={[20, 20]}
+        // QUAN TRỌNG: Cấu hình đường nối chuyên nghiệp
         defaultEdgeOptions={{
           animated: true,
-          style: { stroke: "#0054a6", strokeWidth: 2 },
-          type: "smoothstep", // Tạo đường nối vuông góc mượt mà chuyên nghiệp
+          type: "smoothstep", // Giữ smoothstep nhưng tinh chỉnh chi tiết bên dưới
+          style: {
+            stroke: "#6366f1", // Dùng màu Indigo cho hiện đại
+            strokeWidth: 3,
+          },
+          // Thêm mũi tên lớn và sắc nét hơn
+          markerEnd: {
+            type: "arrowclosed",
+            color: "#6366f1",
+            width: 20,
+            height: 20,
+          },
         }}
       >
         <Background
           variant={BackgroundVariant.Dots}
-          gap={20}
-          size={1}
-          color="#cbd5e1"
+          gap={30}
+          size={1.5}
+          color="#334155" // Màu của các đốm lưới (Slate-700)
         />
-        <Controls
-          className="bg-white border-none shadow-xl rounded-lg overflow-hidden"
-          position="bottom-right"
-        />
+        <Controls className="bg-slate-800 border-slate-700 fill-white shadow-2xl" />
         <MiniMap
-          className="rounded-xl border-slate-200 shadow-lg"
-          maskColor="rgba(241, 245, 249, 0.7)"
+          className="bg-slate-900/80 border-slate-700 shadow-2xl"
+          maskColor="rgba(15, 23, 42, 0.6)"
+          nodeBorderRadius={10}
           zoomable
           pannable
         />

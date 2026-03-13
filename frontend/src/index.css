@@ -27,3 +27,16 @@ body,
   padding: 0;
   overflow: hidden;
 }
+
+@keyframes dash {
+  from {
+    stroke-dashoffset: 20;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.react-flow__edge-path {
+  animation: dash 1s linear infinite;
+}

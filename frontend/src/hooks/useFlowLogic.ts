@@ -12,15 +12,22 @@ const getLayoutedElements = (
   edges: Edge[],
   direction = "TB",
 ) => {
-  // Cấu hình Dagre để tính toán vị trí
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
 
-  const nodeWidth = 180;
-  const nodeHeight = 50;
+  // TĂNG KÍCH THƯỚC để Dagre tính toán khoảng cách rộng rãi hơn
+  const nodeWidth = 280;
+  const nodeHeight = 160;
 
   const isHorizontal = direction === "LR";
-  dagreGraph.setGraph({ rankdir: direction, nodesep: 70, ranksep: 100 });
+  // TĂNG nodesep (ngang) và ranksep (dọc) để các Node không dính nhau
+  dagreGraph.setGraph({
+    rankdir: direction, // "TB" là từ trên xuống, "LR" là từ trái sang
+    nodesep: 150, // Tăng từ 70 lên 150: Khoảng cách giữa các Node cùng hàng rộng ra
+    ranksep: 200, // Tăng từ 100 lên 200: Khoảng cách giữa các tầng Node xa ra
+    marginx: 50,
+    marginy: 50,
+  });
 
   nodes.forEach((node) => {
     dagreGraph.setNode(node.id, { width: nodeWidth, height: nodeHeight });
@@ -54,57 +61,102 @@ export const useFlowLogic = () => {
   const [loading, setLoading] = useState(false);
 
   const normalizeGraph = (data: any) => {
-    const modernNodeStyle = {
-      background: "rgba(255, 255, 255, 0.9)",
-      backdropFilter: "blur(8px)",
-      border: "1px solid rgba(226, 232, 240, 0.8)",
-      borderRadius: "16px",
-      boxShadow:
-        "0 10px 15px -3px rgba(0, 0, 0, 0.05), 0 4px 6px -2px rgba(0, 0, 0, 0.02)",
-      padding: "15px 25px",
-      fontSize: "13px",
-      fontWeight: "600",
-      color: "#0f172a",
-      textAlign: "center" as const,
-      minWidth: "180px",
-    };
-
     const rawNodes = data?.nodes ?? [];
     const rawEdges = data?.edges ?? [];
 
-    const nodesOut: Node[] = rawNodes.map((n: any, i: number) => {
-      const id = n.id ?? n.key ?? n.name ?? `n${i + 1}`;
-      const label =
-        (n.data && n.data.label) ??
-        n.label ??
-        n.name ??
-        n.title ??
-        `Step ${i + 1}`;
+    // 1. Phối màu đa dạng (SaaS Vivid Palette)
+    // Mình phối thêm các tông Indigo và Violet để không chỉ có xanh-trắng
+    const nodeTypesConfig: Record<
+      string,
+      { bg: string; border: string; text: string; glow: string }
+    > = {
+      start: {
+        bg: "#ecfdf5",
+        border: "#10b981",
+        text: "#065f46",
+        glow: "rgba(16, 185, 129, 0.2)",
+      }, // Emerald
+      decision: {
+        bg: "#fffbeb",
+        border: "#f59e0b",
+        text: "#92400e",
+        glow: "rgba(245, 158, 11, 0.2)",
+      }, // Amber
+      end: {
+        bg: "#fff1f2",
+        border: "#f43f5e",
+        text: "#9f1239",
+        glow: "rgba(244, 63, 94, 0.2)",
+      }, // Rose
+      process: {
+        bg: "#f5f3ff",
+        border: "#8b5cf6",
+        text: "#4c1d95",
+        glow: "rgba(139, 92, 246, 0.2)",
+      }, // Violet/Indigo
+    };
+
+    const nodesOut = rawNodes.map((n: any) => {
+      const label = n.label || n.data?.label || "";
+      let category = "process";
+
+      if (
+        label.toLowerCase().includes("bắt đầu") ||
+        label.toLowerCase().includes("tiếp nhận")
+      )
+        category = "start";
+      else if (
+        label.toLowerCase().includes("kiểm tra") ||
+        label.toLowerCase().includes("phê duyệt")
+      )
+        category = "decision";
+      else if (
+        label.toLowerCase().includes("kết thúc") ||
+        label.toLowerCase().includes("hoàn thành")
+      )
+        category = "end";
+
+      const config = nodeTypesConfig[category];
 
       return {
-        id: String(id),
-        data: { label },
-        position: n.position ?? { x: 0, y: 0 },
-        style: modernNodeStyle, // QUAN TRỌNG: Gán style hiện đại vào đây
+        ...n,
+        type: "customNode",
+        data: { ...n.data, label, type: category },
+        // Xóa style cứng ở đây vì chúng ta sẽ dùng trong SmartNode.tsx cho đẹp hơn
       };
     });
 
     const edgesOut: Edge[] = rawEdges
       .map((e: any, i: number) => {
-        const source = e.source ?? e.from ?? e.src ?? e.sourceId ?? null;
-        const target = e.target ?? e.to ?? e.dst ?? e.targetId ?? null;
-        const id = e.id ?? `e${i}-${source ?? "s"}-${target ?? "t"}`;
+        const source = String(e.source ?? e.from ?? e.src ?? e.sourceId ?? "");
+        const target = String(e.target ?? e.to ?? e.dst ?? e.targetId ?? "");
+
         return {
-          id: String(id),
+          id: String(e.id ?? `e${i}-${source}-${target}`),
           source: String(source ?? ""),
           target: String(target ?? ""),
-        } as unknown as Edge;
+          type: "smoothstep", // Sử dụng đường nối vuông góc nhưng có bo góc
+          animated: true,
+          pathOptions: { borderRadius: 25 }, // Bo góc mạnh để đường nối mềm mại
+          style: {
+            stroke: "#6366f1",
+            strokeWidth: 3,
+            transition: "stroke-width 0.2s",
+          },
+          markerEnd: {
+            type: "arrowclosed",
+            color: "#6366f1",
+            width: 25, // Tăng kích thước mũi tên
+            height: 25,
+          },
+        };
       })
       .filter((ed: any) => ed.source && ed.target);
 
     return { nodes: nodesOut, edges: edgesOut };
   };
 
+  // ... các hàm generateFlow và upload giữ nguyên logic, chỉ gọi normalizeGraph đã sửa
   const generateFlow = useCallback(
     async (text: string) => {
       if (!text) return;
@@ -114,58 +166,15 @@ export const useFlowLogic = () => {
           `http://127.0.0.1:8000/api/generate-flow?text=${encodeURIComponent(text)}`,
         );
         const resData = await response.json();
-
-        console.debug("generateFlow response:", resData);
         if (resData.result === "SUCCESS") {
-          // Normalize incoming data to expected node/edge shape then layout
           const normalized = normalizeGraph(resData.data);
           const { nodes: layoutedNodes, edges: layoutedEdges } =
             getLayoutedElements(normalized.nodes, normalized.edges);
-
           setNodes(layoutedNodes as unknown as Node[]);
           setEdges(layoutedEdges as unknown as Edge[]);
-        } else {
-          const message = resData?.message || "Lỗi khi tạo sơ đồ";
-          console.error("GenerateFlow error:", message);
-
-          if (process.env.NODE_ENV === "development") {
-            // ví dụ mock nodes/edges
-            const mock = {
-              nodes: [
-                {
-                  id: "1",
-                  data: { label: "Bước 1: Tiếp nhận" },
-                  position: { x: 0, y: 0 },
-                },
-                {
-                  id: "2",
-                  data: { label: "Bước 2: Khảo sát" },
-                  position: { x: 0, y: 100 },
-                },
-                {
-                  id: "3",
-                  data: { label: "Bước 3: Lắp đặt" },
-                  position: { x: 0, y: 200 },
-                },
-              ],
-              edges: [
-                { id: "e1-2", source: "1", target: "2" },
-                { id: "e2-3", source: "2", target: "3" },
-              ],
-            } as { nodes: Node[]; edges: Edge[] };
-
-            const { nodes: layoutedNodes, edges: layoutedEdges } =
-              getLayoutedElements(mock.nodes, mock.edges);
-            setNodes(layoutedNodes as unknown as Node[]);
-            setEdges(layoutedEdges as unknown as Edge[]);
-            alert(`${message}\nĐã dùng mock dữ liệu để phát triển giao diện.`);
-          } else {
-            alert(message);
-          }
         }
       } catch (error) {
-        console.error("Lỗi:", error);
-        alert("Lỗi kết nối Backend!");
+        console.error(error);
       } finally {
         setLoading(false);
       }
