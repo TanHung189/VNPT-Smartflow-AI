@@ -1,7 +1,7 @@
 # chuỗi kết nối giữa file models với hệ quản trị pgadmin 4 thông qua đường dẫn lưu ở file môi trường /
 
 import os 
-from sqlmodel import SQLModel, create_engine
+from sqlmodel import SQLModel, create_engine,Session
 from dotenv import load_dotenv
 from app.models import VaiTro, NguoiDung, DanhMuc, MauSoDo, SoDo, TaiLieu, LichSuSoDo, NhanXet
 

@@ -29,16 +29,20 @@ class AIService:
             model = genai.GenerativeModel('gemini-3-flash-preview')
             
             prompt = (
-                f"MỤC TIÊU: Phân tích văn bản quy trình nghiệp vụ sau thành cấu trúc JSON để vẽ sơ đồ bằng React Flow.\n"
-                f"VAI TRÒ: Bạn là một chuyên gia phân tích quy trình tại VNPT.\n"
-                f"YÊU CẦU KỸ THUẬT:\n"
-                f"1. Trả về một đối tượng JSON có hai mảng: 'nodes' và 'edges'.\n"
-                f"2. Mỗi node phải có 'id' duy nhất, 'data': {{ 'label': 'Tên bước' }}.\n"
-                f"3. Mỗi edge phải có 'id', 'source', và 'target' tương ứng với id của các node.\n"
-                f"4. Tự động xác định các điểm rẽ nhánh (nếu có).\n"
-                f"5. KHÔNG giải thích, KHÔNG thêm ký tự Markdown. CHỈ TRẢ VỀ JSON NGUYÊN BẢN.\n\n"
+                f"MỤC TIÊU: Phân tích văn bản quy trình nghiệp vụ thành JSON chi tiết cho React Flow.\n"
+                f"VAI TRÒ: Chuyên gia phân tích quy trình tại VNPT.\n"
+                f"YÊU CẦU DỮ LIỆU MỖI NODE:\n"
+                f"1. 'id': Duy nhất.\n"
+                f"2. 'type': Phải thuộc một trong các loại: 'start', 'step', 'decision', 'end'.\n"
+                f"3. 'data': Chứa các thông tin sau:\n"
+                f"   - 'label': Tên bước (ngắn gọn).\n"
+                f"   - 'description': Mô tả chi tiết cách thực hiện bước này.\n"
+                f"   - 'executor': Bộ phận hoặc vị trí thực hiện (ví dụ: Kỹ thuật viên, Phòng CNTT...).\n"
+                f"   - 'duration': Thời gian dự kiến hoàn thành (ví dụ: 30 phút, 1 ngày...).\n"
+                f"4. 'edges': Kết nối logic chính xác giữa các id.\n"
+                f"CHỈ TRẢ VỀ JSON NGUYÊN BẢN, KHÔNG GIẢI THÍCH.\n\n"
                 f"VĂN BẢN QUY TRÌNH: {text}"
-            ) 
+            )
             response = model.generate_content(prompt)
             raw_text = response.text.strip()
             

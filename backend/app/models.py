@@ -1,5 +1,5 @@
 #=====================================================
-#Sử dụng thư viện sqlmodel để viết các class database
+#Sử dụng thư viện sqlmodel để viết các class database, cái này dùng database first
 #==========================================================
 
 from sqlmodel import SQLModel, Field, Column, JSON, Relationship

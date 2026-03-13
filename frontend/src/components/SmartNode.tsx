@@ -40,38 +40,46 @@ const SmartNode = ({ data, selected }: any) => {
 
   return (
     <div
-      className={`relative px-6 py-5 min-w-[240px] bg-white/90 backdrop-blur-md rounded-[24px] border-2 shadow-2xl transition-all duration-300 ${selected ? "border-indigo-500 scale-105 shadow-indigo-200" : "border-slate-100"}`}
+      className={`relative px-6 py-5 min-w-[260px] bg-white/90 backdrop-blur-md rounded-[28px] border-2 shadow-2xl transition-all duration-300 ${selected ? "border-indigo-500 scale-105" : "border-slate-100"}`}
     >
-      <div className="flex items-center gap-4 mb-3">
-        <div className={`p-3 rounded-2xl shadow-lg ${s.bg}`}>{s.icon}</div>
-        <div className="flex flex-col">
+      <div className="flex items-start gap-4 mb-3">
+        <div className={`p-3 rounded-2xl shadow-lg shrink-0 ${s.bg}`}>
+          {s.icon}
+        </div>
+        <div className="flex flex-col overflow-hidden">
           <span
-            className={`text-[10px] font-black uppercase tracking-[0.2em] ${s.text}`}
+            className={`text-[9px] font-black uppercase tracking-[0.15em] mb-0.5 ${s.text}`}
           >
-            {data.type}
+            {data.type} • {data.executor || "Chưa gán"}
           </span>
-          <p className="text-sm font-extrabold text-slate-800 leading-tight">
+          <p className="text-sm font-extrabold text-slate-800 leading-tight truncate">
             {data.label}
           </p>
         </div>
       </div>
 
+      {/* Hiển thị một dòng mô tả ngắn dưới Node */}
+      <p className="text-[11px] text-slate-500 line-clamp-1 mb-3 italic">
+        {data.description || "Nhấn để xem chi tiết..."}
+      </p>
+
       <div className="flex items-center gap-1.5 pt-2 border-t border-slate-50">
         <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-        <span className="text-[9px] text-slate-400 font-bold uppercase">
+        <span className="text-[9px] text-slate-400 font-bold uppercase tracking-tight">
           VNPT SmartFlow AI
         </span>
       </div>
 
+      {/* Các Handle giữ nguyên */}
       <Handle
         type="target"
         position={Position.Top}
-        className="!w-4 !h-4 !bg-white !border-2 !border-slate-300"
+        className="!w-3 !h-3 !bg-white !border-2 !border-slate-200"
       />
       <Handle
         type="source"
         position={Position.Bottom}
-        className="!w-4 !h-4 !bg-indigo-500 !border-2 !border-white shadow-md"
+        className="!w-3 !h-3 !bg-indigo-500 !border-2 !border-white"
       />
     </div>
   );
