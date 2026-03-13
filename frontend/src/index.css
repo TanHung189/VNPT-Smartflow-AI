@@ -20,9 +20,14 @@ code {
 
 html,
 body {
-  height: auto !important;
-  overflow-y: auto !important;
-  overflow-x: hidden;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Mặc định khóa cuộn toàn trang để bảo vệ layout trang vẽ */
+}
+
+#root {
+  height: 100%;
 }
 
 @keyframes dash {

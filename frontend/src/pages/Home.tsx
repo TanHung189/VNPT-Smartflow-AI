@@ -7,7 +7,7 @@ import Footer from "../components/Footer";
 
 const Home = () => {
   return (
-    <div className="min-h-screen bg-[#fcfdfe] overflow-y-auto">
+    <div className="h-screen w-full overflow-y-auto overflow-x-hidden bg-[#fcfdfe] relative scroll-smooth">
       <Navbar />
       {/* Background Blobs - Đốm màu đa sắc mờ ảo */}
       <div className="fixed top-0 left-0 w-full h-full -z-10 overflow-hidden pointer-events-none">
@@ -38,7 +38,7 @@ const Home = () => {
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
             <Link
-              to="/editor"
+              to="/DrawDiagram"
               className="w-full sm:w-auto flex items-center justify-center gap-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-12 py-6 rounded-2xl font-black text-lg hover:shadow-[0_20px_50px_rgba(31,_73,_225,_0.35)] transition-all hover:-translate-y-2 active:scale-95"
             >
               Bắt đầu sáng tạo <ArrowRight className="w-6 h-6" />
