@@ -15,6 +15,11 @@ interface SidebarProps {
   loading: boolean;
 }
 
+const onDragStart = (event: React.DragEvent, nodeType: string) => {
+  event.dataTransfer.setData("application/reactflow", nodeType);
+  event.dataTransfer.effectAllowed = "move";
+};
+
 const Sidebar: React.FC<SidebarProps> = ({ onGenerate, onUpload, loading }) => {
   const [text, setText] = useState("");
   const [isCollapsed, setIsCollapsed] = useState(false);

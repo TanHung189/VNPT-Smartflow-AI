@@ -1,75 +1,144 @@
-import React from "react";
-import { useState } from "react";
+import React, { useState, useCallback, useRef, useEffect } from "react";
 import {
   ReactFlow,
   Background,
   Controls,
   MiniMap,
   BackgroundVariant,
+  useReactFlow,
+  ReactFlowProvider,
+  addEdge,
 } from "@xyflow/react";
-import { Settings } from "lucide-react";
+import { Save, Trash2 } from "lucide-react";
 import SmartNode from "../../components/SmartNode";
-
-interface FlowCanvasProps {
-  nodes: any[];
-  edges: any[];
-  onNodesChange: any;
-  onEdgesChange: any;
-}
+import Toolbar from "../../components/Toolbar";
 
 const nodeTypes = {
+  taskNode: SmartNode,
+  conditionNode: SmartNode,
   customNode: SmartNode,
 };
 
-const FlowCanvas: React.FC<FlowCanvasProps> = ({
+// 1. COMPONENT CHỨA LOGIC CHÍNH
+const FlowContent = ({
   nodes,
   edges,
   onNodesChange,
   onEdgesChange,
-}) => {
-  const [selectedNodeData, setSelectedNodeData] = useState<any>(null);
+  setNodes,
+  setEdges,
+  undo,
+  redo,
+  drawMode,
+  setDrawMode,
+  takeSnapshot,
+}: any) => {
+  const [selectedNode, setSelectedNode] = useState<any>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [isDrawing, setIsDrawing] = useState(false);
+  const { screenToFlowPosition } = useReactFlow();
 
-  const onNodeClick = (_: any, node: any) => {
-    setSelectedNodeData(node.data);
+  // --- LOGIC VẼ TAY (NATIVE CANVAS) ---
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (ctx) ctx.lineCap = "round";
+
+    // Resize canvas theo màn hình
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+  }, []);
+
+  const draw = (e: React.MouseEvent) => {
+    if (!isDrawing || drawMode.type === "select") return;
+    const ctx = canvasRef.current?.getContext("2d");
+    if (ctx) {
+      ctx.strokeStyle = drawMode.type === "eraser" ? "#ffffff" : drawMode.color;
+      ctx.lineWidth = drawMode.size;
+      ctx.lineTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+      ctx.stroke();
+    }
+  };
+
+  // --- LOGIC TƯƠNG TÁC NODE & EDGE ---
+  const onConnect = useCallback(
+    (params: any) => {
+      setEdges((eds: any) =>
+        addEdge({ ...params, animated: true, type: "smoothstep" }, eds),
+      );
+      if (takeSnapshot) takeSnapshot();
+    },
+    [setEdges, takeSnapshot],
+  );
+
+  const onDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      const type = e.dataTransfer.getData("application/reactflow");
+      if (!type) return;
+      const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      const newNode = {
+        id: `manual_${Date.now()}`,
+        type,
+        position,
+        data: {
+          label: "Bước mới",
+          executor: "Chưa gán",
+          duration: "15p",
+          description: "",
+        },
+      };
+      setNodes((nds: any) => nds.concat(newNode));
+      if (takeSnapshot) takeSnapshot();
+    },
+    [screenToFlowPosition, setNodes, takeSnapshot],
+  );
+
+  const updateNodeData = (field: string, value: string) => {
+    setNodes((nds: any) =>
+      nds.map((n: any) =>
+        n.id === selectedNode.id
+          ? { ...n, data: { ...n.data, [field]: value } }
+          : n,
+      ),
+    );
+    setSelectedNode((prev: any) => ({
+      ...prev,
+      data: { ...prev.data, [field]: value },
+    }));
   };
 
   return (
-    <div className="w-full h-full bg-[#0f172a] transition-colors duration-500">
+    <div className="w-full h-full relative overflow-hidden">
+      <Toolbar />
       <ReactFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
-        onNodesChange={onNodesChange}
-        onEdgesChange={onEdgesChange}
-        onNodeClick={onNodeClick} // PHẢI CÓ DÒNG NÀY để hết lỗi "assigned but never used"
-        onPaneClick={() => setSelectedNodeData(null)}
-        fitView
-        // Tăng khoảng cách an toàn khi kéo thả
-        snapToGrid={true}
-        snapGrid={[20, 20]}
-        // QUAN TRỌNG: Cấu hình đường nối chuyên nghiệp
-        defaultEdgeOptions={{
-          animated: true,
-          type: "smoothstep", // Giữ smoothstep nhưng tinh chỉnh chi tiết bên dưới
-          style: {
-            stroke: "#6366f1", // Dùng màu Indigo cho hiện đại
-            strokeWidth: 3,
-          },
-          // Thêm mũi tên lớn và sắc nét hơn
-          markerEnd: {
-            type: "arrowclosed",
-            color: "#6366f1",
-            width: 20,
-            height: 20,
-          },
+        onNodesChange={(changes) => {
+          onNodesChange(changes);
+          // Chụp ảnh khi di chuyển node xong
+          if (
+            changes[0]?.type === "position" &&
+            !changes[0].dragging &&
+            takeSnapshot
+          )
+            takeSnapshot();
         }}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        onDrop={onDrop}
+        onDragOver={(e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = "move";
+        }}
+        onNodeClick={(_, node) => setSelectedNode(node)}
+        onPaneClick={() => setSelectedNode(null)}
+        fitView
       >
-        <Background
-          variant={BackgroundVariant.Dots}
-          gap={30}
-          size={1.5}
-          color="#334155" // Màu của các đốm lưới (Slate-700)
-        />
+        <Background variant={BackgroundVariant.Dots} gap={20} color="#334155" />
+
         <Controls className="bg-slate-800 border-slate-700 fill-white shadow-2xl" />
         <MiniMap
           className="bg-slate-900/80 border-slate-700 shadow-2xl"
@@ -80,75 +149,106 @@ const FlowCanvas: React.FC<FlowCanvasProps> = ({
         />
       </ReactFlow>
 
-      {selectedNodeData && (
-        <div className="absolute right-6 top-6 bottom-6 w-80 bg-white/95 backdrop-blur-xl border border-slate-200 rounded-[32px] shadow-2xl p-8 z-[100] animate-in slide-in-from-right duration-300">
-          <div className="flex flex-col h-full">
-            <div className="flex justify-between items-start mb-6">
-              <div className="p-3 bg-indigo-50 rounded-2xl">
-                <Settings className="text-indigo-600" size={24} />
-              </div>
-              <button
-                onClick={() => setSelectedNodeData(null)}
-                className="text-slate-400 hover:text-slate-600 font-bold"
-              >
-                ✕
-              </button>
+      {/* 4. THANH CÔNG CỤ NGỮ CẢNH (KHI CHỌN NODE) */}
+      {selectedNode && (
+        <div
+          className="absolute z-[110] flex gap-2 bg-slate-900 text-white p-2 rounded-xl shadow-2xl animate-in fade-in zoom-in duration-200"
+          style={{
+            left: selectedNode.position.x + 100,
+            top: Math.max(0, selectedNode.position.y - 60),
+          }}
+        >
+          <button
+            onClick={() => updateNodeData("type", "start")}
+            className="w-5 h-5 rounded-full bg-emerald-500 border border-white"
+            title="Chuyển thành Bắt đầu"
+          />
+          <button
+            onClick={() => updateNodeData("type", "decision")}
+            className="w-5 h-5 rounded-full bg-amber-500 border border-white"
+            title="Chuyển thành Điều kiện"
+          />
+          <div className="w-[1px] bg-slate-700 mx-1" />
+          <button
+            onClick={() => {
+              setNodes((nds: any) =>
+                nds.filter((n: any) => n.id !== selectedNode.id),
+              );
+              setSelectedNode(null);
+              if (takeSnapshot) takeSnapshot();
+            }}
+            className="text-red-400 hover:text-red-300"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
+      )}
+
+      {/* 5. SIDEBAR CHI TIẾT (GIỮ LẠI CỦA HƯNG) */}
+      {selectedNode && (
+        <div className="absolute right-6 top-6 bottom-6 w-80 bg-white/95 backdrop-blur-md border border-slate-200 rounded-[30px] shadow-2xl p-6 z-[120] flex flex-col">
+          <div className="flex justify-between items-center mb-6 border-b pb-4">
+            <h3 className="font-bold text-slate-800 flex items-center gap-2 italic">
+              VNPT SmartFlow Editor
+            </h3>
+            <button
+              onClick={() => setSelectedNode(null)}
+              className="text-slate-400 hover:text-slate-600"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="space-y-4 flex-1 overflow-y-auto pr-2">
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">
+                Nhãn bước
+              </label>
+              <input
+                className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-500"
+                value={selectedNode.data.label}
+                onChange={(e) => updateNodeData("label", e.target.value)}
+              />
             </div>
-
-            <div className="flex-1 overflow-y-auto space-y-6">
-              <section>
-                <h4 className="text-[10px] font-black text-indigo-500 uppercase tracking-widest mb-1">
-                  Tên bước
-                </h4>
-                <h2 className="text-xl font-black text-slate-800 leading-tight">
-                  {selectedNodeData.label}
-                </h2>
-              </section>
-
-              <section>
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
-                  Thông tin vận hành
-                </h4>
-                <div className="grid grid-cols-1 gap-3">
-                  <DetailItem
-                    label="Người thực hiện"
-                    val={selectedNodeData.executor}
-                  />
-                  <DetailItem
-                    label="Thời gian"
-                    val={selectedNodeData.duration}
-                  />
-                </div>
-              </section>
-
-              <section>
-                <h4 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">
-                  Mô tả quy trình
-                </h4>
-                <p className="text-sm text-slate-600 leading-relaxed bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                  {selectedNodeData.description ||
-                    "Không có mô tả chi tiết cho bước này."}
-                </p>
-              </section>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">
+                Người thực hiện
+              </label>
+              <input
+                className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-500"
+                value={selectedNode.data.executor}
+                onChange={(e) => updateNodeData("executor", e.target.value)}
+              />
             </div>
-
-            <div className="pt-6 border-t border-slate-100">
-              <span className="text-[10px] text-slate-300 font-bold italic">
-                © 2026 VNPT IT Mekong
-              </span>
+            <div className="space-y-1">
+              <label className="text-[10px] font-bold text-slate-400 uppercase">
+                Mô tả quy trình
+              </label>
+              <textarea
+                className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm h-32 resize-none"
+                value={selectedNode.data.description}
+                onChange={(e) => updateNodeData("description", e.target.value)}
+              />
             </div>
           </div>
+          <button
+            className="mt-4 w-full bg-indigo-600 text-white py-4 rounded-2xl font-black text-sm uppercase tracking-wider hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200 flex items-center justify-center gap-2"
+            onClick={() => setSelectedNode(null)}
+          >
+            <Save size={18} /> Lưu thay đổi
+          </button>
         </div>
       )}
     </div>
   );
 };
 
-const DetailItem = ({ label, val }: any) => (
-  <div className="bg-white border border-slate-100 p-3 rounded-xl shadow-sm">
-    <p className="text-[9px] font-bold text-slate-400 uppercase">{label}</p>
-    <p className="text-xs font-black text-slate-700">{val || "N/A"}</p>
-  </div>
-);
+// 6. COMPONENT EXPORT (BẮT BUỘC CÓ PROVIDER)
+const FlowCanvas = (props: any) => {
+  return (
+    <ReactFlowProvider>
+      <FlowContent {...props} />
+    </ReactFlowProvider>
+  );
+};
 
 export default FlowCanvas;
