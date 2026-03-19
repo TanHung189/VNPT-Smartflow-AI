@@ -4,9 +4,10 @@
 
 from fastapi import APIRouter , Query, UploadFile, File, Depends, HTTPException
 from app.services.ai_service import ai_service
-from sqlmodel.ext.asyncio.session import AssyncSession
+from sqlmodel.ext.asyncio.session import AsyncSession
 from app.database import get_session
 from app.models import Diagram
+from pydantic import BaseModel
 import uuid
 import docx
 import PyPDF2
@@ -14,7 +15,7 @@ import io
 
 router = APIRouter()
 
-@router.post("/api/generate-flow")
+@router.post("/generate-flow")
 async def generate_flow(text: str = Query(..., description="Văn bản quy trình")):
     try:
         data = ai_service.generate_smart_flow(text)
@@ -45,19 +46,22 @@ async def upload_process(file: UploadFile = File(...)):
     except Exception as e:
         return {"result": "ERROR", "message": f"Lỗi đọc file: {str(e)}"}
 
+class DiagramSaveRequest(BaseModel):
+    title: str
+    flow_data: dict
+    raw_text: str = None
+
 #api lưu sơ đò
 @router.post("/save-diagram")
 async def save_diagram(
-    title: str,
-    flow_data: dict,
-    raw_text: str=None,
-    session: AssyncSession = Depends(get_session)
+    data: DiagramSaveRequest, # FastAPI sẽ tự bóc tách JSON từ fetch vào đây
+    session: AsyncSession = Depends(get_session)
 ): 
     try:
         new_entry= Diagram(
-            title = title,
-            data_flow = flow_data,
-            raw_text_input= raw_text
+            title = data.title,
+            data_flow = data.flow_data,
+            raw_text_input= data.raw_text
         )
 
         session.add(new_entry)

@@ -4,6 +4,7 @@ import { Download, CloudUpload } from "lucide-react";
 import { useFlowLogic } from "../hooks/useFlowLogic";
 import FlowCanvas from "../features/flow/FlowCanvas";
 import Sidebar from "../features/chat/Sidebar";
+import { diagramApi } from "../api/diagramApi";
 
 const DrawDiagram = () => {
   // Lấy toàn bộ logic xử lý AI từ hook đã viết
@@ -24,15 +25,25 @@ const DrawDiagram = () => {
     takeSnapshot,
   } = useFlowLogic();
 
-  // Hàm xử lý Lưu dữ liệu lên Database (Để Hưng làm tiếp)
   const handleSaveToDB = async () => {
     const diagramData = {
       title: "Quy trình mới", // Có thể lấy từ một input khác
-      nodes: nodes,
-      edges: edges,
+      flow_data: { nodes, edges },
+      raw_text: "văn bản do AI tạo",
     };
     console.log("Dữ liệu chuẩn bị lưu:", diagramData);
-    // Tại đây Hưng sẽ gọi axios.post('/diagrams', diagramData)
+
+    try {
+      const result = await diagramApi.save(diagramData);
+      if (result.status === "Success") {
+        alert(`Đã lưu thành công! id sơ đồ là: ${result.diagram_id}`);
+      } else {
+        alert(`Lưu không thành công ${result.message}`);
+      }
+    } catch (error) {
+      console.error("Lỗi kết nối API:", error);
+      alert("Không thể kết nối tới backend, hãy kiểm tra uvicorn");
+    }
   };
 
   return (

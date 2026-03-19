@@ -109,6 +109,7 @@ export const useFlowLogic = () => {
       try {
         const response = await fetch(
           `http://127.0.0.1:8000/api/generate-flow?text=${encodeURIComponent(text)}`,
+          { method: "POST" },
         );
         const resData = await response.json();
         if (resData.result === "SUCCESS") {

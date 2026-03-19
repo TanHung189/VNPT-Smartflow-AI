@@ -27,6 +27,7 @@ origins=[
     #thêm sau
     "http://localhost:5173",    
     "http://127.0.0.1:8000",
+    "http://localhost:8000",
 ]
 
     
@@ -39,20 +40,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(api_router)
-
-@app.get("/api/generate-flow")
-async def generate_flow(text: str = Query(..., description="Văn bản quy trình nghiệp vụ")):
-    """
-    Endpoint tiếp nhận yêu cầu từ Frontend và trả về cấu trúc sơ đồ
-    """
-    try:
-        # Gọi sang Service để xử lý (Service này đã có sẵn logic Fallback Key và Mock Data)
-        data = ai_service.generate_smart_flow(text)
-        return {"result": "SUCCESS", "data": data}
-    except Exception as e:
-        # Trả về lỗi chi tiết nếu có sự cố
-        return {"result": "ERROR", "message": str(e)}
+app.include_router(api_router, prefix="/api")
 
 # Điểm chạy ứng dụng
 if __name__ == "__main__":
