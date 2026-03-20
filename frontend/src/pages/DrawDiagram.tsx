@@ -23,6 +23,13 @@ const DrawDiagram = () => {
     undo,
     redo,
     takeSnapshot,
+    strokes,
+    addStroke,
+    undoStroke,
+    clearStrokes,
+    eraseAt,
+    canUndo,
+    canRedo,
   } = useFlowLogic();
 
   const handleSaveToDB = async () => {
@@ -100,6 +107,13 @@ const DrawDiagram = () => {
             setEdges={setEdges} // <-- Phải truyền cái này để nối dây bằng tay được
             undo={undo}
             redo={redo}
+            strokes={strokes}
+            addStroke={addStroke}
+            undoStroke={undoStroke}
+            clearStrokes={clearStrokes}
+            eraseAt={eraseAt}
+            canUndo={canUndo}
+            canRedo={canRedo}
             takeSnapshot={takeSnapshot}
           />
         </div>

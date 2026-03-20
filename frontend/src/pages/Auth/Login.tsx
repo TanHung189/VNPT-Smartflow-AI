@@ -1,5 +1,5 @@
 import React, { useState, FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
 
 const Login: React.FC = () => {
@@ -15,7 +15,7 @@ const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-4 relative overflow-hidden">
+    <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-4 relative overflow-y-auto overflow-x-hidden">
       {/* Các khối màu trang trí phía sau (Blur Background) */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/20 rounded-full blur-[120px]"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600/20 rounded-full blur-[120px]"></div>
@@ -108,9 +108,12 @@ const Login: React.FC = () => {
 
           <p className="mt-8 text-center text-sm text-slate-500">
             Chưa có tài khoản?{""}
-            <button className="text-blue-400 font-bold hover:underline">
+            <Link
+              to="/register"
+              className="text-blue-400 font-bold hover:underline"
+            >
               Liên hệ quản trị
-            </button>
+            </Link>
           </p>
         </div>
       </div>

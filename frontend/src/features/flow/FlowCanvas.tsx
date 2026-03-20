@@ -33,6 +33,15 @@ const FlowContent = ({
   drawMode,
   setDrawMode,
   takeSnapshot,
+  strokes,
+  addStroke,
+  undoStroke,
+  clearStrokes,
+  eraseAt,
+  canUndo,
+  canRedo,
+  autoLayout,
+  clearAll,
   // preview props
   previewNodes,
   previewEdges,
@@ -42,10 +51,11 @@ const FlowContent = ({
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [selectedElements, setSelectedElements] = useState<any[]>([]);
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
+  const [showMiniMap, setShowMiniMap] = useState(false);
   // canvas/drawing removed for now to avoid ResizeObserver issues and unused warnings
   const { screenToFlowPosition } = useReactFlow();
-
-  // (Freehand drawing will be reintroduced later with a stable implementation.)
 
   // --- LOGIC TƯƠNG TÁC NODE & EDGE ---
   const onConnect = useCallback(
@@ -171,15 +181,69 @@ const FlowContent = ({
     }));
   };
 
+  // context menu handling (placed before JSX return)
+  const onContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setMenuVisible(true);
+    setMenuPos({ x: e.clientX, y: e.clientY });
+  }, []);
+
+  useEffect(() => {
+    const t = setTimeout(() => setShowMiniMap(true), 500);
+    return () => clearTimeout(t);
+  }, []);
+
+  useEffect(() => {
+    const onAnyClick = () => {
+      if (menuVisible) setMenuVisible(false);
+    };
+    const onEsc = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") setMenuVisible(false);
+    };
+    window.addEventListener("click", onAnyClick);
+    window.addEventListener("keydown", onEsc);
+    return () => {
+      window.removeEventListener("click", onAnyClick);
+      window.removeEventListener("keydown", onEsc);
+    };
+  }, [menuVisible]);
+
   return (
-    <div ref={containerRef} className="w-full h-full relative overflow-hidden">
+    <div
+      ref={containerRef}
+      onContextMenu={onContextMenu}
+      className="w-full h-full relative overflow-hidden"
+      style={{ width: "100%", height: "100%" }}
+    >
       <Toolbar
         activeMode={drawMode?.type}
         onModeChange={(m: any) => setDrawMode(m)}
         onAddNote={addNoteAtCenter}
         onDeleteSelected={deleteSelected}
+        onUndo={undo}
+        onRedo={redo}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onClearStrokes={clearStrokes}
+        onSetPenColor={(c: string) =>
+          setDrawMode((d: any) => ({ ...d, color: c, type: "pen" }))
+        }
+        onSetPenSize={(s: number) =>
+          setDrawMode((d: any) => ({ ...d, size: s, type: "pen" }))
+        }
       />
+      {/* Auto-layout button */}
+      <div className="absolute left-6 top-6 z-40">
+        <button
+          onClick={() => autoLayout && autoLayout()}
+          className="bg-indigo-600 text-white px-3 py-2 rounded-md shadow-md hover:bg-indigo-700"
+          title="Sắp xếp tự động"
+        >
+          Sắp xếp tự động
+        </button>
+      </div>
       <ReactFlow
+        style={{ width: "100%", height: "100%" }}
         nodes={nodes.concat(
           (previewNodes || []).map((n: any) => ({
             ...n,
@@ -226,24 +290,94 @@ const FlowContent = ({
         <Background variant={BackgroundVariant.Dots} gap={20} color="#334155" />
 
         <Controls className="bg-slate-800 border-slate-700 fill-white shadow-2xl" />
-        <MiniMap
-          className="bg-slate-900/80 border-slate-700 shadow-2xl"
-          maskColor="rgba(15, 23, 42, 0.6)"
-          nodeBorderRadius={10}
-          zoomable
-          pannable
-        />
+        {showMiniMap && (
+          <MiniMap
+            className="bg-slate-900/80 border-slate-700 shadow-2xl"
+            maskColor="rgba(15, 23, 42, 0.6)"
+            nodeBorderRadius={10}
+            zoomable
+            pannable
+          />
+        )}
       </ReactFlow>
 
       {/* Drawing overlay for pen mode */}
-      {drawMode?.type === "pen" && (
-        <div className="absolute inset-0 z-40 pointer-events-auto">
-          <DrawingCanvas
-            active={true}
-            color={drawMode.color}
-            size={drawMode.size}
-            mode={drawMode.type}
-          />
+      <div className="absolute inset-0 z-40 pointer-events-none">
+        <DrawingCanvas
+          active={drawMode?.type === "pen" || drawMode?.type === "eraser"}
+          color={drawMode.color}
+          size={drawMode.size}
+          mode={drawMode.type}
+          strokes={strokes}
+          onAddStroke={addStroke}
+          onEraseAt={eraseAt}
+        />
+      </div>
+
+      {/* Context menu (fixed to viewport) */}
+      {menuVisible && menuPos && (
+        <div
+          className="z-50 bg-white rounded shadow-lg border py-2"
+          style={{ position: "fixed", left: menuPos.x, top: menuPos.y }}
+        >
+          <button
+            className="block px-4 py-2 w-full text-left hover:bg-slate-100"
+            onClick={(e) => {
+              e.stopPropagation();
+              const pos = screenToFlowPosition({ x: menuPos.x, y: menuPos.y });
+              setNodes((nds: any) =>
+                nds.concat({
+                  id: `manual_${Date.now()}`,
+                  type: "taskNode",
+                  position: pos,
+                  data: {
+                    label: "Bước mới",
+                    type: "task",
+                    executor: "",
+                    description: "",
+                  },
+                }),
+              );
+              setMenuVisible(false);
+              if (takeSnapshot) setTimeout(takeSnapshot, 50);
+            }}
+          >
+            Thêm bước mới
+          </button>
+          <button
+            className="block px-4 py-2 w-full text-left hover:bg-slate-100"
+            onClick={(e) => {
+              e.stopPropagation();
+              const pos = screenToFlowPosition({ x: menuPos.x, y: menuPos.y });
+              setNodes((nds: any) =>
+                nds.concat({
+                  id: `manual_${Date.now()}`,
+                  type: "conditionNode",
+                  position: pos,
+                  data: {
+                    label: "Điều kiện mới",
+                    type: "decision",
+                    executor: "",
+                    description: "",
+                  },
+                }),
+              );
+              setMenuVisible(false);
+              if (takeSnapshot) setTimeout(takeSnapshot, 50);
+            }}
+          >
+            Thêm điều kiện
+          </button>
+          <button
+            className="block px-4 py-2 w-full text-left text-red-600 hover:bg-slate-100"
+            onClick={(e) => {
+              e.stopPropagation();
+              if (clearAll) clearAll();
+              setMenuVisible(false);
+            }}
+          >
+            Xóa tất cả
+          </button>
         </div>
       )}
 

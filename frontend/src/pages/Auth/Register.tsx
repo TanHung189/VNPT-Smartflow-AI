@@ -34,7 +34,7 @@ const Register: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-4 relative overflow-hidden font-sans">
+    <div className="min-h-screen flex items-center justify-center bg-[#0f172a] p-4 relative overflow-y-auto overflow-x-hidden font-sans">
       {/* Hiệu ứng ánh sáng nền (Blur Background) */}
       <div className="absolute top-[-10%] right-[-10%] w-[50%] h-[50%] bg-blue-600/10 rounded-full blur-[150px]"></div>
       <div className="absolute bottom-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-600/10 rounded-full blur-[120px]"></div>

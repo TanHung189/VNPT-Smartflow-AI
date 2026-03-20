@@ -7,6 +7,9 @@ import {
   Trash2,
   Type,
   Hand,
+  RotateCcw,
+  RotateCw,
+  Eraser,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -15,6 +18,13 @@ const Toolbar = ({
   onModeChange,
   onAddNote,
   onDeleteSelected,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
+  onClearStrokes,
+  onSetPenColor,
+  onSetPenSize,
 }: any) => {
   // Hàm xử lý kéo thả Node
   const onDragStart = (event: React.DragEvent, nodeType: string) => {
@@ -91,6 +101,56 @@ const Toolbar = ({
           color="hover:bg-red-50 hover:text-red-600"
           onClick={() => onDeleteSelected && onDeleteSelected()}
         />
+      </div>
+      {/* Group 4: History & Drawing Controls */}
+      <div className="flex items-center gap-1 px-2 border-l border-slate-200/50">
+        <ToolbarButton
+          icon={<RotateCcw size={16} />}
+          label="Undo"
+          onClick={() => onUndo && onUndo()}
+          active={false}
+        />
+        <ToolbarButton
+          icon={<RotateCw size={16} />}
+          label="Redo"
+          onClick={() => onRedo && onRedo()}
+          active={false}
+        />
+
+        <div className="flex items-center gap-1 px-2">
+          <ToolbarButton
+            icon={<Eraser size={16} />}
+            label="Cọ xóa"
+            active={activeMode === "eraser"}
+            onClick={() => onModeChange?.({ type: "eraser" })}
+          />
+          <div className="flex items-center gap-2 px-2">
+            <input
+              type="color"
+              defaultValue="#6366f1"
+              onChange={(e) => onSetPenColor && onSetPenColor(e.target.value)}
+              title="Màu cọ"
+              className="w-8 h-8 p-0 border-0 bg-transparent"
+            />
+            <input
+              type="range"
+              min={1}
+              max={24}
+              defaultValue={4}
+              onChange={(e) =>
+                onSetPenSize && onSetPenSize(Number(e.target.value))
+              }
+              title="Kích thước cọ"
+            />
+          </div>
+
+          <ToolbarButton
+            icon={<Trash2 size={16} />}
+            label="Xóa cọ"
+            color="hover:bg-red-50 hover:text-red-600"
+            onClick={() => onClearStrokes && onClearStrokes()}
+          />
+        </div>
       </div>
     </motion.div>
   );
