@@ -2,7 +2,7 @@ import google.generativeai as genai
 import json
 import re
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List
 from app.core.config import settings
 
 # Thiết lập log để theo dõi hành vi AI
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 class AIService:
     def __init__(self):
         self.current_key_index = 0
-        self.model_name = 'gemini-1.5-flash' # Nâng cấp lên 1.5 để hiểu ngữ cảnh tốt hơn
+        self.model_name = 'gemini-3-flash-preview' # Nâng cấp lên 1.5 để hiểu ngữ cảnh tốt hơn
 
     def generate_smart_flow(self, text: str) -> Dict[str, Any]:
         """Hàm chính điều hướng xử lý"""
@@ -63,7 +63,7 @@ class AIService:
             
             data = json.loads(clean_json)
             
-            # Hậu xử lý: Chuẩn hóa tọa độ và Metadata
+
             return self._post_processing(data)
 
         except Exception as e:
@@ -76,23 +76,66 @@ class AIService:
 
     def _post_processing(self, data: Dict) -> Dict:
         """Chuẩn hóa dữ liệu sau khi AI trả về để đảm bảo Frontend không bị lỗi"""
-        nodes = data.get("nodes", [])
-        edges = data.get("edges", [])
+        try:
+            # The model sometimes returns a list (of nodes or edges) instead of a dict.
+            # Normalize to a dict with 'nodes' and 'edges'.
+            nodes: List[Dict[str, Any]] = []
+            edges: List[Dict[str, Any]] = []
 
-        # Đảm bảo Node có tọa độ cơ bản (Frontend sẽ dùng Dagre để layout lại sau)
-        for i, node in enumerate(nodes):
-            if "position" not in node:
-                node["position"] = {"x": i * 250, "y": i * 150}
-            
-            # Ép kiểu type cho SmartNode.tsx nhận diện
-            if "type" not in node:
-                node["type"] = "taskNode"
-            
-            # Đảm bảo có data để tránh crash giao diện
-            if "data" not in node:
-                node["data"] = {"label": "Bản tin trống", "executor": "N/A"}
+            if isinstance(data, dict):
+                nodes = data.get("nodes") or data.get("node") or []
+                edges = data.get("edges") or data.get("connections") or []
 
-        return {"nodes": nodes, "edges": edges}
+            elif isinstance(data, list):
+                # If it's a list, try to guess whether items are edges or nodes.
+                for item in data:
+                    if isinstance(item, dict) and "source" in item and "target" in item:
+                        edges.append(item)
+                    elif isinstance(item, dict):
+                        nodes.append(item)
+            else:
+                logger.warning("AI returned unexpected data type for flow: %s", type(data))
+
+            # Ensure nodes is a list of dicts
+            if nodes is None:
+                nodes = []
+            if edges is None:
+                edges = []
+
+            # Ensure every node has minimal fields expected by the frontend
+            for i, node in enumerate(nodes):
+                if not isinstance(node, dict):
+                    # skip malformed entries
+                    continue
+                if "id" not in node:
+                    node["id"] = str(i + 1)
+                if "position" not in node:
+                    node["position"] = {"x": i * 250, "y": i * 150}
+                if "type" not in node:
+                    # map common source types to frontend-friendly ones
+                    t = node.get("type") or node.get("nodeType") or "step"
+                    if t in ("start", "end", "decision", "step"):
+                        node["type"] = t
+                    else:
+                        node["type"] = "step"
+                if "data" not in node:
+                    node["data"] = {"label": node.get("label", "Bản tin trống"), "executor": node.get("executor", "N/A")}
+
+            # Ensure edges have ids
+            for j, edge in enumerate(edges):
+                if not isinstance(edge, dict):
+                    continue
+                if "id" not in edge:
+                    src = edge.get("source", f"s{j}")
+                    tgt = edge.get("target", f"t{j}")
+                    edge["id"] = f"e{src}-{tgt}-{j}"
+
+            return {"nodes": nodes, "edges": edges}
+
+        except Exception as ex:
+            logger.exception("Lỗi khi chuẩn hóa dữ liệu AI: %s", ex)
+            # Return a safe, empty structure to avoid crashing the frontend
+            return {"nodes": [], "edges": []}
 
     def _get_mock_erp_data(self):
         """Dữ liệu mẫu chuẩn để demo nhanh"""

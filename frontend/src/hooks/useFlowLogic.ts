@@ -216,10 +216,12 @@ export const useFlowLogic = () => {
     [setNodes, setEdges, takeSnapshot],
   );
 
-  // --- 5. AUTO LAYOUT & UTILITIES ---
   const autoLayout = useCallback(() => {
     try {
-      const { nodes: lNodes, edges: lEdges } = getLayoutedElements(nodes, edges);
+      const { nodes: lNodes, edges: lEdges } = getLayoutedElements(
+        nodes,
+        edges,
+      );
       setNodes(lNodes as Node[]);
       setEdges(lEdges as Edge[]);
       // snapshot after layout
@@ -259,6 +261,9 @@ export const useFlowLogic = () => {
     undoStroke,
     clearStrokes,
     eraseAt,
+    // utilities
+    autoLayout,
+    clearAll,
     takeSnapshot,
   };
 };

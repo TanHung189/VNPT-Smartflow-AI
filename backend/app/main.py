@@ -13,7 +13,7 @@ from app.api.auth import router as auth_router
 async def  lifespan(app: FastAPI):
     print("--- 🔄 Hệ thống đang khởi tạo Cơ sở dữ liệu")
     try:
-        init_db()
+        
         print("Đã tạo bảng thành công trong pgAdmin 4")
     except Exception as e:
         print(f"Lỗi khởi tạo: {e}")
