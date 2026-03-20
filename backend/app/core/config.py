@@ -8,7 +8,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Settings:
-    PORT: int = int(os.getenv("PORT", "8000"))
+    PORT: int = int(os.getenv("PORT"))
 
     # Gom các GEMINI_API_KEY_* thành 1 danh sách theo thứ tự khóa tên
     GEMINI_API_KEYS = []
@@ -17,5 +17,11 @@ class Settings:
         if val:
             GEMINI_API_KEYS.append(val)
 
+    JWT_SECRET_KEY: str = os.getenv("JWT_SECRET_KEY")
+    ALGORITHM: str = os.getenv("ALGORITHM")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES"))
+
+    # --- CẤU HÌNH DATABASE (Nên thêm vào đây để quản lý tập trung) ---
+    DB_URL: str = os.getenv("DB_URL")
 settings = Settings()
 

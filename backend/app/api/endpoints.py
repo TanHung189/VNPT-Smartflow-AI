@@ -13,7 +13,7 @@ import docx
 import PyPDF2
 import io
 
-router = APIRouter()
+router = APIRouter(prefix="/api")
 
 @router.post("/generate-flow")
 async def generate_flow(text: str = Query(..., description="Văn bản quy trình")):
@@ -25,7 +25,7 @@ async def generate_flow(text: str = Query(..., description="Văn bản quy trìn
 
 
 #API upload và đọc file
-@router.post("/api/upload-process")
+@router.post("/upload-process")
 async def upload_process(file: UploadFile = File(...)):
     text = ""
     filename = file.filename.lower()

@@ -3,9 +3,11 @@ from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from app.services.ai_service import ai_service # Import module xử lý AI đã tách
 from app.core.config import settings # Import cấu hình hệ thống
-from app.api.endpoints import router as api_router
 from app.database import init_db
 from contextlib import asynccontextmanager
+
+from app.api.endpoints import router as diagram_router
+from app.api.auth import router as auth_router
 
 @asynccontextmanager
 async def  lifespan(app: FastAPI):
@@ -40,7 +42,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(api_router, prefix="/api")
+app.include_router(diagram_router)
+app.include_router(auth_router)
 
 # Điểm chạy ứng dụng
 if __name__ == "__main__":
