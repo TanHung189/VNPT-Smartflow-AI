@@ -10,7 +10,12 @@ import {
 } from "lucide-react";
 import { motion } from "framer-motion";
 
-const Toolbar = () => {
+const Toolbar = ({
+  activeMode,
+  onModeChange,
+  onAddNote,
+  onDeleteSelected,
+}: any) => {
   // Hàm xử lý kéo thả Node
   const onDragStart = (event: React.DragEvent, nodeType: string) => {
     event.dataTransfer.setData("application/reactflow", nodeType);
@@ -25,8 +30,18 @@ const Toolbar = () => {
     >
       {/* Group 1: Selection Tools */}
       <div className="flex items-center gap-1 px-2 border-r border-slate-200/50">
-        <ToolbarButton icon={<MousePointer2 size={18} />} label="Chọn" active />
-        <ToolbarButton icon={<Hand size={18} />} label="Kéo view" />
+        <ToolbarButton
+          icon={<MousePointer2 size={18} />}
+          label="Chọn"
+          active={activeMode === "select"}
+          onClick={() => onModeChange?.({ type: "select" })}
+        />
+        <ToolbarButton
+          icon={<Hand size={18} />}
+          label="Kéo view"
+          active={activeMode === "pan"}
+          onClick={() => onModeChange?.({ type: "pan" })}
+        />
       </div>
 
       {/* Group 2: Node Types (Draggable) */}
@@ -55,16 +70,26 @@ const Toolbar = () => {
           />
         </div>
 
-        <ToolbarButton icon={<Type size={18} />} label="Ghi chú" />
+        <ToolbarButton
+          icon={<Type size={18} />}
+          label="Ghi chú"
+          onClick={() => onAddNote && onAddNote()}
+        />
       </div>
 
       {/* Group 3: Connection & Action */}
       <div className="flex items-center gap-1 px-2">
-        <ToolbarButton icon={<ArrowRight size={18} />} label="Kết nối" />
+        <ToolbarButton
+          icon={<ArrowRight size={18} />}
+          label="Kết nối"
+          active={activeMode === "connect"}
+          onClick={() => onModeChange?.({ type: "connect" })}
+        />
         <ToolbarButton
           icon={<Trash2 size={18} />}
           label="Xóa"
           color="hover:bg-red-50 hover:text-red-600"
+          onClick={() => onDeleteSelected && onDeleteSelected()}
         />
       </div>
     </motion.div>
@@ -77,13 +102,16 @@ const ToolbarButton = ({
   label,
   active = false,
   color = "hover:bg-slate-100 text-slate-600",
+  onClick,
 }: {
   icon: React.ReactNode;
   label: string;
   active?: boolean;
   color?: string;
+  onClick?: () => void;
 }) => (
   <button
+    onClick={onClick}
     className={`
     relative group p-2.5 rounded-xl transition-all duration-200
     ${active ? "bg-slate-900 text-white shadow-lg" : `text-slate-500 ${color}`}

@@ -12,6 +12,7 @@ import {
 import { Save, Trash2 } from "lucide-react";
 import SmartNode from "../../components/SmartNode";
 import Toolbar from "../../components/Toolbar";
+import DrawingCanvas from "../../components/DrawingCanvas";
 
 const nodeTypes = {
   taskNode: SmartNode,
@@ -32,34 +33,19 @@ const FlowContent = ({
   drawMode,
   setDrawMode,
   takeSnapshot,
+  // preview props
+  previewNodes,
+  previewEdges,
+  confirmAddToCanvas,
+  cancelPreview,
 }: any) => {
   const [selectedNode, setSelectedNode] = useState<any>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isDrawing, setIsDrawing] = useState(false);
+  const [selectedElements, setSelectedElements] = useState<any[]>([]);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  // canvas/drawing removed for now to avoid ResizeObserver issues and unused warnings
   const { screenToFlowPosition } = useReactFlow();
 
-  // --- LOGIC VẼ TAY (NATIVE CANVAS) ---
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-    if (ctx) ctx.lineCap = "round";
-
-    // Resize canvas theo màn hình
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-  }, []);
-
-  const draw = (e: React.MouseEvent) => {
-    if (!isDrawing || drawMode.type === "select") return;
-    const ctx = canvasRef.current?.getContext("2d");
-    if (ctx) {
-      ctx.strokeStyle = drawMode.type === "eraser" ? "#ffffff" : drawMode.color;
-      ctx.lineWidth = drawMode.size;
-      ctx.lineTo(e.nativeEvent.offsetX, e.nativeEvent.offsetY);
-      ctx.stroke();
-    }
-  };
+  // (Freehand drawing will be reintroduced later with a stable implementation.)
 
   // --- LOGIC TƯƠNG TÁC NODE & EDGE ---
   const onConnect = useCallback(
@@ -77,23 +63,99 @@ const FlowContent = ({
       e.preventDefault();
       const type = e.dataTransfer.getData("application/reactflow");
       if (!type) return;
+
+      // Tính toán vị trí thả chính xác trên Canvas
       const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+
       const newNode = {
         id: `manual_${Date.now()}`,
-        type,
+        type: type, // Sẽ là 'taskNode' hoặc 'conditionNode'
         position,
         data: {
-          label: "Bước mới",
+          label:
+            type === "conditionNode" ? "Điều kiện mới" : "Bước nghiệp vụ mới",
+          type: type === "conditionNode" ? "decision" : "task",
           executor: "Chưa gán",
-          duration: "15p",
           description: "",
         },
       };
+
       setNodes((nds: any) => nds.concat(newNode));
       if (takeSnapshot) takeSnapshot();
     },
     [screenToFlowPosition, setNodes, takeSnapshot],
   );
+
+  // selection change (nodes or edges)
+  const onSelectionChange = useCallback((elements: any) => {
+    // react-flow may pass an array (older versions) or an object { nodes, edges } (newer)
+    let elementsArray: any[] = [];
+    if (Array.isArray(elements)) {
+      elementsArray = elements;
+    } else if (elements && typeof elements === "object") {
+      if (Array.isArray(elements.nodes) || Array.isArray(elements.edges)) {
+        elementsArray = [...(elements.nodes || []), ...(elements.edges || [])];
+      } else if (Array.isArray((elements as any).selected)) {
+        elementsArray = (elements as any).selected;
+      } else {
+        // fallback: wrap single element
+        elementsArray = [elements];
+      }
+    }
+
+    setSelectedElements(elementsArray);
+    const node = elementsArray.find((el: any) => el?.data);
+    setSelectedNode(node || null);
+  }, []);
+
+  const deleteSelected = useCallback(() => {
+    if (!selectedElements || selectedElements.length === 0) return;
+    const nodeIds = selectedElements
+      .filter((s) => s?.id && s?.position)
+      .map((n) => n.id);
+    const edgeIds = selectedElements
+      .filter((s) => s?.source && s?.target)
+      .map((e) => e.id);
+    if (nodeIds.length) {
+      setNodes((nds: any) => nds.filter((n: any) => !nodeIds.includes(n.id)));
+    }
+    if (edgeIds.length) {
+      setEdges((eds: any) => eds.filter((e: any) => !edgeIds.includes(e.id)));
+    }
+    setSelectedElements([]);
+    setSelectedNode(null);
+    if (takeSnapshot) takeSnapshot();
+  }, [selectedElements, setNodes, setEdges, takeSnapshot]);
+
+  // keyboard delete support
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === "Delete" || ev.key === "Backspace") {
+        deleteSelected();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [deleteSelected]);
+
+  const addNoteAtCenter = useCallback(() => {
+    const container = containerRef.current;
+    let pos = { x: 300, y: 50 } as any;
+    if (container) {
+      const rect = container.getBoundingClientRect();
+      const centerX = rect.left + rect.width / 2;
+      const centerY = rect.top + rect.height / 2;
+      pos = screenToFlowPosition({ x: centerX, y: centerY });
+    }
+    const newNode = {
+      id: `note_${Date.now()}`,
+      type: "customNode",
+      position: pos,
+      data: { label: "Ghi chú", type: "note", executor: "", description: "" },
+    };
+    setNodes((nds: any) => nds.concat(newNode));
+    if (takeSnapshot) takeSnapshot();
+  }, [containerRef, screenToFlowPosition, setNodes, takeSnapshot]);
 
   const updateNodeData = (field: string, value: string) => {
     setNodes((nds: any) =>
@@ -110,11 +172,31 @@ const FlowContent = ({
   };
 
   return (
-    <div className="w-full h-full relative overflow-hidden">
-      <Toolbar />
+    <div ref={containerRef} className="w-full h-full relative overflow-hidden">
+      <Toolbar
+        activeMode={drawMode?.type}
+        onModeChange={(m: any) => setDrawMode(m)}
+        onAddNote={addNoteAtCenter}
+        onDeleteSelected={deleteSelected}
+      />
       <ReactFlow
-        nodes={nodes}
-        edges={edges}
+        nodes={nodes.concat(
+          (previewNodes || []).map((n: any) => ({
+            ...n,
+            style: { ...(n.style || {}), opacity: 0.6, borderStyle: "dashed" },
+          })),
+        )}
+        edges={edges.concat(
+          (previewEdges || []).map((e: any) => ({
+            ...e,
+            animated: false,
+            style: {
+              ...(e.style || {}),
+              stroke: "#94a3b8",
+              strokeDasharray: "4 4",
+            },
+          })),
+        )}
         nodeTypes={nodeTypes}
         onNodesChange={(changes) => {
           onNodesChange(changes);
@@ -134,7 +216,11 @@ const FlowContent = ({
           e.dataTransfer.dropEffect = "move";
         }}
         onNodeClick={(_, node) => setSelectedNode(node)}
-        onPaneClick={() => setSelectedNode(null)}
+        onPaneClick={() => {
+          setSelectedNode(null);
+          setSelectedElements([]);
+        }}
+        onSelectionChange={onSelectionChange}
         fitView
       >
         <Background variant={BackgroundVariant.Dots} gap={20} color="#334155" />
@@ -148,6 +234,38 @@ const FlowContent = ({
           pannable
         />
       </ReactFlow>
+
+      {/* Drawing overlay for pen mode */}
+      {drawMode?.type === "pen" && (
+        <div className="absolute inset-0 z-40 pointer-events-auto">
+          <DrawingCanvas
+            active={true}
+            color={drawMode.color}
+            size={drawMode.size}
+            mode={drawMode.type}
+          />
+        </div>
+      )}
+
+      {/* keyboard delete support is attached via useEffect */}
+
+      {/* Preview controls */}
+      {previewNodes && previewNodes.length > 0 && (
+        <div className="absolute left-6 top-6 z-50 flex items-center gap-2">
+          <button
+            onClick={() => confirmAddToCanvas && confirmAddToCanvas()}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-full shadow-md"
+          >
+            Thêm vào canvas
+          </button>
+          <button
+            onClick={() => cancelPreview && cancelPreview()}
+            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-full shadow-md"
+          >
+            Bỏ qua preview
+          </button>
+        </div>
+      )}
 
       {/* 4. THANH CÔNG CỤ NGỮ CẢNH (KHI CHỌN NODE) */}
       {selectedNode && (

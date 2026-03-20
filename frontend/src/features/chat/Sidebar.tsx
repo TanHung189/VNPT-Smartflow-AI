@@ -55,7 +55,7 @@ const Sidebar: React.FC<SidebarProps> = ({ onGenerate, onUpload, loading }) => {
             </label>
             <textarea
               className="h-64 p-4 border border-slate-200 rounded-[20px] focus:ring-4 focus:ring-blue-50 focus:border-blue-400 outline-none resize-none text-sm bg-slate-50/50 transition-all shadow-inner"
-              placeholder="Nhập các bước nghiệp vụ VNPT tại đây..."
+              placeholder="Nhập các bước nghiệp vụ tại đây..."
               value={text}
               onChange={(e) => setText(e.target.value)}
             />

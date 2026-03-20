@@ -1,5 +1,10 @@
 import React from "react";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 import { ReactFlowProvider } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 
@@ -7,28 +12,42 @@ import Home from "./pages/Home";
 import Navbar from "./components/Navbar";
 import Footer from "./components/Footer";
 import DrawDiagram from "./pages/DrawDiagram";
+import Login from "./pages/Auth/Login";
+import Register from "./pages/Auth/Register";
+import ProtectedRoute from "./components/ProtectedRouter";
 // import Dashboard from "./pages/Dashboard"; // Mở ra khi em đã tạo file này
 
 export default function App() {
   return (
-    // ReactFlowProvider bao ngoài cùng để mọi trang đều có thể dùng logic Flow nếu cần
     <ReactFlowProvider>
       <Router>
-        <Navbar />
         <Routes>
-          {/* Trang chủ: Giới thiệu dự án VNPT SmartFlow */}
-          <Route path="/" element={<Home />} />
+          {/* 1. Nhóm Route CÔNG KHAI: Không có Navbar/Footer (thường là Login/Register) */}
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          {/* 2. Nhóm Route CÓ NAVBAR/FOOTER: Dùng Layout chung */}
+          <Route
+            path="/*"
+            element={
+              <>
+                <Navbar />
+                <Routes>
+                  {/* Trang chủ ai cũng vào được */}
+                  <Route path="/" element={<Home />} />
+                  <Route path="/register" element={<Register />} />
+                  {/* CÁC TRANG CẦN BẢO VỆ (Chỉ vào được khi đã Login) */}
+                  <Route element={<ProtectedRoute />}>
+                    <Route path="/DrawDiagram" element={<DrawDiagram />} />
+                  </Route>
 
-          {/* Trang Editor: Nơi AI vẽ sơ đồ quy trình */}
-          <Route path="/DrawDiagram" element={<DrawDiagram />} />
-
-          {/* Trang Dashboard: (Sẽ thêm sau) Quản lý các sơ đồ đã lưu */}
-          {/* <Route path="/dashboard" element={<Dashboard />} /> */}
-
-          {/* Route dự phòng: Nếu gõ sai địa chỉ sẽ quay về Home */}
-          <Route path="*" element={<Home />} />
+                  {/* Route dự phòng */}
+                  <Route path="*" element={<Navigate to="/" />} />
+                </Routes>
+                <Footer />
+              </>
+            }
+          />
         </Routes>
-        <Footer />
       </Router>
     </ReactFlowProvider>
   );
