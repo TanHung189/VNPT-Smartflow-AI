@@ -33,6 +33,13 @@ const FlowContent = ({
   drawMode,
   setDrawMode,
   takeSnapshot,
+  strokes,
+  addStroke,
+  undoStroke,
+  clearStrokes,
+  eraseAt,
+  canUndo,
+  canRedo,
   // preview props
   previewNodes,
   previewEdges,
@@ -178,6 +185,17 @@ const FlowContent = ({
         onModeChange={(m: any) => setDrawMode(m)}
         onAddNote={addNoteAtCenter}
         onDeleteSelected={deleteSelected}
+        onUndo={undo}
+        onRedo={redo}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onClearStrokes={clearStrokes}
+        onSetPenColor={(c: string) =>
+          setDrawMode((d: any) => ({ ...d, color: c, type: "pen" }))
+        }
+        onSetPenSize={(s: number) =>
+          setDrawMode((d: any) => ({ ...d, size: s, type: "pen" }))
+        }
       />
       <ReactFlow
         nodes={nodes.concat(
@@ -236,16 +254,17 @@ const FlowContent = ({
       </ReactFlow>
 
       {/* Drawing overlay for pen mode */}
-      {drawMode?.type === "pen" && (
-        <div className="absolute inset-0 z-40 pointer-events-auto">
-          <DrawingCanvas
-            active={true}
-            color={drawMode.color}
-            size={drawMode.size}
-            mode={drawMode.type}
-          />
-        </div>
-      )}
+      <div className="absolute inset-0 z-40 pointer-events-none">
+        <DrawingCanvas
+          active={drawMode?.type === "pen" || drawMode?.type === "eraser"}
+          color={drawMode.color}
+          size={drawMode.size}
+          mode={drawMode.type}
+          strokes={strokes}
+          onAddStroke={addStroke}
+          onEraseAt={eraseAt}
+        />
+      </div>
 
       {/* keyboard delete support is attached via useEffect */}
 

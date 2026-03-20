@@ -7,7 +7,6 @@ import {
 } from "@xyflow/react";
 import dagre from "@dagrejs/dagre";
 
-// --- LOGIC LAYOUT (GIỮ NGUYÊN CỦA HƯNG) ---
 const getLayoutedElements = (
   nodes: Node[],
   edges: Edge[],
@@ -34,29 +33,35 @@ export const useFlowLogic = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [loading, setLoading] = useState(false);
+  // freehand strokes (kept in the diagram state so undo/redo includes them)
+  type Stroke = { id: string; points: number[]; color: string; size: number };
+  const [strokes, setStrokes] = useState<Stroke[]>([]);
 
   // --- 1. QUẢN LÝ LỊCH SỬ (UNDO/REDO) ---
-  // Đặt tên là flowHistory để tránh trùng với window.history của trình duyệt
-  const flowHistory = useRef<{ nodes: Node[]; edges: Edge[] }[]>([]);
+  type Snapshot = { nodes: Node[]; edges: Edge[]; strokes?: Stroke[] };
+  const flowHistory = useRef<Snapshot[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
   const takeSnapshot = useCallback(() => {
     const newState = {
       nodes: JSON.parse(JSON.stringify(nodes)),
       edges: JSON.parse(JSON.stringify(edges)),
+      strokes: JSON.parse(JSON.stringify(strokes)),
     };
     const newHistory = flowHistory.current.slice(0, historyIndex + 1);
     newHistory.push(newState);
     if (newHistory.length > 50) newHistory.shift();
     flowHistory.current = newHistory;
     setHistoryIndex(newHistory.length - 1);
-  }, [nodes, edges, historyIndex]);
+  }, [nodes, edges, historyIndex, strokes]);
 
   const undo = useCallback(() => {
     if (historyIndex <= 0) return;
     const prevState = flowHistory.current[historyIndex - 1];
     setNodes(prevState.nodes);
     setEdges(prevState.edges);
+    // restore strokes if present
+    if (prevState.strokes) setStrokes(prevState.strokes);
     setHistoryIndex(historyIndex - 1);
   }, [historyIndex, setNodes, setEdges]);
 
@@ -65,6 +70,7 @@ export const useFlowLogic = () => {
     const nextState = flowHistory.current[historyIndex + 1];
     setNodes(nextState.nodes);
     setEdges(nextState.edges);
+    if (nextState.strokes) setStrokes(nextState.strokes);
     setHistoryIndex(historyIndex + 1);
   }, [historyIndex, setNodes, setEdges]);
 
@@ -74,6 +80,54 @@ export const useFlowLogic = () => {
     color: string;
     size: number;
   }>({ type: "select", color: "#6366f1", size: 4 });
+
+  // --- 6. STROKE ACTIONS (PEN / ERASER) ---
+  const generateId = () =>
+    `s_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 6)}`;
+
+  const addStroke = useCallback(
+    (points: number[], color?: string, size?: number) => {
+      const s = {
+        id: generateId(),
+        points,
+        color: color || drawMode.color,
+        size: size || drawMode.size,
+      };
+      setStrokes((st) => st.concat(s));
+      // also snapshot so undo includes strokes
+      setTimeout(takeSnapshot, 50);
+    },
+    [drawMode.color, drawMode.size, takeSnapshot],
+  );
+
+  const undoStroke = useCallback(() => {
+    setStrokes((s) => s.slice(0, -1));
+    setTimeout(takeSnapshot, 50);
+  }, [takeSnapshot]);
+
+  const clearStrokes = useCallback(() => {
+    setStrokes([]);
+    setTimeout(takeSnapshot, 50);
+  }, [takeSnapshot]);
+
+  // erase strokes that have any point within `radius` of (x,y)
+  const eraseAt = useCallback(
+    (x: number, y: number, radius: number) => {
+      const r2 = radius * radius;
+      setStrokes((s) =>
+        s.filter((stroke) => {
+          for (let i = 0; i < stroke.points.length; i += 2) {
+            const dx = stroke.points[i] - x;
+            const dy = stroke.points[i + 1] - y;
+            if (dx * dx + dy * dy <= r2) return false; // remove this stroke
+          }
+          return true;
+        }),
+      );
+      setTimeout(takeSnapshot, 50);
+    },
+    [takeSnapshot],
+  );
 
   // --- 3. LOGIC NORMALIZE (GIỮ NGUYÊN CỦA HƯNG) ---
   const normalizeGraph = (data: any) => {
@@ -162,6 +216,26 @@ export const useFlowLogic = () => {
     [setNodes, setEdges, takeSnapshot],
   );
 
+  // --- 5. AUTO LAYOUT & UTILITIES ---
+  const autoLayout = useCallback(() => {
+    try {
+      const { nodes: lNodes, edges: lEdges } = getLayoutedElements(nodes, edges);
+      setNodes(lNodes as Node[]);
+      setEdges(lEdges as Edge[]);
+      // snapshot after layout
+      setTimeout(takeSnapshot, 50);
+    } catch (err) {
+      console.error("autoLayout failed", err);
+    }
+  }, [nodes, edges, setNodes, setEdges, takeSnapshot]);
+
+  const clearAll = useCallback(() => {
+    setNodes([]);
+    setEdges([]);
+    setStrokes([]);
+    setTimeout(takeSnapshot, 50);
+  }, [setNodes, setEdges, setStrokes, takeSnapshot]);
+
   return {
     nodes,
     edges,
@@ -172,13 +246,19 @@ export const useFlowLogic = () => {
     loading,
     generateFlow,
     uploadFileAndGenerate,
-
+    // history
     undo,
     redo,
     canUndo: historyIndex > 0,
     canRedo: historyIndex < flowHistory.current.length - 1,
+    // drawing
     drawMode,
     setDrawMode,
+    strokes,
+    addStroke,
+    undoStroke,
+    clearStrokes,
+    eraseAt,
     takeSnapshot,
   };
 };

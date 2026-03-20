@@ -1,36 +1,41 @@
-import React, { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect } from "react";
 
-type Stroke = { points: number[]; color: string; size: number };
+type Stroke = { id?: string; points: number[]; color: string; size: number };
 
-const DrawingCanvas = ({ active, color = "#6366f1", size = 4, mode }: any) => {
+const DrawingCanvas = ({
+  active,
+  color = "#6366f1",
+  size = 4,
+  mode,
+  strokes = [],
+  onAddStroke,
+  onEraseAt,
+}: any) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [strokes, setStrokes] = useState<Stroke[]>([]);
   const drawing = useRef(false);
   const current: number[] = [];
 
-  useEffect(() => {
+  const resizeCanvas = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const dpr = window.devicePixelRatio || 1;
-    const resize = () => {
-      const rect = canvas.getBoundingClientRect();
-      canvas.width = rect.width * dpr;
-      canvas.height = rect.height * dpr;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      ctx.scale(dpr, dpr);
-      redraw(ctx);
-    };
-    resize();
-    window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [strokes]);
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.scale(dpr, dpr);
+  };
 
-  const redraw = (ctx: CanvasRenderingContext2D) => {
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    strokes.forEach((s) => {
+  const redraw = () => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    // clear using CSS pixels
+    const rect = canvas.getBoundingClientRect();
+    ctx.clearRect(0, 0, rect.width, rect.height);
+    strokes.forEach((s: Stroke) => {
       ctx.beginPath();
       ctx.lineWidth = s.size;
       ctx.lineJoin = "round";
@@ -46,18 +51,22 @@ const DrawingCanvas = ({ active, color = "#6366f1", size = 4, mode }: any) => {
     });
   };
 
-  const getCtx = () => {
-    const canvas = canvasRef.current;
-    if (!canvas) return null;
-    const ctx = canvas.getContext("2d");
-    return ctx;
-  };
-
-  const toLocal = (e: MouseEvent | PointerEvent) => {
+  const toLocal = (e: PointerEvent) => {
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
     return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   };
+
+  useEffect(() => {
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+    return () => window.removeEventListener("resize", resizeCanvas);
+  }, []);
+
+  useEffect(() => {
+    redraw();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [strokes]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -65,6 +74,12 @@ const DrawingCanvas = ({ active, color = "#6366f1", size = 4, mode }: any) => {
 
     const pointerDown = (ev: PointerEvent) => {
       if (!active) return;
+      if (mode === "eraser") {
+        // immediate erase at pointer
+        const p = toLocal(ev);
+        onEraseAt?.(p.x, p.y, size);
+        return;
+      }
       drawing.current = true;
       (canvas as any).setPointerCapture(ev.pointerId);
       const p = toLocal(ev);
@@ -72,13 +87,20 @@ const DrawingCanvas = ({ active, color = "#6366f1", size = 4, mode }: any) => {
     };
 
     const pointerMove = (ev: PointerEvent) => {
+      if (!active) return;
+      if (mode === "eraser") {
+        const p = toLocal(ev);
+        onEraseAt?.(p.x, p.y, size);
+        return;
+      }
       if (!drawing.current) return;
       const p = toLocal(ev);
       current.push(p.x, p.y);
-      const ctx = getCtx();
+      // draw live
+      const canvas = canvasRef.current!;
+      const ctx = canvas.getContext("2d");
       if (!ctx) return;
-      redraw(ctx);
-      // draw current stroke
+      redraw();
       ctx.beginPath();
       ctx.lineWidth = size;
       ctx.lineJoin = "round";
@@ -94,9 +116,12 @@ const DrawingCanvas = ({ active, color = "#6366f1", size = 4, mode }: any) => {
     };
 
     const pointerUp = (ev: PointerEvent) => {
+      if (!active) return;
       if (!drawing.current) return;
       drawing.current = false;
-      setStrokes((s) => s.concat({ points: current.slice(), color, size }));
+      if (current.length >= 4) {
+        onAddStroke?.(current.slice(), color, size);
+      }
       current.splice(0, current.length);
     };
 
@@ -110,12 +135,10 @@ const DrawingCanvas = ({ active, color = "#6366f1", size = 4, mode }: any) => {
       window.removeEventListener("pointerup", pointerUp as any);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, color, size]);
-
-  // clear/undo handlers via props or external UI can be added later
+  }, [active, mode, color, size, strokes, onAddStroke, onEraseAt]);
 
   return (
-    <div ref={containerRef} className="absolute inset-0 pointer-events-none">
+    <div className="absolute inset-0 pointer-events-none">
       <canvas
         ref={canvasRef}
         className={`w-full h-full ${active ? "pointer-events-auto" : "pointer-events-none"}`}

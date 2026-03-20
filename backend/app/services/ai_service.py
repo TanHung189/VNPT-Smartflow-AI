@@ -1,108 +1,107 @@
-#==========================================
-#BỘ NÃO XỬ LÝ LOGIC AI CHO TOÀN BỘ HỆ THỐNG
-#==========================================
-
 import google.generativeai as genai
 import json
+import re
+import logging
+from typing import Dict, Any
 from app.core.config import settings
+
+# Thiết lập log để theo dõi hành vi AI
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 class AIService:
     def __init__(self):
-        self.current_key_index = 0 #lưu index của API key đang dùng trnog mảng  
+        self.current_key_index = 0
+        self.model_name = 'gemini-1.5-flash' # Nâng cấp lên 1.5 để hiểu ngữ cảnh tốt hơn
 
-    #Hàm chính
-    def generate_smart_flow(self, text: str):
-        if "erp" in text.lower():
+    def generate_smart_flow(self, text: str) -> Dict[str, Any]:
+        """Hàm chính điều hướng xử lý"""
+        logger.info(f"Bắt đầu phân tích văn bản: {text[:50]}...")
+        
+        # 1. Xử lý trường hợp đặc biệt (Mock data hoặc Cache nếu cần)
+        if "erp" in text.lower() and len(text) < 20:
             return self._get_mock_erp_data()
+            
+        # 2. Gọi AI xử lý
         return self._call_gemini_with_retry(text)
-    
-    def _get_mock_erp_data(self):
-        return {
-            "nodes": [{"id": "1", "data": {"label": "Khảo sát ERP"}, "position": {"x": 250, "y": 0}}],
-            "edges": []
-        }
-    
-    def _call_gemini_with_retry(self, text):
+
+    def _call_gemini_with_retry(self, text: str) -> Dict[str, Any]:
         try:
             api_key = settings.GEMINI_API_KEYS[self.current_key_index]
             genai.configure(api_key=api_key)
-            model = genai.GenerativeModel('gemini-3-flash-preview')
+            model = genai.GenerativeModel(self.model_name)
             
+            # PROMPT CHUYÊN GIA: Ép AI suy luận logic trước khi xuất JSON
             prompt = (
-                f"MỤC TIÊU: Phân tích văn bản quy trình nghiệp vụ thành JSON chi tiết cho React Flow.\n"
-                f"VAI TRÒ: Chuyên gia phân tích quy trình tại VNPT.\n"
-                f"YÊU CẦU DỮ LIỆU MỖI NODE:\n"
-                f"1. 'id': Duy nhất.\n"
-                f"2. 'type': Phải thuộc một trong các loại: 'start', 'step', 'decision', 'end'.\n"
-                f"3. 'data': Chứa các thông tin sau:\n"
-                f"   - 'label': Tên bước (ngắn gọn).\n"
-                f"   - 'description': Mô tả chi tiết cách thực hiện bước này.\n"
-                f"   - 'executor': Bộ phận hoặc vị trí thực hiện (ví dụ: Kỹ thuật viên, Phòng CNTT...).\n"
-                f"   - 'duration': Thời gian dự kiến hoàn thành (ví dụ: 30 phút, 1 ngày...).\n"
-                f"4. 'edges': Kết nối logic chính xác giữa các id.\n"
-                f"CHỈ TRẢ VỀ JSON NGUYÊN BẢN, KHÔNG GIẢI THÍCH.\n\n"
-                f"VĂN BẢN QUY TRÌNH: {text}"
+                f"BẠN LÀ CHUYÊN GIA PHÂN TÍCH HỆ THỐNG (SYSTEM ANALYST) TẠI VNPT.\n"
+                f"NHIỆM VỤ: Chuyển đổi văn bản nghiệp vụ thành sơ đồ luồng (Flowchart) chuẩn React Flow.\n\n"
+                f"--- QUY TẮC PHÂN LOẠI NODE ---\n"
+                f"- 'start': Điểm bắt đầu quy trình.\n"
+                f"- 'step': Các bước thực hiện nghiệp vụ thông thường.\n"
+                f"- 'decision': Điểm kiểm tra, phê duyệt, rẽ nhánh (Nếu/Thì).\n"
+                f"- 'end': Điểm kết thúc quy trình.\n\n"
+                f"--- CẤU TRÚC JSON YÊU CẦU ---\n"
+                f"Mỗi node phải chứa data: {{ 'label', 'description', 'executor', 'duration', 'type' }}.\n"
+                f"LƯU Ý: 'type' trong data phải phản ánh tính chất nghiệp vụ (task, decision, v.v.).\n\n"
+                f"--- VĂN BẢN CẦN PHÂN TÍCH ---\n"
+                f"{text}\n\n"
+                f"YÊU CẦU: TRẢ VỀ DUY NHẤT 1 KHỐI JSON. Đảm bảo logic edge nối từ ID nguồn đến ID đích chính xác."
             )
-            response = model.generate_content(prompt)
+
+            response = model.generate_content(
+                prompt,
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.2, # Giảm nhiệt độ để AI bớt 'sáng tạo' lung tung, tập trung vào cấu trúc
+                    response_mime_type="application/json", # Ép kiểu trả về là JSON (Gemini 1.5 hỗ trợ)
+                )
+            )
+            
+            # Làm sạch dữ liệu trả về
             raw_text = response.text.strip()
-            
-            # Dùng regex để bóc tách JSON chính xác hơn nếu AI trả về văn bản thừa
-            import re
             json_match = re.search(r'(\{.*\}|\[.*\])', raw_text, re.DOTALL)
-            if json_match:
-                clean_json = json_match.group(0)
-            else:
-                clean_json = raw_text
-
-            # Thêm bước kiểm tra tọa độ (Tránh lỗi chồng node)
-            data = json.loads(clean_json)
-            self._ensure_node_positions(data)
-            return data
-        
-        except Exception as e:
-            if "429" in str(e) and self.current_key_index < len(settings.GEMINI_API_KEYS) - 1:
-                self.current_key_index += 1
-                return self._call_gemini_with_retry(text) # Thử lại với Key dự phòng
-            raise e
+            clean_json = json_match.group(0) if json_match else raw_text
             
-    def _ensure_node_positions(self, data: dict):
-        """
-        Đảm bảo mỗi node có 'id' và 'position'.
-        Nếu thiếu position thì đặt theo lưới; tránh trùng tọa độ bằng cách dịch phải.
-        """
+            data = json.loads(clean_json)
+            
+            # Hậu xử lý: Chuẩn hóa tọa độ và Metadata
+            return self._post_processing(data)
+
+        except Exception as e:
+            logger.error(f"Lỗi API Gemini tại key index {self.current_key_index}: {str(e)}")
+            if ("429" in str(e) or "limit" in str(e).lower()) and \
+               self.current_key_index < len(settings.GEMINI_API_KEYS) - 1:
+                self.current_key_index += 1
+                return self._call_gemini_with_retry(text)
+            raise e
+
+    def _post_processing(self, data: Dict) -> Dict:
+        """Chuẩn hóa dữ liệu sau khi AI trả về để đảm bảo Frontend không bị lỗi"""
         nodes = data.get("nodes", [])
-        if not isinstance(nodes, list):
-            return
+        edges = data.get("edges", [])
 
-        used = set()
-        col_width = 220
-        row_height = 120
-
+        # Đảm bảo Node có tọa độ cơ bản (Frontend sẽ dùng Dagre để layout lại sau)
         for i, node in enumerate(nodes):
-            # Đảm bảo có ID (ưu tiên id -> key -> n1, n2...)
-            node_id = str(node.get("id") or node.get("key") or f"n{i+1}")
-            node["id"] = node_id
+            if "position" not in node:
+                node["position"] = {"x": i * 250, "y": i * 150}
+            
+            # Ép kiểu type cho SmartNode.tsx nhận diện
+            if "type" not in node:
+                node["type"] = "taskNode"
+            
+            # Đảm bảo có data để tránh crash giao diện
+            if "data" not in node:
+                node["data"] = {"label": "Bản tin trống", "executor": "N/A"}
 
-            # Lấy hoặc khởi tạo tọa độ
-            pos = node.get("position") or {}
-            x = pos.get("x")
-            y = pos.get("y")
+        return {"nodes": nodes, "edges": edges}
 
-            # Nếu thiếu tọa độ, tính toán theo lưới 4 cột
-            if x is None or y is None:
-                col = i % 4
-                row = i // 4
-                x = col * col_width
-                y = row * row_height
+    def _get_mock_erp_data(self):
+        """Dữ liệu mẫu chuẩn để demo nhanh"""
+        return {
+            "nodes": [
+                {"id": "1", "type": "start", "data": {"label": "Khởi tạo ERP", "executor": "Ban Giám Đốc"}, "position": {"x": 0, "y": 0}},
+                {"id": "2", "type": "step", "data": {"label": "Khảo sát hiện trạng", "executor": "Phòng CNTT"}, "position": {"x": 0, "y": 150}},
+            ],
+            "edges": [{"id": "e1-2", "source": "1", "target": "2"}]
+        }
 
-            # Xử lý tránh trùng lặp: dịch phải nếu tọa độ đã bị chiếm
-            key = (int(x), int(y))
-            while key in used:
-                x += col_width // 2
-                key = (int(x), int(y))
-
-            used.add(key)
-            node["position"] = {"x": x, "y": y}
-        
-        data["nodes"] = nodes
 ai_service = AIService()
