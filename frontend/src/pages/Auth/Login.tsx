@@ -1,6 +1,7 @@
 import React, { useState, FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
+import { GoogleLogin } from "@react-oauth/google";
 
 const Login: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -51,7 +52,7 @@ const Login: React.FC = () => {
               <input
                 type="email"
                 className="w-full px-5 py-3.5 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-white placeholder:text-slate-500"
-                placeholder="hung@vnpt.vn"
+                placeholder="Nhập địa chỉ Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -93,18 +94,42 @@ const Login: React.FC = () => {
             </div>
           </div>
 
-          {/* Nút Đăng nhập Google */}
-          <button
-            type="button"
-            className="w-full py-3.5 bg-white hover:bg-slate-100 text-slate-900 rounded-2xl font-bold transition-all flex items-center justify-center gap-3 active:scale-95"
-          >
-            <img
-              src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-              alt="Google"
-              className="w-5 h-5"
+          {/* Nút Đăng nhập Google (Tích hợp thực tế) */}
+          <div className="w-full flex justify-center mt-4">
+            <GoogleLogin
+              onSuccess={async (credentialResponse) => {
+                if (!credentialResponse.credential) return;
+                try {
+                  const res = await fetch("http://127.0.0.1:8000/auth/google", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ token: credentialResponse.credential }),
+                  });
+                  const data = await res.json();
+                  
+                  if (res.ok && data.access_token) {
+                    localStorage.setItem("token", data.access_token);
+                    localStorage.setItem("user", JSON.stringify(data.user));
+                    alert("Đăng nhập Google thành công!");
+                    navigate("/DrawDiagram");
+                  } else {
+                    alert(`Đăng nhập Google thất bại: ${data.detail || "Lỗi không xác định"}`);
+                  }
+                } catch (err) {
+                  console.error(err);
+                  alert("Lỗi kết nối tới máy chủ backend.");
+                }
+              }}
+              onError={() => {
+                console.error("Login Failed");
+                alert("Xác thực Google bị từ chối hoặc có lỗi.");
+              }}
+              theme="outline"
+              size="large"
+              shape="pill"
+              text="continue_with"
             />
-            Đăng nhập bằng Google
-          </button>
+          </div>
 
           <p className="mt-8 text-center text-sm text-slate-500">
             Chưa có tài khoản?{""}

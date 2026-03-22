@@ -10,6 +10,7 @@ const DrawingCanvas = ({
   strokes = [],
   onAddStroke,
   onEraseAt,
+  screenToFlowPosition,
 }: any) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
@@ -27,6 +28,67 @@ const DrawingCanvas = ({
     ctx.scale(dpr, dpr);
   };
 
+  const originalParent = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    // On mount: append canvas into the react-flow viewport and do not move it back on deactivation.
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const attachToViewport = () => {
+      const viewport = document.querySelector<HTMLElement>(
+        ".react-flow__viewport",
+      );
+      if (!viewport) return false;
+      // remember original parent for debugging but do not restore on unmount
+      if (!originalParent.current)
+        originalParent.current = canvas.parentElement as HTMLElement;
+      // style the canvas so it covers the viewport area
+      canvas.style.position = "absolute";
+      canvas.style.left = "0";
+      canvas.style.top = "0";
+      canvas.style.width = "100%";
+      canvas.style.height = "100%";
+      canvas.style.zIndex = "999";
+      // append only if not already a child
+      if (canvas.parentElement !== viewport) viewport.appendChild(canvas);
+      return true;
+    };
+
+    // Try immediate attach; if viewport isn't ready, set up a MutationObserver
+    if (!attachToViewport()) {
+      const mo = new MutationObserver(() => {
+        if (attachToViewport()) mo.disconnect();
+      });
+      mo.observe(document.body, { childList: true, subtree: true });
+      // also disconnect on unmount
+      return () => mo.disconnect();
+    }
+
+    // trigger initial resize after moving
+    resizeCanvas();
+
+    // keep observer to detect viewport replacements and re-attach if needed
+    const mo = new MutationObserver(() => attachToViewport());
+    mo.observe(document.body, { childList: true, subtree: true });
+    return () => mo.disconnect();
+    // run on mount only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Update pointer-events and cursor when active/mode changes without moving the canvas
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    canvas.style.pointerEvents = active ? "auto" : "none";
+    try {
+      canvas.style.cursor = active
+        ? mode === "eraser"
+          ? "cell"
+          : "crosshair"
+        : "default";
+    } catch (e) {}
+  }, [active, mode]);
+
   const redraw = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -41,6 +103,7 @@ const DrawingCanvas = ({
       ctx.lineJoin = "round";
       ctx.lineCap = "round";
       ctx.strokeStyle = s.color;
+      // s.points are stored in flow coordinates (same coordinate space as nodes)
       for (let i = 0; i < s.points.length; i += 2) {
         const x = s.points[i];
         const y = s.points[i + 1];
@@ -51,11 +114,7 @@ const DrawingCanvas = ({
     });
   };
 
-  const toLocal = (e: PointerEvent) => {
-    const canvas = canvasRef.current!;
-    const rect = canvas.getBoundingClientRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
-  };
+  // We store points as client coordinates and compute local canvas coords in redraw/live draw
 
   useEffect(() => {
     resizeCanvas();
@@ -74,28 +133,42 @@ const DrawingCanvas = ({
 
     const pointerDown = (ev: PointerEvent) => {
       if (!active) return;
+      const flowPoint =
+        typeof screenToFlowPosition === "function"
+          ? screenToFlowPosition({ x: ev.clientX, y: ev.clientY })
+          : null;
       if (mode === "eraser") {
-        // immediate erase at pointer
-        const p = toLocal(ev);
-        onEraseAt?.(p.x, p.y, size);
+        // immediate erase at pointer (flow coords when possible)
+        if (flowPoint) onEraseAt?.(flowPoint.x, flowPoint.y, size);
+        else onEraseAt?.(ev.clientX, ev.clientY, size);
         return;
       }
       drawing.current = true;
       (canvas as any).setPointerCapture(ev.pointerId);
-      const p = toLocal(ev);
-      current.push(p.x, p.y);
+      // show grabbing cursor while drawing
+      try {
+        (canvas as HTMLCanvasElement).style.cursor = "grabbing";
+      } catch (e) {}
+      // store flow coords (or fallback to client coords)
+      if (flowPoint) current.push(flowPoint.x, flowPoint.y);
+      else current.push(ev.clientX, ev.clientY);
     };
 
     const pointerMove = (ev: PointerEvent) => {
       if (!active) return;
+      const flowPoint =
+        typeof screenToFlowPosition === "function"
+          ? screenToFlowPosition({ x: ev.clientX, y: ev.clientY })
+          : null;
       if (mode === "eraser") {
-        const p = toLocal(ev);
-        onEraseAt?.(p.x, p.y, size);
+        if (flowPoint) onEraseAt?.(flowPoint.x, flowPoint.y, size);
+        else onEraseAt?.(ev.clientX, ev.clientY, size);
         return;
       }
       if (!drawing.current) return;
-      const p = toLocal(ev);
-      current.push(p.x, p.y);
+      // append flow coords (or fallback to client coords)
+      if (flowPoint) current.push(flowPoint.x, flowPoint.y);
+      else current.push(ev.clientX, ev.clientY);
       // draw live
       const canvas = canvasRef.current!;
       const ctx = canvas.getContext("2d");
@@ -119,7 +192,14 @@ const DrawingCanvas = ({
       if (!active) return;
       if (!drawing.current) return;
       drawing.current = false;
+      // restore cursor to pen after finishing stroke
+      try {
+        (canvasRef.current as HTMLCanvasElement).style.cursor =
+          mode === "eraser" ? "cell" : "crosshair";
+      } catch (e) {}
+
       if (current.length >= 4) {
+        // pass flow coordinates upward (we converted during capture when possible)
         onAddStroke?.(current.slice(), color, size);
       }
       current.splice(0, current.length);

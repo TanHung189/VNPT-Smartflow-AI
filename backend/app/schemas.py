@@ -26,3 +26,8 @@ class Token(BaseModel):
 
 class GoogleLoginRequest(BaseModel):
     token: str  # Chuỗi Token dài dằng dặc mà Google cấp cho Client
+
+class DiagramSaveRequest(BaseModel):
+    title: str
+    flow_data: dict
+    raw_text: str = None

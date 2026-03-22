@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   Square,
   Diamond,
@@ -10,6 +10,10 @@ import {
   RotateCcw,
   RotateCw,
   Eraser,
+  Download,
+  Image as ImageIcon,
+  FileText,
+  ChevronDown,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -25,7 +29,11 @@ const Toolbar = ({
   onClearStrokes,
   onSetPenColor,
   onSetPenSize,
+  onExportJpg,
+  onExportPng,
+  onExportPdf,
 }: any) => {
+  const [exportMenuOpen, setExportMenuOpen] = useState(false);
   // Hàm xử lý kéo thả Node
   const onDragStart = (event: React.DragEvent, nodeType: string) => {
     event.dataTransfer.setData("application/reactflow", nodeType);
@@ -151,6 +159,40 @@ const Toolbar = ({
             onClick={() => onClearStrokes && onClearStrokes()}
           />
         </div>
+      </div>
+
+      {/* Group 5: Export Controls */}
+      <div className="flex items-center gap-1 px-2 border-l border-slate-200/50 relative">
+        <button
+          onClick={() => setExportMenuOpen(!exportMenuOpen)}
+          className="relative group p-2.5 rounded-xl transition-all duration-200 text-slate-500 hover:bg-slate-100 flex items-center gap-1"
+        >
+          <Download size={16} />
+          <span className="text-xs font-medium">Xuất tệp</span>
+          <ChevronDown size={14} />
+        </button>
+        {exportMenuOpen && (
+          <div className="absolute top-full mt-2 right-0 bg-white border border-slate-200 shadow-xl rounded-xl py-2 w-40 z-[100]">
+            <button
+              className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm font-medium flex items-center gap-2 text-slate-700"
+              onClick={() => { setExportMenuOpen(false); onExportJpg && onExportJpg(); }}
+            >
+              <ImageIcon size={16} className="text-blue-500" /> Xuất JPG
+            </button>
+            <button
+              className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm font-medium flex items-center gap-2 text-slate-700"
+              onClick={() => { setExportMenuOpen(false); onExportPng && onExportPng(); }}
+            >
+              <ImageIcon size={16} className="text-emerald-500" /> Xuất PNG
+            </button>
+            <button
+              className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm font-medium flex items-center gap-2 text-slate-700"
+              onClick={() => { setExportMenuOpen(false); onExportPdf && onExportPdf(); }}
+            >
+              <FileText size={16} className="text-red-500" /> Xuất PDF
+            </button>
+          </div>
+        )}
       </div>
     </motion.div>
   );

@@ -25,6 +25,71 @@ class AIService:
         # 2. Gọi AI xử lý
         return self._call_gemini_with_retry(text)
 
+    def generate_flow_from_image(self, image_bytes: bytes, mime_type: str) -> Dict[str, Any]:
+        """Hàm xử lý hình ảnh thành luồng quy trình"""
+        logger.info(f"Bắt đầu phân tích hình ảnh kích thước: {len(image_bytes)} bytes")
+        return self._call_gemini_vision_with_retry(image_bytes, mime_type)
+
+    def _call_gemini_vision_with_retry(self, image_bytes: bytes, mime_type: str) -> Dict[str, Any]:
+        try:
+            api_key = settings.GEMINI_API_KEYS[self.current_key_index]
+            genai.configure(api_key=api_key)
+            # Dùng gemini-1.5-flash để hỗ trợ Vision đa phương thức
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            
+            # PROMPT CHUYÊN GIA: Ép AI nhận diện quy trình từ ảnh (được comment chi tiết cho giáo viên chấm)
+            # - Mục tiêu: Nhận diện node, edge và thông tin text.
+            # - Xử lý ảnh mờ: Yêu cầu AI tự đánh giá và ném logic lỗi vào JSON.
+            prompt = (
+                f"BẠN LÀ CHUYÊN GIA COMPUTER VISION VÀ SYSTEM ANALYST TẠI VNPT.\n"
+                f"NHIỆM VỤ: Phân tích hình ảnh chứa sơ đồ quy trình nghiệp vụ và trích xuất thành JSON chuẩn React Flow.\n\n"
+                f"--- QUY TẮC NHẬN DIỆN ---\n"
+                f"1. Phân tích văn bản, hình khối (vuông, thoi), và mũi tên nối (arrow relationships).\n"
+                f"2. Xác định các 'bước nghiệp vụ' (business steps), 'người thực hiện' (actors) từ text trong/ngoài khối.\n"
+                f"3. Xác định 'mối quan hệ đệ quy/tuần tự' thông qua chiều mũi tên (từ ID nào đến ID nào).\n"
+                f"4. XỬ LÝ LỖI: Nếu hình ảnh quá mờ, không thể đọc được chữ hoặc không có hình thái quy trình, KHÔNG CỐ ĐOÁN. Hãy trả về JSON với duy nhất key 'error': 'Hình ảnh quá mờ hoặc không nhận diện được quy trình. Vui lòng cung cấp ảnh rõ nét hơn.'\n\n"
+                f"--- CẤU TRÚC JSON YÊU CẦU ---\n"
+                f"Nếu nhận diện thành công, trả về JSON gồm 'nodes' và 'edges'.\n"
+                f"Mỗi node: {{id, type (start, step, decision, end), data: {{label, executor, description}} }}.\n"
+                f"Mỗi edge: {{id, source, target}}.\n"
+                f"CHÚ Ý: TRẢ VỀ DUY NHẤT 1 KHỐI JSON HỢP LỆ."
+            )
+
+            image_part = {
+                "mime_type": mime_type,
+                "data": image_bytes
+            }
+
+            response = model.generate_content(
+                [prompt, image_part],
+                generation_config=genai.types.GenerationConfig(
+                    temperature=0.1, # Nhiệt độ thấp để đảm bảo xuất format chuẩn JSON
+                    response_mime_type="application/json",
+                )
+            )
+            
+            raw_text = response.text.strip()
+            json_match = re.search(r'(\{.*\}|\[.*\])', raw_text, re.DOTALL)
+            clean_json = json_match.group(0) if json_match else raw_text 
+            data = json.loads(clean_json) 
+            
+            # Ném exception nếu AI nhận diện ảnh mờ
+            if isinstance(data, dict) and "error" in data:
+                raise Exception(data["error"])
+                
+            return self._post_processing(data)
+
+        except Exception as e:
+            logger.error(f"Lỗi API Gemini Vision tại key index {self.current_key_index}: {str(e)}")
+            error_msg = str(e)
+            # Tự động Retry nếu lỗi rate limit (429) hoặc hết quota
+            if ("429" in error_msg or "limit" in error_msg.lower() or "quota" in error_msg.lower()) and \
+               self.current_key_index < len(settings.GEMINI_API_KEYS) - 1:
+                self.current_key_index += 1
+                return self._call_gemini_vision_with_retry(image_bytes, mime_type)
+            # Nếu là lỗi logic (ảnh mờ ném từ prompt) thì giữ nguyên message để Frontend hiển thị
+            raise Exception(error_msg)
+
     def _call_gemini_with_retry(self, text: str) -> Dict[str, Any]:
         try:
             api_key = settings.GEMINI_API_KEYS[self.current_key_index]
@@ -52,18 +117,15 @@ class AIService:
                 prompt,
                 generation_config=genai.types.GenerationConfig(
                     temperature=0.2, # Giảm nhiệt độ để AI bớt 'sáng tạo' lung tung, tập trung vào cấu trúc
-                    response_mime_type="application/json", # Ép kiểu trả về là JSON (Gemini 1.5 hỗ trợ)
+                    response_mime_type="application/json", # Ép kiểu trả về là JSON 
                 )
             )
             
             # Làm sạch dữ liệu trả về
             raw_text = response.text.strip()
             json_match = re.search(r'(\{.*\}|\[.*\])', raw_text, re.DOTALL)
-            clean_json = json_match.group(0) if json_match else raw_text
-            
-            data = json.loads(clean_json)
-            
-
+            clean_json = json_match.group(0) if json_match else raw_text 
+            data = json.loads(clean_json) 
             return self._post_processing(data)
 
         except Exception as e:

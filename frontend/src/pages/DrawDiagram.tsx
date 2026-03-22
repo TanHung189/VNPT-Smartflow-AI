@@ -6,8 +6,29 @@ import FlowCanvas from "../features/flow/FlowCanvas";
 import Sidebar from "../features/chat/Sidebar";
 import { diagramApi } from "../api/diagramApi";
 
+// --- INTERFACES: SOLID and Typescript adherence ---
+interface StrokeData {
+  id: string;
+  points: number[];
+  color: string;
+  size: number;
+}
+
+interface SaveDiagramPayload {
+  title: string;
+  flow_data: {
+    nodes: any[];
+    edges: any[];
+    strokes: StrokeData[];
+  };
+  raw_text_input: string;
+}
+
+const getAuthToken = (): string | null => {
+  return localStorage.getItem("token");
+};
+
 const DrawDiagram = () => {
-  // Lấy toàn bộ logic xử lý AI từ hook đã viết
   const {
     nodes,
     edges,
@@ -32,20 +53,45 @@ const DrawDiagram = () => {
     canRedo,
   } = useFlowLogic();
 
-  const handleSaveToDB = async () => {
-    const diagramData = {
-      title: "Quy trình mới", // Có thể lấy từ một input khác
-      flow_data: { nodes, edges },
-      raw_text: "văn bản do AI tạo",
+  /**
+   * Helper function to bundle diagram data securely.
+   */
+  const prepareDiagramData = (): SaveDiagramPayload => {
+    return {
+      title: "Quy trình mới", // Sẽ lấy từ input người dùng sau này
+      flow_data: {
+        nodes,
+        edges,
+        strokes: strokes as StrokeData[], // Lưu bao gồm cả dữ liệu strokes vẽ tay
+      },
+      raw_text_input: "văn bản do AI tạo",
     };
+  };
+
+  /**
+   * Main function to handle save logic triggered by the Save Button.
+   */
+  const handleSave = async () => {
+    const token = getAuthToken();
+    if (!token) {
+      alert("Bạn cần đăng nhập để có thể lưu sơ đồ!");
+      return;
+    }
+
+    const diagramData = prepareDiagramData();
     console.log("Dữ liệu chuẩn bị lưu:", diagramData);
 
     try {
-      const result = await diagramApi.save(diagramData);
-      if (result.status === "Success") {
+      // Gọi lên Backend API kèm theo cấu trúc dữ liệu và Token
+      const result = await diagramApi.save(diagramData, token);
+
+      // result.diagram_id từ response API nếu tạo thành công
+      if (result.status === "Success" || result.diagram_id) {
         alert(`Đã lưu thành công! id sơ đồ là: ${result.diagram_id}`);
       } else {
-        alert(`Lưu không thành công ${result.message}`);
+        alert(
+          `Lưu không thành công: ${result.message || "Lỗi không xác định"}`,
+        );
       }
     } catch (error) {
       console.error("Lỗi kết nối API:", error);
@@ -80,7 +126,7 @@ const DrawDiagram = () => {
 
             {/* Nút Lưu Database - Cực kỳ quan trọng để hoàn thiện đồ án */}
             <button
-              onClick={handleSaveToDB}
+              onClick={handleSave}
               className="text-slate-500 hover:text-indigo-600 transition-colors flex items-center gap-1"
               title="Lưu vào PostgreSQL"
             >

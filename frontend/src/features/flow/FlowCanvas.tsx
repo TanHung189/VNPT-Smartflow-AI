@@ -8,11 +8,18 @@ import {
   useReactFlow,
   ReactFlowProvider,
   addEdge,
+  getNodesBounds,
+  getViewportForBounds,
 } from "@xyflow/react";
 import { Save, Trash2 } from "lucide-react";
 import SmartNode from "../../components/SmartNode";
 import Toolbar from "../../components/Toolbar";
 import DrawingCanvas from "../../components/DrawingCanvas";
+import {
+  exportToJpg,
+  exportToPng,
+  exportToPdf,
+} from "../../utils/exportDiagram";
 
 const nodeTypes = {
   taskNode: SmartNode,
@@ -55,7 +62,53 @@ const FlowContent = ({
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [showMiniMap, setShowMiniMap] = useState(false);
   // canvas/drawing removed for now to avoid ResizeObserver issues and unused warnings
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, getNodes } = useReactFlow();
+
+  // Export handlers
+  const getExportConfig = () => {
+    const renderNodes = getNodes();
+    if (renderNodes.length === 0) return {};
+
+    // Tùy chỉnh export toàn bộ sơ đồ (bọc lấy toàn bộ bounding box của nodes)
+    const nodesBounds = getNodesBounds(renderNodes);
+    const width = nodesBounds.width || 800; // padding 50px mỗi bên
+    const height = nodesBounds.height || 600;
+
+    const viewport = getViewportForBounds(
+      nodesBounds,
+      width,
+      height,
+      0.1,
+      2,
+      1,
+    );
+
+    return {
+      width,
+      height,
+      style: {
+        width: `${width}px`,
+        height: `${height}px`,
+        transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+      },
+    };
+  };
+
+  const handleExportJpg = () => {
+    // Chỉ định selector lấy toàn bộ viewport hiển thị của ReactFlow nhưng ignore UI controls qua filter trong hàm helper
+    const el = document.querySelector(".react-flow__viewport") as HTMLElement;
+    if (el) exportToJpg(el, `smartflow-${Date.now()}.jpg`, getExportConfig());
+  };
+
+  const handleExportPng = () => {
+    const el = document.querySelector(".react-flow__viewport") as HTMLElement;
+    if (el) exportToPng(el, `smartflow-${Date.now()}.png`, getExportConfig());
+  };
+
+  const handleExportPdf = () => {
+    const el = document.querySelector(".react-flow__viewport") as HTMLElement;
+    if (el) exportToPdf(el, `smartflow-${Date.now()}.pdf`, getExportConfig());
+  };
 
   // --- LOGIC TƯƠNG TÁC NODE & EDGE ---
   const onConnect = useCallback(
@@ -231,6 +284,9 @@ const FlowContent = ({
         onSetPenSize={(s: number) =>
           setDrawMode((d: any) => ({ ...d, size: s, type: "pen" }))
         }
+        onExportJpg={handleExportJpg}
+        onExportPng={handleExportPng}
+        onExportPdf={handleExportPdf}
       />
       {/* Auto-layout button */}
       <div className="absolute left-6 top-6 z-40">
@@ -244,6 +300,7 @@ const FlowContent = ({
       </div>
       <ReactFlow
         style={{ width: "100%", height: "100%" }}
+        panOnDrag={!(drawMode?.type === "pen" || drawMode?.type === "eraser")}
         nodes={nodes.concat(
           (previewNodes || []).map((n: any) => ({
             ...n,
@@ -299,20 +356,20 @@ const FlowContent = ({
             pannable
           />
         )}
+        {/* Drawing overlay for pen mode: place inside ReactFlow so it inherits pan/zoom transforms */}
+        <div className="absolute inset-0 z-40 pointer-events-none">
+          <DrawingCanvas
+            active={drawMode?.type === "pen" || drawMode?.type === "eraser"}
+            color={drawMode.color}
+            size={drawMode.size}
+            mode={drawMode.type}
+            strokes={strokes}
+            onAddStroke={addStroke}
+            onEraseAt={eraseAt}
+            screenToFlowPosition={screenToFlowPosition}
+          />
+        </div>
       </ReactFlow>
-
-      {/* Drawing overlay for pen mode */}
-      <div className="absolute inset-0 z-40 pointer-events-none">
-        <DrawingCanvas
-          active={drawMode?.type === "pen" || drawMode?.type === "eraser"}
-          color={drawMode.color}
-          size={drawMode.size}
-          mode={drawMode.type}
-          strokes={strokes}
-          onAddStroke={addStroke}
-          onEraseAt={eraseAt}
-        />
-      </div>
 
       {/* Context menu (fixed to viewport) */}
       {menuVisible && menuPos && (
