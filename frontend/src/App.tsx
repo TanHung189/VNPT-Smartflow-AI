@@ -6,6 +6,7 @@ import {
   Navigate,
 } from "react-router-dom";
 import { ReactFlowProvider } from "@xyflow/react";
+import { GoogleOAuthProvider } from "@react-oauth/google";
 import "@xyflow/react/dist/style.css";
 
 import Home from "./pages/Home";
@@ -17,11 +18,14 @@ import Register from "./pages/Auth/Register";
 import ProtectedRoute from "./components/ProtectedRouter";
 // import Dashboard from "./pages/Dashboard"; // Mở ra khi em đã tạo file này
 
+const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+
 export default function App() {
   return (
-    <ReactFlowProvider>
-      <Router>
-        <Routes>
+    <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
+      <ReactFlowProvider>
+        <Router>
+          <Routes>
           {/* 1. Nhóm Route CÔNG KHAI: Không có Navbar/Footer (thường là Login/Register) */}
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
@@ -49,6 +53,7 @@ export default function App() {
           />
         </Routes>
       </Router>
-    </ReactFlowProvider>
+      </ReactFlowProvider>
+    </GoogleOAuthProvider>
   );
 }

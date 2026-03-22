@@ -84,7 +84,7 @@ const Register: React.FC = () => {
               <input
                 type="email"
                 className="w-full px-5 py-3.5 bg-white/5 border border-white/10 rounded-2xl outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 transition-all text-white placeholder:text-slate-600"
-                placeholder="hung@vnpt.vn"
+                placeholder="Nhập địa chỉ Email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
