@@ -41,3 +41,10 @@ body {
 .react-flow__edge-path {
   animation: dash 1s linear infinite;
 }
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+

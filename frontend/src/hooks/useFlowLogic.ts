@@ -2,10 +2,13 @@ import { useState, useCallback, useRef } from "react";
 import {
   useNodesState,
   useEdgesState,
+  useReactFlow,
+  addEdge,
   type Node,
   type Edge,
 } from "@xyflow/react";
 import dagre from "@dagrejs/dagre";
+import { diagramApi } from "../services/diagramApi";
 
 const getLayoutedElements = (
   nodes: Node[],
@@ -32,7 +35,7 @@ const getLayoutedElements = (
 export const useFlowLogic = () => {
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
-  const [loading, setLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   // freehand strokes (kept in the diagram state so undo/redo includes them)
   type Stroke = { id: string; points: number[]; color: string; size: number };
   const [strokes, setStrokes] = useState<Stroke[]>([]);
@@ -41,6 +44,9 @@ export const useFlowLogic = () => {
   type Snapshot = { nodes: Node[]; edges: Edge[]; strokes?: Stroke[] };
   const flowHistory = useRef<Snapshot[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const { screenToFlowPosition } = useReactFlow();
+  const [selectedNode, setSelectedNode] = useState<any>(null);
+  const [selectedElements, setSelectedElements] = useState<any[]>([]);
 
   const takeSnapshot = useCallback(() => {
     const newState = {
@@ -113,13 +119,13 @@ export const useFlowLogic = () => {
   // erase strokes that have any point within `radius` of (x,y)
   const eraseAt = useCallback(
     (x: number, y: number, radius: number) => {
-      const r2 = radius * radius;
       setStrokes((s) =>
         s.filter((stroke) => {
           for (let i = 0; i < stroke.points.length; i += 2) {
             const dx = stroke.points[i] - x;
             const dy = stroke.points[i + 1] - y;
-            if (dx * dx + dy * dy <= r2) return false; // remove this stroke
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            if (distance <= radius) return false; // remove this stroke
           }
           return true;
         }),
@@ -159,12 +165,9 @@ export const useFlowLogic = () => {
   const generateFlow = useCallback(
     async (text: string) => {
       if (!text) return;
-      setLoading(true);
+      setIsGenerating(true);
       try {
-        const response = await fetch(
-          `http://127.0.0.1:8000/api/generate-flow?text=${encodeURIComponent(text)}`,
-          { method: "POST" },
-        );
+        const response = await diagramApi.generateFlowText(text);
         const resData = await response.json();
         if (resData.result === "SUCCESS") {
           const normalized = normalizeGraph(resData.data);
@@ -180,7 +183,7 @@ export const useFlowLogic = () => {
       } catch (error) {
         console.error(error);
       } finally {
-        setLoading(false);
+        setIsGenerating(false);
       }
     },
     [setNodes, setEdges, takeSnapshot],
@@ -188,14 +191,11 @@ export const useFlowLogic = () => {
 
   const uploadFileAndGenerate = useCallback(
     async (file: File) => {
-      setLoading(true);
+      setIsGenerating(true);
       const formData = new FormData();
       formData.append("file", file);
       try {
-        const response = await fetch(
-          "http://127.0.0.1:8000/api/upload-process",
-          { method: "POST", body: formData },
-        );
+        const response = await diagramApi.uploadProcessImage(formData);
         const resData = await response.json();
         if (resData.result === "SUCCESS") {
           const normalized = normalizeGraph(resData.data);
@@ -210,7 +210,7 @@ export const useFlowLogic = () => {
       } catch (error) {
         alert("Lỗi kết nối!");
       } finally {
-        setLoading(false);
+        setIsGenerating(false);
       }
     },
     [setNodes, setEdges, takeSnapshot],
@@ -238,6 +238,98 @@ export const useFlowLogic = () => {
     setTimeout(takeSnapshot, 50);
   }, [setNodes, setEdges, setStrokes, takeSnapshot]);
 
+  // --- 5. TƯƠNG TÁC KÉO/THẢ VÀ NODE ---
+  const onConnect = useCallback(
+    (params: any) => {
+      setEdges((eds) => addEdge({ ...params, animated: true, type: "smoothstep" }, eds));
+      if (takeSnapshot) takeSnapshot();
+    },
+    [setEdges, takeSnapshot],
+  );
+
+  const onDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault();
+      const type = e.dataTransfer.getData("application/reactflow");
+      if (!type) return;
+      const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+      const newNode = {
+        id: `manual_${Date.now()}`,
+        type: type,
+        position,
+        data: {
+          label: type === "conditionNode" ? "Điều kiện mới" : "Bước nghiệp vụ mới",
+          type: type === "conditionNode" ? "decision" : "task",
+          executor: "Chưa gán",
+          description: "",
+        },
+      };
+      setNodes((nds) => nds.concat(newNode as Node));
+      if (takeSnapshot) takeSnapshot();
+    },
+    [screenToFlowPosition, setNodes, takeSnapshot],
+  );
+
+  const onSelectionChange = useCallback((elements: any) => {
+    let elementsArray: any[] = [];
+    if (Array.isArray(elements)) {
+      elementsArray = elements;
+    } else if (elements && typeof elements === "object") {
+      if (Array.isArray(elements.nodes) || Array.isArray(elements.edges)) {
+        elementsArray = [...(elements.nodes || []), ...(elements.edges || [])];
+      } else if (Array.isArray((elements as any).selected)) {
+        elementsArray = (elements as any).selected;
+      } else {
+        elementsArray = [elements];
+      }
+    }
+    setSelectedElements(elementsArray);
+    const node = elementsArray.find((el: any) => el?.data);
+    setSelectedNode(node || null);
+  }, []);
+
+  const deleteSelected = useCallback(() => {
+    if (!selectedElements || selectedElements.length === 0) return;
+    const nodeIds = selectedElements.filter((s) => s?.id && s?.position).map((n) => n.id);
+    const edgeIds = selectedElements.filter((s) => s?.source && s?.target).map((e) => e.id);
+    if (nodeIds.length) {
+      setNodes((nds) => nds.filter((n) => !nodeIds.includes(n.id)));
+    }
+    if (edgeIds.length) {
+      setEdges((eds) => eds.filter((e) => !edgeIds.includes(e.id)));
+    }
+    setSelectedElements([]);
+    setSelectedNode(null);
+    if (takeSnapshot) takeSnapshot();
+  }, [selectedElements, setNodes, setEdges, takeSnapshot]);
+
+  const addNoteAtCenter = useCallback(() => {
+    const centerX = window.innerWidth / 2;
+    const centerY = window.innerHeight / 2;
+    const pos = screenToFlowPosition({ x: centerX, y: centerY });
+    const newNode = {
+      id: `note_${Date.now()}`,
+      type: "customNode",
+      position: pos,
+      data: { label: "Ghi chú", type: "note", executor: "", description: "" },
+    };
+    setNodes((nds) => nds.concat(newNode as Node));
+    if (takeSnapshot) takeSnapshot();
+  }, [screenToFlowPosition, setNodes, takeSnapshot]);
+
+  const updateNodeData = (field: string, value: string) => {
+    if (!selectedNode) return;
+    setNodes((nds) =>
+      nds.map((n) =>
+        n.id === selectedNode.id ? { ...n, data: { ...n.data, [field]: value } } : n,
+      ),
+    );
+    setSelectedNode((prev: any) => ({
+      ...prev,
+      data: { ...prev.data, [field]: value },
+    }));
+  };
+
   return {
     nodes,
     edges,
@@ -245,7 +337,7 @@ export const useFlowLogic = () => {
     onEdgesChange,
     setNodes,
     setEdges,
-    loading,
+    isGenerating,
     generateFlow,
     uploadFileAndGenerate,
     // history
@@ -265,5 +357,16 @@ export const useFlowLogic = () => {
     autoLayout,
     clearAll,
     takeSnapshot,
+    // canvas interactions
+    onConnect,
+    onDrop,
+    onSelectionChange,
+    selectedNode,
+    setSelectedNode,
+    selectedElements,
+    setSelectedElements,
+    deleteSelected,
+    addNoteAtCenter,
+    updateNodeData,
   };
 };

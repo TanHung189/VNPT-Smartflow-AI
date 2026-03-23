@@ -1,8 +1,5 @@
-import { env } from "../env";
+import { API_URL } from "../env";
 
-const BASE_URL = env.VITE_API_BASE_URL;
-
-// Interface definitions to enforce single responsibility and type safety (SOLID)
 export interface DiagramPayload {
   title: string;
   flow_data: {
@@ -22,20 +19,12 @@ export interface DiagramApiResponse {
 }
 
 export const diagramApi = {
-  /**
-   * Sends POST request to save a diagram with JWT token.
-   * Separates API logic from UI logic.
-   */
   save: async (data: DiagramPayload, token: string | null): Promise<DiagramApiResponse> => {
     const headers: Record<string, string> = { 
       "Content-Type": "application/json" 
     };
-
-    if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
-    }
-
-    const response = await fetch(`${BASE_URL}/save-diagram`, {
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const response = await fetch(`${API_URL}/save-diagram`, {
       method: "POST",
       headers,
       body: JSON.stringify(data),
@@ -44,7 +33,21 @@ export const diagramApi = {
   },
 
   getAll: async () => {
-    const response = await fetch(`${BASE_URL}/diagrams`);
+    const response = await fetch(`${API_URL}/diagrams`);
     return response.json();
   },
+
+  generateFlowText: async (text: string) => {
+    return await fetch(
+      `${API_URL}/generate-flow?text=${encodeURIComponent(text)}`,
+      { method: "POST" }
+    );
+  },
+
+  uploadProcessImage: async (formData: FormData) => {
+    return await fetch(`${API_URL}/upload-process`, {
+      method: "POST",
+      body: formData,
+    });
+  }
 };

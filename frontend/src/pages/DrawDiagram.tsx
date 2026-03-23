@@ -4,7 +4,7 @@ import { Download, CloudUpload } from "lucide-react";
 import { useFlowLogic } from "../hooks/useFlowLogic";
 import FlowCanvas from "../features/flow/FlowCanvas";
 import Sidebar from "../features/chat/Sidebar";
-import { diagramApi } from "../api/diagramApi";
+import { diagramApi } from "../services/diagramApi";
 
 // --- INTERFACES: SOLID and Typescript adherence ---
 interface StrokeData {
@@ -36,7 +36,7 @@ const DrawDiagram = () => {
     setEdges, // Đảm bảo hook useFlowLogic có trả về setEdges
     onNodesChange,
     onEdgesChange,
-    loading,
+    isGenerating,
     generateFlow,
     uploadFileAndGenerate,
     drawMode,
@@ -51,6 +51,18 @@ const DrawDiagram = () => {
     eraseAt,
     canUndo,
     canRedo,
+    autoLayout,
+    clearAll,
+    onConnect,
+    onDrop,
+    onSelectionChange,
+    selectedNode,
+    setSelectedNode,
+    selectedElements,
+    setSelectedElements,
+    deleteSelected,
+    addNoteAtCenter,
+    updateNodeData,
   } = useFlowLogic();
 
   /**
@@ -105,7 +117,7 @@ const DrawDiagram = () => {
       <Sidebar
         onGenerate={generateFlow}
         onUpload={uploadFileAndGenerate}
-        loading={loading}
+        loading={isGenerating}
       />
 
       {/* 2. KHÔNG GIAN CANVAS VẼ SƠ ĐỒ HIỆN ĐẠI */}
@@ -115,10 +127,10 @@ const DrawDiagram = () => {
           <div className="bg-white/80 backdrop-blur-md px-4 py-2 rounded-full border border-slate-200 shadow-xl flex items-center gap-4">
             <div className="flex items-center gap-2">
               <div
-                className={`w-2 h-2 rounded-full ${loading ? "bg-amber-500 animate-spin" : "bg-green-500 animate-pulse"}`}
+                className={`w-2 h-2 rounded-full ${isGenerating ? "bg-amber-500 animate-spin" : "bg-green-500 animate-pulse"}`}
               />
               <span className="text-[10px] font-bold text-slate-600 uppercase tracking-tighter">
-                {loading ? "AI Processing..." : "AI Connected"}
+                {isGenerating ? "AI Processing..." : "AI Connected"}
               </span>
             </div>
 
@@ -133,10 +145,6 @@ const DrawDiagram = () => {
               <CloudUpload className="w-4 h-4" />
               <span className="text-[10px] font-bold">LƯU</span>
             </button>
-
-            <button className="text-slate-500 hover:text-[#0054a6] transition-colors">
-              <Download className="w-4 h-4" />
-            </button>
           </div>
         </div>
 
@@ -145,6 +153,7 @@ const DrawDiagram = () => {
           <FlowCanvas
             nodes={nodes}
             edges={edges}
+            isGenerating={isGenerating}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             drawMode={drawMode} // THIẾU DÒNG NÀY SẼ GÂY LỖI
@@ -161,6 +170,18 @@ const DrawDiagram = () => {
             canUndo={canUndo}
             canRedo={canRedo}
             takeSnapshot={takeSnapshot}
+            autoLayout={autoLayout}
+            clearAll={clearAll}
+            onConnect={onConnect}
+            onDrop={onDrop}
+            onSelectionChange={onSelectionChange}
+            selectedNode={selectedNode}
+            setSelectedNode={setSelectedNode}
+            selectedElements={selectedElements}
+            setSelectedElements={setSelectedElements}
+            deleteSelected={deleteSelected}
+            addNoteAtCenter={addNoteAtCenter}
+            updateNodeData={updateNodeData}
           />
         </div>
       </main>
