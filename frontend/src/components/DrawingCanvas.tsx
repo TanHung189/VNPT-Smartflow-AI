@@ -1,4 +1,5 @@
 import React, { useRef, useEffect } from "react";
+import { useReactFlow, useOnViewportChange } from "@xyflow/react";
 
 type Stroke = { id?: string; points: number[]; color: string; size: number };
 
@@ -10,199 +11,150 @@ const DrawingCanvas = ({
   strokes = [],
   onAddStroke,
   onEraseAt,
-  screenToFlowPosition,
 }: any) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const drawing = useRef(false);
-  const current: number[] = [];
+  const current = useRef<number[]>([]);
+  const { screenToFlowPosition, getViewport } = useReactFlow();
 
   const resizeCanvas = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    const parent = canvas.parentElement;
+    if (!parent) return;
     const dpr = window.devicePixelRatio || 1;
-    const rect = canvas.getBoundingClientRect();
+    // Đảm bảo canvas luôn phủ 100% Viewport (lấy thông số từ cha)
+    const rect = parent.getBoundingClientRect();
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return;
-    ctx.scale(dpr, dpr);
   };
-
-  const originalParent = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    // On mount: append canvas into the react-flow viewport and do not move it back on deactivation.
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const attachToViewport = () => {
-      const viewport = document.querySelector<HTMLElement>(
-        ".react-flow__viewport",
-      );
-      if (!viewport) return false;
-      // remember original parent for debugging but do not restore on unmount
-      if (!originalParent.current)
-        originalParent.current = canvas.parentElement as HTMLElement;
-      // style the canvas so it covers the viewport area
-      canvas.style.position = "absolute";
-      canvas.style.left = "0";
-      canvas.style.top = "0";
-      canvas.style.width = "100%";
-      canvas.style.height = "100%";
-      canvas.style.zIndex = "999";
-      // append only if not already a child
-      if (canvas.parentElement !== viewport) viewport.appendChild(canvas);
-      return true;
-    };
-
-    // Try immediate attach; if viewport isn't ready, set up a MutationObserver
-    if (!attachToViewport()) {
-      const mo = new MutationObserver(() => {
-        if (attachToViewport()) mo.disconnect();
-      });
-      mo.observe(document.body, { childList: true, subtree: true });
-      // also disconnect on unmount
-      return () => mo.disconnect();
-    }
-
-    // trigger initial resize after moving
-    resizeCanvas();
-
-    // keep observer to detect viewport replacements and re-attach if needed
-    const mo = new MutationObserver(() => attachToViewport());
-    mo.observe(document.body, { childList: true, subtree: true });
-    return () => mo.disconnect();
-    // run on mount only
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
-  // Update pointer-events and cursor when active/mode changes without moving the canvas
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    canvas.style.pointerEvents = active ? "auto" : "none";
-    try {
-      canvas.style.cursor = active
-        ? mode === "eraser"
-          ? "cell"
-          : "crosshair"
-        : "default";
-    } catch (e) {}
-  }, [active, mode]);
 
   const redraw = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    // clear using CSS pixels
-    const rect = canvas.getBoundingClientRect();
-    ctx.clearRect(0, 0, rect.width, rect.height);
+    
+    // resetTransform trước khi clear
+    ctx.resetTransform();
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    const dpr = window.devicePixelRatio || 1;
+    const { x, y, zoom } = getViewport();
+    
+    // Áp dụng viewport transform để các nét vẽ zoom/pan cùng với Node
+    ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, x * dpr, y * dpr);
+
     strokes.forEach((s: Stroke) => {
       ctx.beginPath();
-      ctx.lineWidth = s.size;
+      ctx.lineWidth = s.size; // Nét vẽ sẽ tự scale nhờ ctx.setTransform
       ctx.lineJoin = "round";
       ctx.lineCap = "round";
       ctx.strokeStyle = s.color;
-      // s.points are stored in flow coordinates (same coordinate space as nodes)
       for (let i = 0; i < s.points.length; i += 2) {
-        const x = s.points[i];
-        const y = s.points[i + 1];
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+        const px = s.points[i];
+        const py = s.points[i + 1];
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
       }
       ctx.stroke();
     });
-  };
 
-  // We store points as client coordinates and compute local canvas coords in redraw/live draw
-
-  useEffect(() => {
-    resizeCanvas();
-    window.addEventListener("resize", resizeCanvas);
-    return () => window.removeEventListener("resize", resizeCanvas);
-  }, []);
-
-  useEffect(() => {
-    redraw();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [strokes]);
-
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-
-    const pointerDown = (ev: PointerEvent) => {
-      if (!active) return;
-      const flowPoint =
-        typeof screenToFlowPosition === "function"
-          ? screenToFlowPosition({ x: ev.clientX, y: ev.clientY })
-          : null;
-      if (mode === "eraser") {
-        // immediate erase at pointer (flow coords when possible)
-        if (flowPoint) onEraseAt?.(flowPoint.x, flowPoint.y, size);
-        else onEraseAt?.(ev.clientX, ev.clientY, size);
-        return;
-      }
-      drawing.current = true;
-      (canvas as any).setPointerCapture(ev.pointerId);
-      // show grabbing cursor while drawing
-      try {
-        (canvas as HTMLCanvasElement).style.cursor = "grabbing";
-      } catch (e) {}
-      // store flow coords (or fallback to client coords)
-      if (flowPoint) current.push(flowPoint.x, flowPoint.y);
-      else current.push(ev.clientX, ev.clientY);
-    };
-
-    const pointerMove = (ev: PointerEvent) => {
-      if (!active) return;
-      const flowPoint =
-        typeof screenToFlowPosition === "function"
-          ? screenToFlowPosition({ x: ev.clientX, y: ev.clientY })
-          : null;
-      if (mode === "eraser") {
-        if (flowPoint) onEraseAt?.(flowPoint.x, flowPoint.y, size);
-        else onEraseAt?.(ev.clientX, ev.clientY, size);
-        return;
-      }
-      if (!drawing.current) return;
-      // append flow coords (or fallback to client coords)
-      if (flowPoint) current.push(flowPoint.x, flowPoint.y);
-      else current.push(ev.clientX, ev.clientY);
-      // draw live
-      const canvas = canvasRef.current!;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      redraw();
+    if (current.current.length > 0) {
       ctx.beginPath();
       ctx.lineWidth = size;
       ctx.lineJoin = "round";
       ctx.lineCap = "round";
       ctx.strokeStyle = color;
-      for (let i = 0; i < current.length; i += 2) {
-        const x = current[i];
-        const y = current[i + 1];
-        if (i === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+      for (let i = 0; i < current.current.length; i += 2) {
+        const px = current.current[i];
+        const py = current.current[i + 1];
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
       }
       ctx.stroke();
+    }
+  };
+
+  // Cập nhật lại màn hình khi người dùng cuộn/zoom React Flow
+  useOnViewportChange({
+    onChange: redraw,
+  });
+
+  useEffect(() => {
+    resizeCanvas();
+    redraw();
+    const handleResize = () => {
+      resizeCanvas();
+      redraw();
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  useEffect(() => {
+    redraw();
+  }, [strokes, active, mode, color, size]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    if (active) {
+      canvas.style.cursor = mode === "eraser" ? "cell" : "crosshair";
+    } else {
+      canvas.style.cursor = "default";
+    }
+
+    const pointerDown = (ev: PointerEvent) => {
+      if (!active) return;
+      // Convert screen coords to flow coords ngay lúc lấy tọa độ chuột
+      const flowPoint = screenToFlowPosition({ x: ev.clientX, y: ev.clientY });
+      
+      if (mode === "eraser") {
+        onEraseAt?.(flowPoint.x, flowPoint.y, size);
+        return;
+      }
+      
+      drawing.current = true;
+      (canvas as any).setPointerCapture(ev.pointerId);
+      current.current.push(flowPoint.x, flowPoint.y);
+      redraw();
+      
+      if (mode === "pen") {
+        canvas.style.cursor = "grabbing";
+      }
+    };
+
+    const pointerMove = (ev: PointerEvent) => {
+      if (!active) return;
+      
+      if (mode === "eraser" && (ev.buttons & 1)) {
+        // Continuous erase if mouse is held down
+        const flowPoint = screenToFlowPosition({ x: ev.clientX, y: ev.clientY });
+        onEraseAt?.(flowPoint.x, flowPoint.y, size);
+        return;
+      }
+      
+      if (!drawing.current) return;
+      const flowPoint = screenToFlowPosition({ x: ev.clientX, y: ev.clientY });
+      current.current.push(flowPoint.x, flowPoint.y);
+      redraw();
     };
 
     const pointerUp = (ev: PointerEvent) => {
       if (!active) return;
       if (!drawing.current) return;
       drawing.current = false;
-      // restore cursor to pen after finishing stroke
-      try {
-        (canvasRef.current as HTMLCanvasElement).style.cursor =
-          mode === "eraser" ? "cell" : "crosshair";
-      } catch (e) {}
+      
+      canvas.style.cursor = mode === "eraser" ? "cell" : "crosshair";
 
-      if (current.length >= 4) {
-        // pass flow coordinates upward (we converted during capture when possible)
-        onAddStroke?.(current.slice(), color, size);
+      if (current.current.length >= 4) {
+        // Sao chép mảng vì current.current sẽ bị làm trống
+        onAddStroke?.([...current.current], color, size);
       }
-      current.splice(0, current.length);
+      current.current.length = 0;
+      redraw();
     };
 
     canvas.addEventListener("pointerdown", pointerDown as any);
@@ -214,15 +166,14 @@ const DrawingCanvas = ({
       window.removeEventListener("pointermove", pointerMove as any);
       window.removeEventListener("pointerup", pointerUp as any);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, mode, color, size, strokes, onAddStroke, onEraseAt]);
+  }, [active, mode, color, size, strokes, onAddStroke, onEraseAt, screenToFlowPosition]);
 
   return (
-    <div className="absolute inset-0 pointer-events-none">
+    <div className="absolute inset-0 z-50 pointer-events-none">
       <canvas
         ref={canvasRef}
-        className={`w-full h-full ${active ? "pointer-events-auto" : "pointer-events-none"}`}
-        style={{ touchAction: "none" }}
+        style={{ width: "100%", height: "100%", touchAction: "none" }}
+        className={active ? "pointer-events-auto" : "pointer-events-none"}
       />
     </div>
   );

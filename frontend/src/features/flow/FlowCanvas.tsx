@@ -7,7 +7,6 @@ import {
   BackgroundVariant,
   useReactFlow,
   ReactFlowProvider,
-  addEdge,
   getNodesBounds,
   getViewportForBounds,
 } from "@xyflow/react";
@@ -15,6 +14,7 @@ import { Save, Trash2 } from "lucide-react";
 import SmartNode from "../../components/SmartNode";
 import Toolbar from "../../components/Toolbar";
 import DrawingCanvas from "../../components/DrawingCanvas";
+import FlowSkeleton from "../../components/FlowSkeleton";
 import {
   exportToJpg,
   exportToPng,
@@ -27,7 +27,6 @@ const nodeTypes = {
   customNode: SmartNode,
 };
 
-// 1. COMPONENT CHỨA LOGIC CHÍNH
 const FlowContent = ({
   nodes,
   edges,
@@ -54,15 +53,32 @@ const FlowContent = ({
   previewEdges,
   confirmAddToCanvas,
   cancelPreview,
+  onConnect,
+  onDrop,
+  onSelectionChange,
+  selectedNode,
+  setSelectedNode,
+  selectedElements,
+  setSelectedElements,
+  deleteSelected,
+  addNoteAtCenter,
+  updateNodeData,
+  isGenerating,
 }: any) => {
-  const [selectedNode, setSelectedNode] = useState<any>(null);
-  const [selectedElements, setSelectedElements] = useState<any[]>([]);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [showMiniMap, setShowMiniMap] = useState(false);
-  // canvas/drawing removed for now to avoid ResizeObserver issues and unused warnings
-  const { screenToFlowPosition, getNodes } = useReactFlow();
+  const { screenToFlowPosition, getNodes, fitView } = useReactFlow();
+
+  // Smooth fitView transition after generation completes
+  useEffect(() => {
+    if (!isGenerating && nodes.length > 0) {
+      setTimeout(() => {
+        fitView({ duration: 1000, padding: 0.2 });
+      }, 100);
+    }
+  }, [isGenerating, nodes.length, fitView]);
 
   // Export handlers
   const getExportConfig = () => {
@@ -110,89 +126,13 @@ const FlowContent = ({
     if (el) exportToPdf(el, `smartflow-${Date.now()}.pdf`, getExportConfig());
   };
 
-  // --- LOGIC TƯƠNG TÁC NODE & EDGE ---
-  const onConnect = useCallback(
-    (params: any) => {
-      setEdges((eds: any) =>
-        addEdge({ ...params, animated: true, type: "smoothstep" }, eds),
-      );
-      if (takeSnapshot) takeSnapshot();
-    },
-    [setEdges, takeSnapshot],
-  );
-
-  const onDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      const type = e.dataTransfer.getData("application/reactflow");
-      if (!type) return;
-
-      // Tính toán vị trí thả chính xác trên Canvas
-      const position = screenToFlowPosition({ x: e.clientX, y: e.clientY });
-
-      const newNode = {
-        id: `manual_${Date.now()}`,
-        type: type, // Sẽ là 'taskNode' hoặc 'conditionNode'
-        position,
-        data: {
-          label:
-            type === "conditionNode" ? "Điều kiện mới" : "Bước nghiệp vụ mới",
-          type: type === "conditionNode" ? "decision" : "task",
-          executor: "Chưa gán",
-          description: "",
-        },
-      };
-
-      setNodes((nds: any) => nds.concat(newNode));
-      if (takeSnapshot) takeSnapshot();
-    },
-    [screenToFlowPosition, setNodes, takeSnapshot],
-  );
-
-  // selection change (nodes or edges)
-  const onSelectionChange = useCallback((elements: any) => {
-    // react-flow may pass an array (older versions) or an object { nodes, edges } (newer)
-    let elementsArray: any[] = [];
-    if (Array.isArray(elements)) {
-      elementsArray = elements;
-    } else if (elements && typeof elements === "object") {
-      if (Array.isArray(elements.nodes) || Array.isArray(elements.edges)) {
-        elementsArray = [...(elements.nodes || []), ...(elements.edges || [])];
-      } else if (Array.isArray((elements as any).selected)) {
-        elementsArray = (elements as any).selected;
-      } else {
-        // fallback: wrap single element
-        elementsArray = [elements];
-      }
-    }
-
-    setSelectedElements(elementsArray);
-    const node = elementsArray.find((el: any) => el?.data);
-    setSelectedNode(node || null);
-  }, []);
-
-  const deleteSelected = useCallback(() => {
-    if (!selectedElements || selectedElements.length === 0) return;
-    const nodeIds = selectedElements
-      .filter((s) => s?.id && s?.position)
-      .map((n) => n.id);
-    const edgeIds = selectedElements
-      .filter((s) => s?.source && s?.target)
-      .map((e) => e.id);
-    if (nodeIds.length) {
-      setNodes((nds: any) => nds.filter((n: any) => !nodeIds.includes(n.id)));
-    }
-    if (edgeIds.length) {
-      setEdges((eds: any) => eds.filter((e: any) => !edgeIds.includes(e.id)));
-    }
-    setSelectedElements([]);
-    setSelectedNode(null);
-    if (takeSnapshot) takeSnapshot();
-  }, [selectedElements, setNodes, setEdges, takeSnapshot]);
-
-  // keyboard delete support
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
+      if (
+        ev.target instanceof HTMLInputElement ||
+        ev.target instanceof HTMLTextAreaElement
+      )
+        return;
       if (ev.key === "Delete" || ev.key === "Backspace") {
         deleteSelected();
       }
@@ -201,40 +141,6 @@ const FlowContent = ({
     return () => window.removeEventListener("keydown", onKey);
   }, [deleteSelected]);
 
-  const addNoteAtCenter = useCallback(() => {
-    const container = containerRef.current;
-    let pos = { x: 300, y: 50 } as any;
-    if (container) {
-      const rect = container.getBoundingClientRect();
-      const centerX = rect.left + rect.width / 2;
-      const centerY = rect.top + rect.height / 2;
-      pos = screenToFlowPosition({ x: centerX, y: centerY });
-    }
-    const newNode = {
-      id: `note_${Date.now()}`,
-      type: "customNode",
-      position: pos,
-      data: { label: "Ghi chú", type: "note", executor: "", description: "" },
-    };
-    setNodes((nds: any) => nds.concat(newNode));
-    if (takeSnapshot) takeSnapshot();
-  }, [containerRef, screenToFlowPosition, setNodes, takeSnapshot]);
-
-  const updateNodeData = (field: string, value: string) => {
-    setNodes((nds: any) =>
-      nds.map((n: any) =>
-        n.id === selectedNode.id
-          ? { ...n, data: { ...n.data, [field]: value } }
-          : n,
-      ),
-    );
-    setSelectedNode((prev: any) => ({
-      ...prev,
-      data: { ...prev.data, [field]: value },
-    }));
-  };
-
-  // context menu handling (placed before JSX return)
   const onContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     setMenuVisible(true);
@@ -268,6 +174,7 @@ const FlowContent = ({
       className="w-full h-full relative overflow-hidden"
       style={{ width: "100%", height: "100%" }}
     >
+      {isGenerating && <FlowSkeleton />}
       <Toolbar
         activeMode={drawMode?.type}
         onModeChange={(m: any) => setDrawMode(m)}

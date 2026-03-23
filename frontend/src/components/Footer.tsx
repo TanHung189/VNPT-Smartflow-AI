@@ -52,7 +52,7 @@ const Footer = () => {
             </h4>
             <ul className="space-y-4 text-sm text-slate-500">
               <li className="hover:text-[#0062ff] transition-colors cursor-default">
-                VNPT An Giang
+                VNPT Đồng Tháp
               </li>
               <li className="hover:text-[#0062ff] transition-colors cursor-default">
                 Mekong ITP Center

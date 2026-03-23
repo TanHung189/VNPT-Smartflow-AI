@@ -1,6 +1,7 @@
 import React, { useState, FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
+import { authApi } from "../../services/authApi";
 import { GoogleLogin } from "@react-oauth/google";
 
 const Login: React.FC = () => {
@@ -100,11 +101,7 @@ const Login: React.FC = () => {
               onSuccess={async (credentialResponse) => {
                 if (!credentialResponse.credential) return;
                 try {
-                  const res = await fetch("http://127.0.0.1:8000/auth/google", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ token: credentialResponse.credential }),
-                  });
+                  const res = await authApi.googleLogin(credentialResponse.credential);
                   const data = await res.json();
                   
                   if (res.ok && data.access_token) {

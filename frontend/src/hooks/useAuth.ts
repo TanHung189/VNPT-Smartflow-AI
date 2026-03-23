@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { authApi } from "../services/authApi";
 
 export const useAuth = () => {
   const [loading, setLoading] = useState<boolean>(false);
@@ -13,11 +14,7 @@ export const useAuth = () => {
     formData.append("password", password);
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/auth/login", {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: formData,
-      });
+      const response = await authApi.login(formData);
 
       const data = await response.json();
 
@@ -47,14 +44,10 @@ export const useAuth = () => {
     setError("");
 
     try {
-      const response = await fetch("http://127.0.0.1:8000/auth/register", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_name: username,
-          user_email: email,
-          user_password: password,
-        }),
+      const response = await authApi.register({
+        user_name: username,
+        user_email: email,
+        user_password: password,
       });
 
       const data = await response.json();

@@ -132,14 +132,6 @@ const Home = () => {
           <h2 className="text-4xl text-slate-800 mb-6 text-center max-w-2xl font-light">
             You have successfully authenticated.
           </h2>
-
-          <p className="text-slate-500 mb-12 max-w-lg text-center font-medium">
-            Dự án tối ưu hóa với hiệu ứng{" "}
-            <span className="text-blue-600">3D Mouse Parallax</span> và{" "}
-            <span className="text-indigo-600">GPU Acceleration</span>. Vẽ quy
-            trình nghiệp vụ như thể nó trôi nổi trong không gian.
-          </p>
-
           <div className="flex gap-4 pointer-events-auto">
             <Link
               to="/DrawDiagram"
