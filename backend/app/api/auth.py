@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
-from app.database import get_session
+from app.database.session import get_db
 from app.models import User, UserAuthen
 from app.schemas import UserCreate, Token, GoogleLoginRequest
 from app.core.security import get_password_hash , create_access_token, verify_password
@@ -15,7 +15,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 #api đăng ký 
 @router.post("/register", response_model=Token)
-async def register(User_in: UserCreate, session: AsyncSession= Depends(get_session)):
+async def register(User_in: UserCreate, session: AsyncSession= Depends(get_db)):
     statement = select(User).where(User.user_email == User_in.user_email)
     result = await session.exec(statement)
     if result.first():
@@ -37,7 +37,7 @@ async def register(User_in: UserCreate, session: AsyncSession= Depends(get_sessi
 
 #api đăng nhập
 @router.post("/login", response_model=Token)
-async def login( form_data: OAuth2PasswordRequestForm = Depends(), session: AsyncSession = Depends(get_session)):
+async def login( form_data: OAuth2PasswordRequestForm = Depends(), session: AsyncSession = Depends(get_db)):
     statement = select(User).where(User.user_email == form_data.username)
     result = await session.exec(statement)
     user = result.first()
@@ -60,7 +60,7 @@ async def login( form_data: OAuth2PasswordRequestForm = Depends(), session: Asyn
 
 # api đăng nhập bằng Google
 @router.post("/google", response_model=Token)
-async def google_login(request: GoogleLoginRequest, session: AsyncSession = Depends(get_session)):
+async def google_login(request: GoogleLoginRequest, session: AsyncSession = Depends(get_db)):
     try:
         # Verify Google token
         client_id = getattr(settings, "GOOGLE_CLIENT_ID", None)

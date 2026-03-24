@@ -5,7 +5,7 @@
 from fastapi import APIRouter , Query, UploadFile, File, Depends, HTTPException
 from app.services.ai_service import ai_service
 from sqlmodel.ext.asyncio.session import AsyncSession
-from app.database import get_session
+from app.database.session import get_db
 from app.models import Diagram
 from pydantic import BaseModel
 from app.schemas import DiagramSaveRequest
@@ -82,7 +82,7 @@ async def generate_flow_from_image(file: UploadFile = File(...)):
 
 #api lưu sơ đò
 @router.post("/save-diagram")
-async def save_diagram(data: DiagramSaveRequest, session: AsyncSession = Depends(get_session)): 
+async def save_diagram(data: DiagramSaveRequest, session: AsyncSession = Depends(get_db)): 
    try:
     new_diagram = Diagram(
         title= data.title,

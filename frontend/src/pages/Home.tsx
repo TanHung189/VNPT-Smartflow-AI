@@ -101,7 +101,6 @@ const Home = () => {
     <div className="w-full min-h-screen overflow-x-hidden bg-slate-50 relative font-sans scroll-smooth">
       <Navbar />
 
-      {/* Section 1: Hero - Mở màn bùng nổ */}
       <section className="relative min-h-screen flex items-center justify-center pt-24 pb-16 px-6 z-10 w-full bg-white overflow-hidden">
         {/* 3D Particle Container */}
         <div

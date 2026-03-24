@@ -1,9 +1,9 @@
 import os
 from dotenv import load_dotenv
-from sqlmodel import SQLModel
 from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import sessionmaker
+from app.database.base import Base
 
 load_dotenv()
 
@@ -13,10 +13,10 @@ engine = create_async_engine(DB_URL, echo=True)
 
 async def init_db():
     async with engine.begin() as conn:
-        # Tự động tạo bảng nếu chưa có trong pgAdmin 4
-        await conn.run_sync(SQLModel.metadata.create_all)
+        # Tự động tạo bảng nếu chưa có
+        await conn.run_sync(Base.metadata.create_all)
 
-async def get_session():
+async def get_db():
     async_session = sessionmaker(
         engine, class_=AsyncSession, expire_on_commit=False
     )
