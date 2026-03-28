@@ -34,12 +34,9 @@ class AIService:
         try:
             api_key = settings.GEMINI_API_KEYS[self.current_key_index]
             genai.configure(api_key=api_key)
-            # Dùng gemini-1.5-flash để hỗ trợ Vision đa phương thức
+
             model = genai.GenerativeModel('gemini-1.5-flash')
             
-            # PROMPT CHUYÊN GIA: Ép AI nhận diện quy trình từ ảnh (được comment chi tiết cho giáo viên chấm)
-            # - Mục tiêu: Nhận diện node, edge và thông tin text.
-            # - Xử lý ảnh mờ: Yêu cầu AI tự đánh giá và ném logic lỗi vào JSON.
             prompt = (
                 f"BẠN LÀ CHUYÊN GIA COMPUTER VISION VÀ SYSTEM ANALYST TẠI VNPT.\n"
                 f"NHIỆM VỤ: Phân tích hình ảnh chứa sơ đồ quy trình nghiệp vụ và trích xuất thành JSON chuẩn React Flow.\n\n"
@@ -63,7 +60,7 @@ class AIService:
             response = model.generate_content(
                 [prompt, image_part],
                 generation_config=genai.types.GenerationConfig(
-                    temperature=0.1, # Nhiệt độ thấp để đảm bảo xuất format chuẩn JSON
+                    temperature=0.1,
                     response_mime_type="application/json",
                 )
             )
