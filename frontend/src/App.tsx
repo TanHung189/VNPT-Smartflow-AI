@@ -7,6 +7,7 @@ import {
 } from "react-router-dom";
 import { ReactFlowProvider } from "@xyflow/react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
+import { AuthProvider } from "./context/AuthContext";
 import "@xyflow/react/dist/style.css";
 
 import Home from "./pages/Home";
@@ -16,43 +17,65 @@ import DrawDiagram from "./pages/DrawDiagram";
 import Login from "./pages/Auth/Login";
 import Register from "./pages/Auth/Register";
 import ProtectedRoute from "./components/ProtectedRouter";
+import DashBoard from "./pages/DashBoard";
 import { GOOGLE_CLIENT_ID } from "./env";
+import AdminDashboard from "./pages/admin/AdminDashboard";
 
-console.log("App Client ID:", GOOGLE_CLIENT_ID);
+// Component Layout cho User để tái sử dụng Navbar/Footer
+const UserLayout = ({ children }: { children: React.ReactNode }) => (
+  <>
+    <Navbar />
+    {children}
+    <Footer />
+  </>
+);
+
 export default function App() {
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID || "missing-client-id"}>
-      <ReactFlowProvider>
-        <Router>
-          <Routes>
-            {/* 1. Nhóm Route CÔNG KHAI: Không có Navbar/Footer (thường là Login/Register) */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            {/* 2. Nhóm Route CÓ NAVBAR/FOOTER: Dùng Layout chung */}
-            <Route
-              path="/*"
-              element={
-                <>
-                  <Navbar />
-                  <Routes>
-                    {/* Trang chủ ai cũng vào được */}
-                    <Route path="/" element={<Home />} />
-                    <Route path="/register" element={<Register />} />
-                    {/* CÁC TRANG CẦN BẢO VỆ (Chỉ vào được khi đã Login) */}
-                    <Route element={<ProtectedRoute />}>
-                      <Route path="/DrawDiagram" element={<DrawDiagram />} />
-                    </Route>
+      <AuthProvider>
+        <ReactFlowProvider>
+          <Router>
+            <Routes>
+              {/* 1. Nhóm KHÔNG có Navbar/Footer (Auth & Admin & Dashboard) */}
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
 
-                    {/* Route dự phòng */}
-                    <Route path="*" element={<Navigate to="/" />} />
-                  </Routes>
-                  <Footer />
-                </>
-              }
-            />
-          </Routes>
-        </Router>
-      </ReactFlowProvider>
+              {/* Protected Routes (Yêu cầu đăng nhập) */}
+              <Route element={<ProtectedRoute />}>
+                {/* Trang Admin: Tách biệt hoàn toàn */}
+                <Route path="/admin/*" element={<AdminDashboard />} />
+                
+                {/* Trang Dashboard chung cho người dùng */}
+                <Route path="/dashboard" element={<DashBoard />} />
+
+                {/* Vẽ sơ đồ - Sử dụng UserLayout */}
+                <Route
+                  path="/DrawDiagram"
+                  element={
+                    <UserLayout>
+                      <DrawDiagram />
+                    </UserLayout>
+                  }
+                />
+              </Route>
+
+              {/* 2. Nhóm CÓ Navbar/Footer cho trang chủ (Guest/User) */}
+              <Route
+                path="/"
+                element={
+                  <UserLayout>
+                    <Home />
+                  </UserLayout>
+                }
+              />
+
+              {/* Route dự phòng - Quay về Home nếu gõ sai đường dẫn */}
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </Router>
+        </ReactFlowProvider>
+      </AuthProvider>
     </GoogleOAuthProvider>
   );
 }

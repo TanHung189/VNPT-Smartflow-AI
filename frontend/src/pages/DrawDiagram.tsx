@@ -149,8 +149,9 @@ const DrawDiagram = () => {
         </div>
 
         {/* Canvas Area - Tích hợp đầy đủ logic */}
-        <div className="flex-1 w-full h-full min-h-0 bg-[#0f172a]">
-          <FlowCanvas
+        <div className="flex-1 relative bg-[#0f172a]">
+          <div className="absolute inset-0">
+            <FlowCanvas
             nodes={nodes}
             edges={edges}
             isGenerating={isGenerating}
@@ -182,7 +183,8 @@ const DrawDiagram = () => {
             deleteSelected={deleteSelected}
             addNoteAtCenter={addNoteAtCenter}
             updateNodeData={updateNodeData}
-          />
+            />
+          </div>
         </div>
       </main>
     </div>

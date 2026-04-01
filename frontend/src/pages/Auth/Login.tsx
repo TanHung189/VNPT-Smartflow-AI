@@ -1,6 +1,7 @@
 import React, { useState, FormEvent } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "../../hooks/useAuth";
+import { useAuthContext } from "../../context/AuthContext";
 import { authApi } from "../../services/authApi";
 import { GoogleLogin } from "@react-oauth/google";
 
@@ -8,12 +9,21 @@ const Login: React.FC = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const { login, loading, error } = useAuth();
+  const { setUser } = useAuthContext();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     const result = await login(email, password);
-    if (result) navigate("/DrawDiagram");
+    if (result && result.user) {
+      // Ensure role exists for testing
+      const userToSet = { ...result.user, role: result.user.role || (email.includes('admin') ? 'admin' : 'user') };
+      setUser(userToSet);
+      localStorage.setItem('user', JSON.stringify(userToSet));
+      
+      if (userToSet.role === 'admin') navigate("/admin");
+      else navigate("/dashboard");
+    }
   };
 
   return (
@@ -105,10 +115,13 @@ const Login: React.FC = () => {
                   const data = await res.json();
                   
                   if (res.ok && data.access_token) {
+                    const userToSet = { ...data.user, role: data.user.role || 'user' };
                     localStorage.setItem("token", data.access_token);
-                    localStorage.setItem("user", JSON.stringify(data.user));
+                    localStorage.setItem("user", JSON.stringify(userToSet));
+                    setUser(userToSet);
                     alert("Đăng nhập Google thành công!");
-                    navigate("/DrawDiagram");
+                    if (userToSet.role === 'admin') navigate("/admin");
+                    else navigate("/dashboard");
                   } else {
                     alert(`Đăng nhập Google thất bại: ${data.detail || "Lỗi không xác định"}`);
                   }

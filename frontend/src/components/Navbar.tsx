@@ -35,8 +35,8 @@ const Navbar = () => {
         isScrolled
           ? "py-3 bg-white/80 backdrop-blur-lg shadow-[0_2px_20px_rgb(0,0,0,0.04)] border-b border-slate-200"
           : isEditor
-          ? "py-3 bg-white border-b border-slate-200"
-          : "py-6 bg-transparent"
+            ? "py-3 bg-white border-b border-slate-200"
+            : "py-6 bg-transparent"
       }`}
     >
       <div className="max-w-7xl mx-auto px-6 lg:px-8 flex items-center justify-between">
@@ -67,6 +67,11 @@ const Navbar = () => {
             to="/DashBoard"
             label="Kho dữ liệu"
             active={location.pathname === "/DashBoard"}
+          />
+          <NavLink
+            to="/admin"
+            label="Admin"
+            active={location.pathname === "/admin"}
           />
         </div>
 
@@ -133,9 +138,7 @@ const NavLink = ({
     {label}
     <span
       className={`absolute -bottom-[6px] left-1/2 -translate-x-1/2 h-[3px] rounded-t-full transition-all duration-300 ${
-        active
-          ? "w-1/2 bg-[#0054a6]"
-          : "w-0 bg-slate-300 group-hover:w-1/3"
+        active ? "w-1/2 bg-[#0054a6]" : "w-0 bg-slate-300 group-hover:w-1/3"
       }`}
     />
   </Link>

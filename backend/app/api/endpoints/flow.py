@@ -15,7 +15,7 @@ import PyPDF2
 import io
 import logging
 
-router = APIRouter(prefix="/api")
+router = APIRouter(tags=["Flow-AI"])
 
 @router.post("/generate-flow")
 async def generate_flow(text: str = Query(..., description="Văn bản quy trình")):

@@ -21,7 +21,7 @@ const getEnv = (craKey: string, viteKey: string, fallback: string) => {
 
 export const env = {
   // Hỗ trợ cả 2 môi trường Webpack và Vite
-  API_BASE_URL: getEnv('REACT_APP_API_BASE_URL', 'VITE_API_BASE_URL', 'http://127.0.0.1:8000/api'),
+  API_BASE_URL: getEnv('REACT_APP_API_BASE_URL', 'VITE_API_BASE_URL', 'http://127.0.0.1:8000'),
   
   // Hardcode fallback an toàn cho public Client ID vì Frontend không cần giấu Client ID
   GOOGLE_CLIENT_ID: getEnv('REACT_APP_GOOGLE_CLIENT_ID', 'VITE_GOOGLE_CLIENT_ID', '1089169398506-4hgs32j24larko51ok6dsc4rk4016b07.apps.googleusercontent.com')
