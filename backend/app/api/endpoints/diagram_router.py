@@ -36,6 +36,8 @@ from app.api.dependency import get_current_user
 # -----------------------------------------------------------
 # Khởi tạo logger và router
 # -----------------------------------------------------------
+from sqlalchemy import select, update as sql_update
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter(
@@ -284,4 +286,80 @@ async def delete_diagram(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Lỗi khi xóa sơ đồ.",
+        )
+
+
+# ==============================================================
+# PATCH /diagrams/{diagram_id}/rename — Đổi tên nhẹ (chỉ title)
+# ==============================================================
+
+from pydantic import BaseModel
+class RenameRequest(BaseModel):
+    tieu_de: str
+
+@router.patch(
+    "/{diagram_id}/rename",
+    summary="Đổi tên sơ đồ (title-only PATCH)",
+    description=(
+        "Cập nhật chỉ trường tieu_de mà không cần gửi lại toàn bộ flow_data. "
+        "Tự động xóa Redis cache sau khi ghi thành công."
+    ),
+)
+async def rename_diagram(
+    diagram_id: uuid.UUID,
+    body: RenameRequest,
+    current_user: NguoiDung = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    """Đổi tên sơ đồ — nhẹ hơn PUT vì không cần truyền lại flow_data."""
+    from app.models.diagram import SoDo
+    from app.core.redis import redis_client
+    import json, datetime
+
+    user_id_str = str(current_user.id_nguoi_dung)
+    diagram_id_str = str(diagram_id)
+
+    logger.info(f"[DiagramRouter] PATCH /diagrams/{diagram_id}/rename — user={user_id_str}, tieu_de='{body.tieu_de}'")
+
+    try:
+        # Lấy sơ đồ, kiểm tra quyền sở hữu
+        from sqlalchemy import select as sa_select, update as sa_update
+        from datetime import datetime as dt
+
+        result = await session.execute(
+            sa_select(SoDo).where(
+                SoDo.id_so_do == diagram_id,
+                SoDo.id_chu_so_huu == current_user.id_nguoi_dung,
+            )
+        )
+        diagram = result.scalar_one_or_none()
+        if not diagram:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Không tìm thấy sơ đồ hoặc bạn không có quyền.",
+            )
+
+        # Cập nhật chỉ tieu_de
+        diagram.tieu_de = body.tieu_de
+        diagram.ngay_cap_nhat = dt.utcnow()
+        session.add(diagram)
+        await session.commit()
+
+        # Xóa Redis cache
+        try:
+            await redis_client.delete(f"diag_list:{user_id_str}")
+            await redis_client.delete(f"diag_one:{user_id_str}:{diagram_id_str}")
+        except Exception:
+            pass  # Cache miss không phải lỗi nghiêm trọng
+
+        logger.info(f"[DiagramRouter] Đổi tên thành công — diagram_id={diagram_id}")
+        return {"result": "SUCCESS", "tieu_de": body.tieu_de}
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[DiagramRouter] Lỗi PATCH rename/{diagram_id}: {e}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Lỗi khi đổi tên sơ đồ.",
         )

@@ -8,6 +8,7 @@ import {
   type Edge,
 } from "@xyflow/react";
 import dagre from "@dagrejs/dagre";
+import { toast } from "sonner";
 import { diagramApi } from "../services/diagramApi";
 
 const getLayoutedElements = (
@@ -197,26 +198,23 @@ export const useFlowLogic = () => {
 
         if (resData.result === "SUCCESS") {
           const normalized = normalizeGraph(resData.data);
-          console.log("Dữ liệu normalized:", normalized);
 
           if (!normalized.nodes || normalized.nodes.length === 0) {
-            alert("AI trả về dữ liệu không hợp lệ. Vui lòng thử lại với prompt chi tiết hơn.");
-            // Stop processing if empty, wait, the user asked to alert but if we return empty the node fallback from backend might be ignored.
-            // Actually, backend now returns a default node so length won't be 0, but this handles front-end safety.
+            toast.warning("AI trả về sơ đồ trống. Hãy thử lại với prompt chi tiết hơn.");
+          } else {
+            const { nodes: lNodes, edges: lEdges } = getLayoutedElements(
+              normalized.nodes,
+              normalized.edges,
+            );
+            setNodes(lNodes as Node[]);
+            setEdges(lEdges as Edge[]);
+            setTimeout(takeSnapshot, 100);
           }
-
-          const { nodes: lNodes, edges: lEdges } = getLayoutedElements(
-            normalized.nodes,
-            normalized.edges,
-          );
-          setNodes(lNodes as Node[]);
-          setEdges(lEdges as Edge[]);
-          // Lưu lịch sử sau khi AI tạo xong
-          setTimeout(takeSnapshot, 100);
+        } else {
+          toast.error(resData.message || "AI không thể tạo sơ đồ. Vui lòng thử lại.");
         }
-      } catch (error) {
-        console.error(error);
-        // Có thể thêm toast thông báo lỗi ở đây nếu cần
+      } catch (error: any) {
+        toast.error(`Lỗi kết nối AI: ${error?.message || "Không thể kết nối tới backend."}`);
       } finally {
         setIsGenerating(false);
       }
@@ -243,9 +241,11 @@ export const useFlowLogic = () => {
           setNodes(lNodes as Node[]);
           setEdges(lEdges as Edge[]);
           setTimeout(takeSnapshot, 100);
+        } else {
+          toast.error(resData.message || "Không thể phân tích file. Vui lòng thử lại.");
         }
-      } catch (error) {
-        alert("Lỗi kết nối!");
+      } catch (error: any) {
+        toast.error(`Lỗi tải file: ${error?.message || "Không thể kết nối tới backend."}`);
       } finally {
         setIsGenerating(false);
       }

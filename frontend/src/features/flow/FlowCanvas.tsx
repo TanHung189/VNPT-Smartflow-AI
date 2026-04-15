@@ -454,13 +454,6 @@ const FlowContent = ({
   );
 };
 
-// 6. COMPONENT EXPORT (BẮT BUỘC CÓ PROVIDER)
-const FlowCanvas = (props: any) => {
-  return (
-    <ReactFlowProvider>
-      <FlowContent {...props} />
-    </ReactFlowProvider>
-  );
-};
-
-export default FlowCanvas;
+// Export FlowContent directly — ReactFlowProvider is already at App.tsx root level.
+// Removing the inner Provider eliminates redundant context initialization.
+export default FlowContent as React.FC<any>;

@@ -137,11 +137,26 @@ export const diagramApi = {
   },
 
   /**
+   * Đổi tên sơ đồ (PATCH nhẹ — chỉ cập nhật title, không gửi lại flow_data).
+   * PATCH /diagrams/{id}/rename
+   */
+  rename: async (idSoDo: string, newTitle: string, token: string | null): Promise<{ result: string }> => {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    const response = await fetch(`${API_URL}/diagrams/${idSoDo}/rename`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ tieu_de: newTitle }),
+    });
+    return response.json();
+  },
+
+  /**
    * Tạo sơ đồ từ văn bản bằng mô hình AI.
    * POST /api/ai/generate/text
    */
   generateFlowText: async (text: string, provider: string) => {
-    return fetch("http://127.0.0.1:8000/api/ai/generate/text", {
+    return fetch(`${API_URL}/ai/generate/text`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text, provider }),
@@ -149,11 +164,11 @@ export const diagramApi = {
   },
 
   /**
-   * Upload và phân tích ảnh sơ đồ bằng AI.
+   * Upload và phân tích file/ảnh sơ đồ bằng AI.
    * POST /api/ai/upload-process
    */
   uploadProcessImage: async (formData: FormData) => {
-    return await fetch("http://127.0.0.1:8000/api/ai/upload-process", {
+    return await fetch(`${API_URL}/ai/upload-process`, {
       method: "POST",
       body: formData,
     });

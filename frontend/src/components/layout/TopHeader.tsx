@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Clock, Save, Image as ImageIcon, Menu, ChevronLeft } from "lucide-react";
+import React from "react";
+import { Clock, Save, Image as ImageIcon, ChevronLeft } from "lucide-react";
 import { HistoryDrawer } from "../../features/chat/HistoryDrawer";
 import { useNavigate } from "react-router-dom";
 
@@ -8,6 +8,9 @@ interface TopHeaderProps {
   isGenerating: boolean;
   handleSave: () => void;
   handleExportPNG: () => void;
+  diagramTitle: string;
+  onRename: (title: string) => void;
+  onLoadDiagram: (id: string, flowData?: any) => void;
 }
 
 export const TopHeader: React.FC<TopHeaderProps> = ({
@@ -15,17 +18,19 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   isGenerating,
   handleSave,
   handleExportPNG,
+  diagramTitle,
+  onRename,
+  onLoadDiagram,
 }) => {
   const navigate = useNavigate();
-  const [diagramTitle, setDiagramTitle] = useState("VNPT SmartFlow Workspace");
 
   return (
     <header className="fixed top-0 left-0 w-full h-14 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 z-[60] flex items-center justify-between px-4 transition-colors">
-      {/* ─── CỤM TRÁI: Main Menu, Go Back & Title ─── */}
+      {/* ─── CỤM TRÁI: Menu, Go Back & Title ─── */}
       <div className="flex items-center gap-3">
         {/* Lịch sử Sơ đồ (History Drawer) */}
-        <HistoryDrawer onLoadDiagram={(id) => console.log("Tải diagram", id)} />
-        
+        <HistoryDrawer onLoadDiagram={onLoadDiagram} />
+
         {/* Nút quay lại Dashboard */}
         <button
           onClick={() => navigate("/dashboard")}
@@ -35,11 +40,11 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           <ChevronLeft className="w-5 h-5" />
         </button>
 
-        {/* Input Rename Diagram (Miro style) */}
+        {/* Inline rename — cập nhật ngay lập tức */}
         <input
           type="text"
           value={diagramTitle}
-          onChange={(e) => setDiagramTitle(e.target.value)}
+          onChange={(e) => onRename(e.target.value)}
           className="font-bold text-slate-800 dark:text-slate-100 text-base md:text-lg tracking-tight bg-transparent border-2 border-transparent hover:border-slate-200 focus:border-[#0066cc] focus:bg-white rounded-lg px-3 py-1 outline-none transition-all w-48 sm:w-64 md:w-80 truncate"
           placeholder="Nhập tên luồng..."
         />

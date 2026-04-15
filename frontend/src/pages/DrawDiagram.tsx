@@ -1,6 +1,7 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { getNodesBounds, getViewportForBounds } from "@xyflow/react";
 import { toPng } from "html-to-image";
+import { toast } from "sonner";
 
 import { useFlowLogic } from "../hooks/useFlowLogic";
 import FlowCanvas from "../features/flow/FlowCanvas";
@@ -18,17 +19,6 @@ interface StrokeData {
   size: number;
 }
 
-interface SaveDiagramPayload {
-  tieu_de: string;
-  la_noi_bo: boolean;
-  du_lieu_so_do: {
-    nodes: any[];
-    edges: any[];
-    strokes: StrokeData[];
-  };
-  van_ban_dau_vao: string;
-}
-
 const getAuthToken = (): string | null => {
   return localStorage.getItem("token");
 };
@@ -37,6 +27,10 @@ const DrawDiagram = () => {
   const [provider, setProvider] = useState<"gemini" | "ollama">("gemini");
   const [lastSavedTime, setLastSavedTime] = useState<string>("Bản nháp");
   const [aiSidebarOpen, setAiSidebarOpen] = useState(false);
+  // Lưu ID sơ đồ sau khi save lần đầu → dùng PATCH cho auto-save tiếp theo
+  const [currentDiagramId, setCurrentDiagramId] = useState<string | null>(null);
+  // Tiêu đề sơ đồ — được chia sẻ giữa DrawDiagram & TopHeader
+  const [diagramTitle, setDiagramTitle] = useState<string>("VNPT SmartFlow Workspace");
 
   const {
     nodes,
@@ -74,48 +68,101 @@ const DrawDiagram = () => {
     updateNodeData,
   } = useFlowLogic();
 
+  // ─────────────────── LOAD DIAGRAM FROM HISTORY ───────────────────
+  const handleLoadDiagram = useCallback((id: string, flowData?: any) => {
+    if (!flowData) return;
+    const loadedNodes = flowData.nodes ?? [];
+    const loadedEdges = flowData.edges ?? [];
+    const loadedStrokes = flowData.strokes ?? [];
+    setNodes(loadedNodes);
+    setEdges(loadedEdges);
+    // strokes are internal to useFlowLogic — trigger via clearStrokes + addStroke not available here,
+    // but we pass the id and title back to state so the next save will do a PUT
+    setCurrentDiagramId(id);
+    setTimeout(takeSnapshot, 100);
+    toast.success("Đã tải sơ đồ lên canvas thành công!");
+  }, [setNodes, setEdges, takeSnapshot]);
+
   const handleGenerate = (text: string, provider: "gemini" | "ollama") => {
     generateFlow(text, provider);
   };
 
-  const prepareDiagramData = (): SaveDiagramPayload => {
-    return {
-      tieu_de: "Quy trình VNPT mới",
-      la_noi_bo: provider === "ollama",
-      du_lieu_so_do: {
-        nodes,
-        edges,
-        strokes: strokes as StrokeData[],
-      },
-      van_ban_dau_vao: "AI generated",
-    };
-  };
+  const buildDiagramPayload = () => ({
+    tieu_de: diagramTitle,
+    la_noi_bo: provider === "ollama",
+    du_lieu_so_do: {
+      nodes,
+      edges,
+      strokes: strokes as StrokeData[],
+    },
+    van_ban_dau_vao: "AI generated",
+  });
 
-  const handleSave = async () => {
+  // ─────────────────── SAVE / UPDATE ───────────────────
+  const handleSave = useCallback(async () => {
     const token = getAuthToken();
     if (!token) {
-      alert("Bạn cần đăng nhập để có thể lưu sơ đồ!");
+      toast.error("Bạn cần đăng nhập để lưu sơ đồ!");
       return;
     }
+    if (nodes.length === 0) {
+      toast.warning("Sơ đồ đang trống, chưa có gì để lưu.");
+      return;
+    }
+
+    const payload = buildDiagramPayload();
+
     try {
-      const diagramData = prepareDiagramData();
-      const result = await diagramApi.save(diagramData as any, token);
-      if (result.id_so_do) {
-        setLastSavedTime(
-          `Đã lưu lúc ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`,
-        );
+      let result: any;
+
+      if (currentDiagramId) {
+        // Đã có sơ đồ → cập nhật (PUT)
+        result = await diagramApi.update(currentDiagramId, payload as any, token);
+        if (result?.id_so_do) {
+          const savedAt = new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+          setLastSavedTime(`Đã lưu lúc ${savedAt}`);
+          toast.success("Cập nhật sơ đồ thành công!");
+        } else {
+          toast.error(result?.message || "Cập nhật không thành công.");
+        }
       } else {
-        alert(`Lưu không thành công: ${result.message || "Lỗi không xác định"}`);
+        // Chưa có → tạo mới (POST)
+        result = await diagramApi.save(payload as any, token);
+        if (result?.id_so_do) {
+          setCurrentDiagramId(result.id_so_do);
+          const savedAt = new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+          setLastSavedTime(`Đã lưu lúc ${savedAt}`);
+          toast.success("Lưu sơ đồ thành công!");
+        } else {
+          toast.error(result?.message || "Lưu không thành công.");
+        }
       }
     } catch (error) {
-      console.error("Lỗi kết nối API:", error);
-      alert("Không thể kết nối tới backend, hãy kiểm tra lại server.");
+      toast.error("Không thể kết nối tới backend. Hãy kiểm tra lại server.");
     }
-  };
+  }, [nodes, edges, strokes, diagramTitle, provider, currentDiagramId]);
 
+  // ─────────────────── RENAME via PATCH ───────────────────
+  const handleRename = useCallback(async (newTitle: string) => {
+    setDiagramTitle(newTitle);
+    if (!currentDiagramId) return; // Chưa lưu, không PATCH
+    const token = getAuthToken();
+    if (!token) return;
+    try {
+      await diagramApi.update(
+        currentDiagramId,
+        { tieu_de: newTitle, du_lieu_so_do: { nodes, edges, strokes }, la_noi_bo: provider === "ollama" } as any,
+        token,
+      );
+    } catch (_) {
+      // Silent — rename không block UX
+    }
+  }, [currentDiagramId, nodes, edges, strokes, provider]);
+
+  // ─────────────────── EXPORT PNG ───────────────────
   const handleExportPNG = async () => {
     if (nodes.length === 0) {
-      alert("Không có sơ đồ để xuất ảnh!");
+      toast.warning("Không có sơ đồ để xuất ảnh!");
       return;
     }
     const nodesBounds = getNodesBounds(nodes);
@@ -145,9 +192,9 @@ const DrawDiagram = () => {
         link.download = `VNPT-QuyTrinh-${Date.now()}.png`;
         link.href = dataUrl;
         link.click();
+        toast.success("Xuất PNG thành công!");
       } catch (error) {
-        console.error("Lỗi khi xuất ảnh:", error);
-        alert("Có lỗi xảy ra khi xuất ảnh.");
+        toast.error("Có lỗi xảy ra khi xuất ảnh.");
       }
     }
   };
@@ -165,7 +212,7 @@ const DrawDiagram = () => {
         <FlowCanvas
           nodes={nodes}
           edges={edges}
-          isGenerating={false} // Loading handled implicitly inside the flow via skeletons if needed
+          isGenerating={false}
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           drawMode={drawMode}
@@ -233,7 +280,6 @@ const DrawDiagram = () => {
       />
 
       {/* ─── LAYER 3: AI SIDEBAR LEFT (z-50) ─── */}
-      {/* Nằm dưới TopHeader nên có padding top 14 bên trong component */}
       <div className="absolute top-14 left-0 bottom-0 z-[50] pointer-events-none">
          <div className="h-full pointer-events-auto">
            <AiSidebarLeft
@@ -254,6 +300,9 @@ const DrawDiagram = () => {
         isGenerating={isGenerating}
         handleSave={handleSave}
         handleExportPNG={handleExportPNG}
+        diagramTitle={diagramTitle}
+        onRename={handleRename}
+        onLoadDiagram={handleLoadDiagram}
       />
 
     </div>
