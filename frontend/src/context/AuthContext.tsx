@@ -1,11 +1,17 @@
-import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import React, { createContext, useContext, useState, ReactNode } from "react";
 
 export interface User {
+  id_nguoi_dung?: string;    // UUID người dùng (khớp với cột id_nguoi_dung)
+  ten_nguoi_dung?: string;   // Họ tên đầy đủ (khớp với cột ten_nguoi_dung)
+  email?: string;            // Địa chỉ email
+  // Tên vai trò: 'quan_tri' = Admin, 'nhan_vien' = Nhân viên
+  ten_vai_tro?: 'quan_tri' | 'nhan_vien';
+  anh_dai_dien?: string;     // URL ảnh đại diện
+  id_vai_tro?: number;       // Mã vai trò (FK → vai_tro)
+  // Giữ lại các alias cũ để tránh lỗi cho code chưa cập nhật
   id?: string;
-  user_name?: string; // from backend
-  name?: string; // from google
-  email?: string;
-  role?: 'admin' | 'user';
+  name?: string;
+  role?: 'admin' | 'user' | 'quan_tri' | 'nhan_vien';
   avatar?: string;
 }
 

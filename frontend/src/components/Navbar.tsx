@@ -24,6 +24,8 @@ const Navbar = () => {
   const isEditor =
     location.pathname === "/DrawDiagram" || location.pathname === "/editor";
 
+  if (isEditor) return null;
+
   const handleLogout = () => {
     logout();
     navigate("/login");

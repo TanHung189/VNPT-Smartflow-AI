@@ -1,47 +1,83 @@
-from fastapi import Depends, HTTPException, status             # Các công cụ hỗ trợ của FastAPI
-from fastapi.security import OAuth2PasswordBearer             # Công cụ lấy Token từ Header
-from jose import jwt, JWTError                                # Thư viện xử lý JWT
-from sqlalchemy.ext.asyncio import AsyncSession               # Kiểu dữ liệu session bất đồng bộ
-from app.database import get_session                                # Hàm lấy kết nối Database
-from app.models import User                                   # Model người dùng
-from app.core.config import Settings        # Các cấu hình bảo mật đã tạo
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
+from jose import jwt, JWTError
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
+from app.database.session import get_db
+from app.models import NguoiDung
+from app.core.config import Settings
 import uuid
 
-# Khai báo đường dẫn mà FastAPI sẽ tìm Token (mặc định là ở Header Authorization)
+# Khai báo endpoint để FastAPI lấy Bearer Token từ Header Authorization
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/login")
 
+
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),                      # Lấy token từ Header gửi lên
-    session: AsyncSession = Depends(get_session)              # Lấy kết nối Database
-) -> User:
+    token: str = Depends(oauth2_scheme),
+    session: AsyncSession = Depends(get_db)
+) -> NguoiDung:
     """
-    Hàm này dùng để kiểm tra Token và trả về thông tin User hiện tại.
+    Dependency: Giải mã JWT và trả về đối tượng NguoiDung hiện tại.
+    Ném HTTP 401 nếu token không hợp lệ hoặc người dùng không tồn tại.
     """
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Không thể xác thực thông tin đăng nhập",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     try:
-        # 1. Giải mã Token bằng SECRET_KEY và thuật toán đã chọn
+        # Giải mã token bằng SECRET_KEY đã cấu hình
         payload = jwt.decode(token, Settings.JWT_SECRET_KEY, algorithms=[Settings.ALGORITHM])
-        
-        # 2. Lấy user_id (được lưu trong trường 'sub' của token)
-        user_id: str = payload.get("sub")
-        if user_id is None:
+
+        # Lấy id_nguoi_dung từ trường 'sub' trong payload
+        user_id_str: str = payload.get("sub")
+        if user_id_str is None:
             raise credentials_exception
-            
-    except JWTError: # Nếu Token bị sai, hết hạn hoặc bị hack
+
+    except JWTError:
+        # Token hết hạn, sai chữ ký hoặc bị giả mạo
         raise credentials_exception
-        
-    # 3. Tìm User trong Database dựa trên ID từ Token
-    from sqlmodel import select
-    statement = select(User).where(User.user_id == uuid.UUID(user_id))
+
+    # Truy vấn người dùng theo id_nguoi_dung (UUID)
+    # Lọc thêm ngay_xoa IS NULL để không trả về tài khoản đã bị xóa mềm
+    statement = select(NguoiDung).where(
+        NguoiDung.id_nguoi_dung == uuid.UUID(user_id_str),
+        NguoiDung.ngay_xoa == None  # noqa: E711 — SQLAlchemy yêu cầu so sánh với None
+    )
     result = await session.exec(statement)
     user = result.first()
-    
+
     if user is None:
         raise credentials_exception
-        
-    return user # Trả về đối tượng User để API sử dụng
+
+    return user  # Trả về đối tượng NguoiDung để các endpoint sử dụng
+
+
+async def get_current_admin(current_user: NguoiDung = Depends(get_current_user)) -> NguoiDung:
+    """
+    Dependency: Kiểm tra người dùng có vai trò 'quan_tri' (Quản trị viên).
+    Ném HTTP 403 nếu không đủ quyền.
+    """
+    if (
+        current_user.vai_tro is None
+        or current_user.vai_tro.ten_vai_tro != "quan_tri"
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn cần quyền Quản trị viên (quan_tri) để thực hiện thao tác này.",
+        )
+    return current_user
+
+
+async def get_current_nhan_vien(current_user: NguoiDung = Depends(get_current_user)) -> NguoiDung:
+    """
+    Dependency: Kiểm tra người dùng có ít nhất vai trò 'nhan_vien'.
+    Cho phép cả 'nhan_vien' lẫn 'quan_tri' truy cập.
+    """
+    if current_user.vai_tro is None or current_user.vai_tro.ten_vai_tro not in ["nhan_vien", "quan_tri"]:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền truy cập tính năng này.",
+        )
+    return current_user

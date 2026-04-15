@@ -11,8 +11,6 @@ import { AuthProvider } from "./context/AuthContext";
 import "@xyflow/react/dist/style.css";
 
 import Home from "./pages/Home";
-import Navbar from "./components/Navbar";
-import Footer from "./components/Footer";
 import DrawDiagram from "./pages/DrawDiagram";
 import Login from "./pages/Auth/Login";
 import Register from "./pages/Auth/Register";
@@ -21,15 +19,6 @@ import DashBoard from "./pages/DashBoard";
 import { GOOGLE_CLIENT_ID } from "./env";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 
-// Component Layout cho User để tái sử dụng Navbar/Footer
-const UserLayout = ({ children }: { children: React.ReactNode }) => (
-  <>
-    <Navbar />
-    {children}
-    <Footer />
-  </>
-);
-
 export default function App() {
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID || "missing-client-id"}>
@@ -37,38 +26,22 @@ export default function App() {
         <ReactFlowProvider>
           <Router>
             <Routes>
-              {/* 1. Nhóm KHÔNG có Navbar/Footer (Auth & Admin & Dashboard) */}
+              {/* 1. Nhóm Guest Routes */}
+              <Route path="/" element={<Home />} />
               <Route path="/login" element={<Login />} />
               <Route path="/register" element={<Register />} />
 
-              {/* Protected Routes (Yêu cầu đăng nhập) */}
+              {/* 2. Nhóm Protected Routes (Yêu cầu đăng nhập) */}
               <Route element={<ProtectedRoute />}>
-                {/* Trang Admin: Tách biệt hoàn toàn */}
-                <Route path="/admin/*" element={<AdminDashboard />} />
-                
-                {/* Trang Dashboard chung cho người dùng */}
+                {/* Trang Dashboard chung cho người dùng (Miro Grid clone) */}
                 <Route path="/dashboard" element={<DashBoard />} />
 
-                {/* Vẽ sơ đồ - Sử dụng UserLayout */}
-                <Route
-                  path="/DrawDiagram"
-                  element={
-                    <UserLayout>
-                      <DrawDiagram />
-                    </UserLayout>
-                  }
-                />
-              </Route>
+                {/* Vẽ sơ đồ - Full màn hình, không Navbar ngoài */}
+                <Route path="/DrawDiagram" element={<DrawDiagram />} />
 
-              {/* 2. Nhóm CÓ Navbar/Footer cho trang chủ (Guest/User) */}
-              <Route
-                path="/"
-                element={
-                  <UserLayout>
-                    <Home />
-                  </UserLayout>
-                }
-              />
+                {/* Trang Admin: Tách biệt */}
+                <Route path="/admin/*" element={<AdminDashboard />} />
+              </Route>
 
               {/* Route dự phòng - Quay về Home nếu gõ sai đường dẫn */}
               <Route path="*" element={<Navigate to="/" />} />

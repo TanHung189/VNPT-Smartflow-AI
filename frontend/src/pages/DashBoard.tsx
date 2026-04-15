@@ -1,111 +1,254 @@
-import React from "react";
+import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthContext } from "../context/AuthContext";
-import { PlusCircle, FolderOpen, Settings, Home, LogOut, User as UserIcon } from "lucide-react";
+import {
+  Search,
+  Home,
+  Clock,
+  Star,
+  Plus,
+  Gift,
+  Bell,
+  MoreVertical,
+  LayoutGrid,
+  List,
+  FolderOpen,
+  Sparkles
+} from "lucide-react";
+
+const templates = [
+  { id: "blank", name: "Blank board", icon: <Plus className="w-8 h-8 text-slate-400" /> },
+  { id: "ai", name: "AI Playground", isAi: true },
+  { id: "retro", name: "Retrospective", color: "bg-orange-100" },
+  { id: "kanban", name: "Kanban Framework", color: "bg-blue-100" },
+  { id: "sequence", name: "UML Sequence", color: "bg-purple-100" },
+];
 
 const DashBoard: React.FC = () => {
   const { user, logout } = useAuthContext();
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState("Home");
 
-  // Safety fallback if no user
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-gray-500">Đang tải thông tin người dùng...</p>
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
       </div>
     );
   }
 
-  const isAdmin = user.role === 'admin';
-
   return (
-    <div className="min-h-screen bg-[#F3F4F6] p-6 md:p-12 font-sans">
-      <div className="max-w-6xl mx-auto">
-        
-        {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between bg-white rounded-3xl p-8 shadow-sm border border-gray-100 mb-8 gap-6">
-          <div className="flex items-center gap-5">
-            <img 
-              src={user.avatar || `https://ui-avatars.com/api/?name=${user.name || user.user_name || 'User'}&background=005A9C&color=fff`} 
-              alt="Avatar" 
-              className="w-16 h-16 rounded-full border-4 border-blue-50 shadow-sm"
-            />
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900 leading-tight">
-                Xin chào, {user.name || user.user_name || 'Người dùng'} 👋
-              </h1>
-              <p className="text-[#005A9C] font-semibold mt-1 bg-blue-50 px-3 py-1 rounded-full w-fit text-sm flex items-center gap-1.5">
-                <UserIcon className="w-4 h-4" />
-                Vai trò: {isAdmin ? 'Quản trị viên (Admin)' : 'Người dùng (User)'}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-4">
-            <button 
-              onClick={() => navigate("/")}
-              className="flex items-center justify-center gap-2 px-6 py-3 bg-white border-2 border-gray-200 text-gray-700 font-semibold rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-all shadow-sm w-full md:w-auto"
-            >
-              <Home className="w-5 h-5" />
-              Quay lại Home
-            </button>
-            <button 
-              onClick={logout}
-              className="flex items-center justify-center gap-2 px-6 py-3 bg-white border-2 border-red-100 text-red-600 font-semibold rounded-xl hover:bg-red-50 hover:border-red-200 transition-all shadow-sm w-full md:w-auto"
-            >
-              <LogOut className="w-5 h-5" />
-              Đăng xuất
-            </button>
-          </div>
-        </div>
-
-        {/* Quick Actions Grid */}
-        <h2 className="text-lg font-bold text-gray-800 mb-6 px-2">Lối tắt chức năng</h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          
-          {/* Default User Buttons */}
-          <button 
-            onClick={() => navigate("/DrawDiagram")}
-            className="group relative bg-white p-8 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-left overflow-hidden"
-          >
-            <div className="absolute top-0 left-0 w-1.5 h-full bg-[#005A9C] rounded-l-3xl"></div>
-            <div className="w-14 h-14 rounded-2xl bg-blue-50 text-[#005A9C] flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-              <PlusCircle className="w-7 h-7" />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Tạo phiên Canvas mới</h3>
-            <p className="text-gray-500 text-sm leading-relaxed">Bắt đầu vẽ và thiết kế sơ đồ quy trình AI thông minh lập tức.</p>
-          </button>
-
-          <button 
-            onClick={() => alert("Đang phát triển!")}
-            className="group relative bg-white p-8 rounded-3xl shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 text-left overflow-hidden"
-          >
-            <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500 rounded-l-3xl opacity-0 group-hover:opacity-100 transition-opacity"></div>
-            <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-              <FolderOpen className="w-7 h-7" />
-            </div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Quy trình của tôi</h3>
-            <p className="text-gray-500 text-sm leading-relaxed">Xem lại danh sách các sơ đồ quy trình mà bạn đã tạo và lưu trữ.</p>
-          </button>
-
-          {/* Conditional Admin Button */}
-          {isAdmin && (
-            <button 
-              onClick={() => navigate("/admin")}
-              className="group relative bg-gradient-to-br from-[#005A9C] to-[#004a82] p-8 rounded-3xl shadow-lg border border-transparent hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 text-left overflow-hidden"
-            >
-              <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-2xl"></div>
-              <div className="w-14 h-14 rounded-2xl bg-white/20 text-white flex items-center justify-center mb-6 backdrop-blur-sm group-hover:scale-110 transition-transform shadow-inner">
-                <Settings className="w-7 h-7" />
+    <div className="flex h-screen bg-white font-sans text-slate-800">
+      {/* ─── LEFT SIDEBAR (Miro Style) ─── */}
+      <aside className="w-64 border-r border-slate-200 flex flex-col">
+        {/* Workspace selector / User Profile */}
+        <div className="p-4 border-b border-slate-200">
+          <div className="flex items-center justify-between p-2 hover:bg-slate-50 cursor-pointer rounded-lg transition-colors group">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-emerald-100 text-emerald-700 font-bold rounded flex items-center justify-center text-sm">
+                VN
               </div>
-              <h3 className="text-xl font-bold text-white mb-2 tracking-wide">Quản trị hệ thống</h3>
-              <p className="text-blue-100 text-sm leading-relaxed">Truy cập Admin Dashboard để xem thống kê và quản lý người dùng toàn hệ thống.</p>
+              <div className="overflow-hidden">
+                <p className="text-sm font-bold truncate">VNPT Workspace</p>
+                <p className="text-xs text-slate-500 truncate">
+                  {user.name || user.ten_nguoi_dung || "Người dùng"}
+                </p>
+              </div>
+            </div>
+            <button className="text-slate-400 group-hover:text-slate-600 transition-colors">
+              <Plus className="w-4 h-4" />
             </button>
-          )}
+          </div>
+        </div>
+
+        {/* Search Box */}
+        <div className="p-4">
+          <div className="relative flex items-center bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-100 transition-all">
+            <Search className="w-4 h-4 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by title..."
+              className="bg-transparent border-none outline-none text-sm w-full ml-2 text-slate-700 placeholder:text-slate-400 py-1"
+            />
+          </div>
+        </div>
+
+        {/* Navigation Menu */}
+        <nav className="flex-1 px-3 space-y-1">
+          <button
+            onClick={() => setActiveTab("Home")}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium text-sm transition-colors ${
+              activeTab === "Home"
+                ? "bg-slate-100 text-slate-900"
+                : "text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            <Home className="w-4 h-4" /> Home
+          </button>
+          <button
+            onClick={() => setActiveTab("Recent")}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium text-sm transition-colors ${
+              activeTab === "Recent"
+                ? "bg-slate-100 text-slate-900"
+                : "text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            <Clock className="w-4 h-4" /> Recent
+          </button>
+          <button
+            onClick={() => setActiveTab("Starred")}
+            className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg font-medium text-sm transition-colors ${
+              activeTab === "Starred"
+                ? "bg-slate-100 text-slate-900"
+                : "text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            <Star className="w-4 h-4" /> Starred
+          </button>
+        </nav>
+
+        {/* Spaces & Logout */}
+        <div className="p-4 border-t border-slate-200">
+          <div className="flex items-center justify-between px-1 mb-2">
+            <span className="text-xs font-bold text-slate-800">Spaces</span>
+            <button className="text-slate-400 hover:text-slate-600">
+              <Plus className="w-4 h-4" />
+            </button>
+          </div>
+          <button
+            onClick={logout}
+            className="w-full mt-4 text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-lg font-medium transition-colors"
+          >
+            Sign out
+          </button>
+        </div>
+      </aside>
+
+      {/* ─── MAIN CONTENT ─── */}
+      <main className="flex-1 flex flex-col overflow-auto bg-slate-50/30">
+        
+        {/* Top Navbar */}
+        <header className="h-14 border-b border-slate-200 flex items-center justify-between px-6 bg-white shrink-0">
+          <div className="flex items-center gap-4">
+            <span className="font-black text-xl tracking-tighter">smartflow</span>
+            <span className="px-2 py-0.5 text-[10px] font-bold text-slate-600 bg-slate-100 rounded uppercase">Pro</span>
+          </div>
+          <div className="flex items-center gap-3">
+            <button className="hidden sm:flex text-sm font-semibold text-slate-600 hover:bg-slate-100 px-3 py-1.5 rounded-lg transition-colors gap-2 items-center">
+               Invite members
+            </button>
+            <button className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-4 py-1.5 rounded-lg transition-all shadow-sm">
+               Upgrade
+            </button>
+            <div className="w-[1px] h-6 bg-slate-200 mx-1" />
+            <button className="p-2 text-slate-600 hover:bg-slate-100 rounded-full transition-colors">
+              <Gift className="w-5 h-5" />
+            </button>
+            <button className="p-2 text-slate-600 hover:bg-slate-100 rounded-full transition-colors relative">
+              <Bell className="w-5 h-5" />
+              <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+            </button>
+            <div className="w-8 h-8 rounded-full bg-[#0066cc] text-white flex items-center justify-center font-bold text-xs ml-2 shadow-sm uppercase">
+              {user.name ? user.name.charAt(0) : "U"}
+            </div>
+          </div>
+        </header>
+
+        {/* Dashboard Content */}
+        <div className="flex-1 max-w-6xl w-full mx-auto p-8 lg:px-12 xl:px-16 space-y-12">
+          
+          {/* Templates Section */}
+          <section>
+            <div className="flex items-center gap-2 mb-4">
+              <h2 className="text-lg font-bold text-slate-800">Templates for VNPT Engineering</h2>
+              <button className="text-slate-400 hover:text-slate-600">
+                <MoreVertical className="w-4 h-4 ml-1" />
+              </button>
+            </div>
+            
+            <div className="flex gap-4 overflow-x-auto pb-4 hide-scrollbar">
+              {templates.map((tpl) => (
+                <div key={tpl.id} className="flex-shrink-0 w-48 group">
+                  <div
+                    onClick={() => tpl.id === "blank" || tpl.isAi ? navigate("/DrawDiagram") : null}
+                    className={`h-32 border border-slate-200 rounded-xl mb-3 flex items-center justify-center cursor-pointer transition-all ${
+                      tpl.id === "blank" 
+                       ? "bg-white hover:border-blue-400 hover:shadow-md" 
+                       : tpl.isAi 
+                       ? "bg-slate-50 relative overflow-hidden hover:border-blue-400 hover:shadow-md" 
+                       : `${tpl.color || "bg-white"} hover:opacity-90`
+                    }`}
+                  >
+                     {tpl.icon && tpl.icon}
+                     {tpl.isAi && (
+                       <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
+                         <div className="w-16 h-8 bg-white rounded-md shadow-sm border border-slate-100 mb-2 flex items-center p-1 gap-1">
+                           <div className="w-4 h-4 bg-orange-100 text-orange-600 flex items-center justify-center rounded-[4px]"><Sparkles className="w-2.5 h-2.5"/></div>
+                           <div className="h-1 w-8 bg-slate-200 rounded-full"></div>
+                         </div>
+                         <div className="flex gap-1.5">
+                           <div className="w-5 h-4 bg-purple-100 rounded-sm"></div>
+                           <div className="w-8 h-4 bg-emerald-100 rounded-sm"></div>
+                           <div className="w-4 h-4 bg-blue-100 rounded-sm"></div>
+                         </div>
+                       </div>
+                     )}
+                  </div>
+                  <p className="text-sm font-semibold text-slate-800 text-center flex items-center justify-center gap-1">
+                    {tpl.isAi && <Sparkles className="w-3 h-3 text-[#0066cc]" />}
+                    {tpl.name}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Boards Section */}
+          <section>
+            <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-6 gap-4">
+              <h2 className="text-2xl font-bold text-slate-900 tracking-tight">Boards in this team</h2>
+              <div className="flex items-center gap-3">
+                <button className="text-sm font-semibold text-slate-600 hover:bg-slate-100 px-3 py-1.5 rounded-lg border border-slate-200 bg-white transition-colors">
+                  Explore templates
+                </button>
+                <button
+                  onClick={() => navigate("/DrawDiagram")} 
+                  className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold px-4 py-1.5 rounded-lg transition-all shadow-sm flex items-center gap-1.5"
+                >
+                  <Plus className="w-4 h-4" /> Create new
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between mb-6 py-2 border-b border-slate-200">
+               <div className="flex items-center gap-4 text-sm font-semibold text-slate-600">
+                 <div className="flex items-center gap-1.5 cursor-pointer hover:text-slate-900 bg-slate-100 px-2 py-1 rounded">All boards <span className="text-[10px]">▼</span></div>
+                 <div className="flex items-center gap-1.5 cursor-pointer hover:text-slate-900">Owned by anyone <span className="text-[10px]">▼</span></div>
+                 <div className="hidden md:flex items-center gap-1.5 cursor-pointer hover:text-slate-900 ml-4">Last opened <span className="text-[10px]">▼</span></div>
+               </div>
+               <div className="flex bg-slate-100 p-0.5 rounded-lg">
+                 <button className="p-1.5 bg-white text-slate-800 shadow-sm rounded-md"><LayoutGrid className="w-4 h-4" /></button>
+                 <button className="p-1.5 text-slate-500 hover:text-slate-800 rounded-md"><List className="w-4 h-4" /></button>
+               </div>
+            </div>
+
+            {/* Empty State / List */}
+            <div className="flex flex-col items-center justify-center py-16 bg-white border border-slate-200 border-dashed rounded-3xl">
+              <FolderOpen className="w-12 h-12 text-slate-300 mb-4" />
+              <h3 className="text-lg font-bold text-slate-800">No boards created yet</h3>
+              <p className="text-sm text-slate-500 mt-1 mb-6">Create your first board or try a template.</p>
+              <button
+                 onClick={() => navigate("/DrawDiagram")}
+                 className="bg-slate-900 hover:bg-black text-white text-sm font-bold px-5 py-2.5 rounded-xl transition-all shadow-md"
+              >
+                 Create New Board
+              </button>
+            </div>
+
+          </section>
 
         </div>
-      </div>
+      </main>
     </div>
   );
 };

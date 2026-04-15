@@ -12,7 +12,6 @@ import {
 } from "@xyflow/react";
 import { Save, Trash2 } from "lucide-react";
 import SmartNode from "../../components/SmartNode";
-import Toolbar from "../../components/Toolbar";
 import DrawingCanvas from "../../components/DrawingCanvas";
 import FlowSkeleton from "../../components/FlowSkeleton";
 import {
@@ -64,6 +63,8 @@ const FlowContent = ({
   addNoteAtCenter,
   updateNodeData,
   isGenerating,
+  onOpenAI,
+  aiMode,
 }: any) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
@@ -175,28 +176,8 @@ const FlowContent = ({
       style={{ width: "100%", height: "100%" }}
     >
       {isGenerating && <FlowSkeleton />}
-      <Toolbar
-        activeMode={drawMode?.type}
-        onModeChange={(m: any) => setDrawMode(m)}
-        onAddNote={addNoteAtCenter}
-        onDeleteSelected={deleteSelected}
-        onUndo={undo}
-        onRedo={redo}
-        canUndo={canUndo}
-        canRedo={canRedo}
-        onClearStrokes={clearStrokes}
-        onSetPenColor={(c: string) =>
-          setDrawMode((d: any) => ({ ...d, color: c, type: "pen" }))
-        }
-        onSetPenSize={(s: number) =>
-          setDrawMode((d: any) => ({ ...d, size: s, type: "pen" }))
-        }
-        onExportJpg={handleExportJpg}
-        onExportPng={handleExportPng}
-        onExportPdf={handleExportPdf}
-      />
-      {/* Auto-layout button */}
-      <div className="absolute left-6 top-6 z-40">
+
+      {/*<div className="absolute left-6 top-6 z-40">
         <button
           onClick={() => autoLayout && autoLayout()}
           className="bg-indigo-600 text-white px-3 py-2 rounded-md shadow-md hover:bg-indigo-700"
@@ -204,7 +185,8 @@ const FlowContent = ({
         >
           Sắp xếp tự động
         </button>
-      </div>
+      </div>*/}
+
       <ReactFlow
         style={{ width: "100%", height: "100%" }}
         panOnDrag={!(drawMode?.type === "pen" || drawMode?.type === "eraser")}
@@ -253,14 +235,28 @@ const FlowContent = ({
       >
         <Background variant={BackgroundVariant.Dots} gap={20} color="#334155" />
 
-        <Controls className="bg-slate-800 border-slate-700 fill-white shadow-2xl" />
+        <Controls
+          position="bottom-right"
+          className="bg-slate-800 border-slate-700 fill-white shadow-2xl"
+          style={{
+            right: "24px",
+            bottom: "24px",
+            transition: "right 0.3s ease-in-out",
+          }}
+        />
         {showMiniMap && (
           <MiniMap
+            position="bottom-right"
             className="bg-slate-900/80 border-slate-700 shadow-2xl"
             maskColor="rgba(15, 23, 42, 0.6)"
             nodeBorderRadius={10}
             zoomable
             pannable
+            style={{
+              right: "24px",
+              bottom: "80px",
+              transition: "right 0.3s ease-in-out",
+            }}
           />
         )}
         {/* Drawing overlay for pen mode: place inside ReactFlow so it inherits pan/zoom transforms */}

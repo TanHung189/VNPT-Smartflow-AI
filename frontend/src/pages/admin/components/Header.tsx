@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Search, Bell, User, LogOut, Settings as SettingsIcon, Home } from 'lucide-react';
+import { Bell, User, LogOut, Settings as SettingsIcon, Home } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 interface HeaderProps {

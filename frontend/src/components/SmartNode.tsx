@@ -71,14 +71,18 @@ const SmartNode = ({ data, selected }: any) => {
       </div>
 
       {/* Các Handle giữ nguyên */}
+      {/* Handle Target (Top) — style ép căn giữa tuyệt đối, tránh mũi tên gãy hình chữ Z */}
       <Handle
         type="target"
         position={Position.Top}
+        style={{ left: "50%", transform: "translateX(-50%)" }}
         className="!w-3 !h-3 !bg-white !border-2 !border-slate-200"
       />
+      {/* Handle Source (Bottom) — style ép căn giữa tuyệt đối */}
       <Handle
         type="source"
         position={Position.Bottom}
+        style={{ left: "50%", transform: "translateX(-50%)" }}
         className="!w-3 !h-3 !bg-indigo-500 !border-2 !border-white"
       />
     </div>
