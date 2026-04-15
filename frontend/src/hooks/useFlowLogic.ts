@@ -17,16 +17,36 @@ const getLayoutedElements = (
 ) => {
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
-  dagreGraph.setGraph({ rankdir: direction, nodesep: 150, ranksep: 200 });
-  nodes.forEach((node) =>
-    dagreGraph.setNode(node.id, { width: 280, height: 160 }),
-  );
+
+  const isHorizontal = direction === "LR";
+
+  // 1. TỐI ƯU DAGRE: Bỏ align để sơ đồ tự động căn giữa (Center-aligned)
+  dagreGraph.setGraph({
+    rankdir: direction,
+    nodesep: 100, // Tăng khoảng cách ngang để các nhánh không chen lấn
+    ranksep: 120, // Khoảng cách dọc
+  });
+
+  nodes.forEach((node) => {
+    dagreGraph.setNode(node.id, { width: 280, height: 160 });
+  });
+
   edges.forEach((edge) => dagreGraph.setEdge(edge.source, edge.target));
   dagre.layout(dagreGraph);
+
   return {
     nodes: nodes.map((node) => {
       const { x, y } = dagreGraph.node(node.id);
-      return { ...node, position: { x: x - 140, y: y - 80 } };
+      return {
+        ...node,
+        targetPosition: isHorizontal ? "left" : "top",
+        sourcePosition: isHorizontal ? "right" : "bottom",
+        // 2. ÉP LÀM TRÒN SỐ: Khắc phục lỗi mũi tên bị gãy khúc do lệch thập phân
+        position: {
+          x: Math.round(x - 140),
+          y: Math.round(y - 80),
+        },
+      };
     }),
     edges,
   };
@@ -163,14 +183,28 @@ export const useFlowLogic = () => {
 
   // --- 4. API CALLS ---
   const generateFlow = useCallback(
-    async (text: string) => {
+    // 1. Thêm tham số provider (mặc định là gemini để an toàn)
+    async (text: string, provider: "gemini" | "ollama" = "gemini") => {
       if (!text) return;
       setIsGenerating(true);
       try {
-        const response = await diagramApi.generateFlowText(text);
+        // 2. Truyền provider này xuống API
+        const response = await diagramApi.generateFlowText(text, provider);
+
+        // (Lưu ý: Nếu em dùng fetch() thì dùng response.json(),
+        // nếu dùng axios thì thường là response.data nhé)
         const resData = await response.json();
+
         if (resData.result === "SUCCESS") {
           const normalized = normalizeGraph(resData.data);
+          console.log("Dữ liệu normalized:", normalized);
+
+          if (!normalized.nodes || normalized.nodes.length === 0) {
+            alert("AI trả về dữ liệu không hợp lệ. Vui lòng thử lại với prompt chi tiết hơn.");
+            // Stop processing if empty, wait, the user asked to alert but if we return empty the node fallback from backend might be ignored.
+            // Actually, backend now returns a default node so length won't be 0, but this handles front-end safety.
+          }
+
           const { nodes: lNodes, edges: lEdges } = getLayoutedElements(
             normalized.nodes,
             normalized.edges,
@@ -182,6 +216,7 @@ export const useFlowLogic = () => {
         }
       } catch (error) {
         console.error(error);
+        // Có thể thêm toast thông báo lỗi ở đây nếu cần
       } finally {
         setIsGenerating(false);
       }
@@ -190,10 +225,12 @@ export const useFlowLogic = () => {
   );
 
   const uploadFileAndGenerate = useCallback(
-    async (file: File) => {
+    async (file: File, provider: "gemini" | "ollama" = "gemini") => {
       setIsGenerating(true);
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("provider", provider);
+      formData.append("is_internal", provider === "ollama" ? "true" : "false");
       try {
         const response = await diagramApi.uploadProcessImage(formData);
         const resData = await response.json();
@@ -216,7 +253,7 @@ export const useFlowLogic = () => {
     [setNodes, setEdges, takeSnapshot],
   );
 
-  const autoLayout = useCallback(() => {
+  const applyAutoLayout = useCallback(() => {
     try {
       const { nodes: lNodes, edges: lEdges } = getLayoutedElements(
         nodes,
@@ -227,7 +264,7 @@ export const useFlowLogic = () => {
       // snapshot after layout
       setTimeout(takeSnapshot, 50);
     } catch (err) {
-      console.error("autoLayout failed", err);
+      console.error("applyAutoLayout failed", err);
     }
   }, [nodes, edges, setNodes, setEdges, takeSnapshot]);
 
@@ -241,7 +278,9 @@ export const useFlowLogic = () => {
   // --- 5. TƯƠNG TÁC KÉO/THẢ VÀ NODE ---
   const onConnect = useCallback(
     (params: any) => {
-      setEdges((eds) => addEdge({ ...params, animated: true, type: "smoothstep" }, eds));
+      setEdges((eds) =>
+        addEdge({ ...params, animated: true, type: "smoothstep" }, eds),
+      );
       if (takeSnapshot) takeSnapshot();
     },
     [setEdges, takeSnapshot],
@@ -258,7 +297,8 @@ export const useFlowLogic = () => {
         type: type,
         position,
         data: {
-          label: type === "conditionNode" ? "Điều kiện mới" : "Bước nghiệp vụ mới",
+          label:
+            type === "conditionNode" ? "Điều kiện mới" : "Bước nghiệp vụ mới",
           type: type === "conditionNode" ? "decision" : "task",
           executor: "Chưa gán",
           description: "",
@@ -290,8 +330,12 @@ export const useFlowLogic = () => {
 
   const deleteSelected = useCallback(() => {
     if (!selectedElements || selectedElements.length === 0) return;
-    const nodeIds = selectedElements.filter((s) => s?.id && s?.position).map((n) => n.id);
-    const edgeIds = selectedElements.filter((s) => s?.source && s?.target).map((e) => e.id);
+    const nodeIds = selectedElements
+      .filter((s) => s?.id && s?.position)
+      .map((n) => n.id);
+    const edgeIds = selectedElements
+      .filter((s) => s?.source && s?.target)
+      .map((e) => e.id);
     if (nodeIds.length) {
       setNodes((nds) => nds.filter((n) => !nodeIds.includes(n.id)));
     }
@@ -321,7 +365,9 @@ export const useFlowLogic = () => {
     if (!selectedNode) return;
     setNodes((nds) =>
       nds.map((n) =>
-        n.id === selectedNode.id ? { ...n, data: { ...n.data, [field]: value } } : n,
+        n.id === selectedNode.id
+          ? { ...n, data: { ...n.data, [field]: value } }
+          : n,
       ),
     );
     setSelectedNode((prev: any) => ({
@@ -354,7 +400,8 @@ export const useFlowLogic = () => {
     clearStrokes,
     eraseAt,
     // utilities
-    autoLayout,
+    applyAutoLayout,
+    autoLayout: applyAutoLayout, // Keep alias for existing code
     clearAll,
     takeSnapshot,
     // canvas interactions

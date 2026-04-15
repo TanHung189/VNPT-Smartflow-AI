@@ -5,7 +5,6 @@ import {
   Zap,
   Users,
   Bot,
-  Play,
   BrainCircuit,
   Video,
   Image as ImageIcon,
@@ -34,7 +33,7 @@ const generateParticles = (count: number) => {
   });
 };
 
-const particles = generateParticles(200);
+const particles = generateParticles(400);
 
 const Home = () => {
   const containerRef = useRef<HTMLDivElement>(null);

@@ -1,12 +1,16 @@
-import React from "react";
-import { Download, CloudUpload } from "lucide-react";
+import React, { useState } from "react";
+import { getNodesBounds, getViewportForBounds } from "@xyflow/react";
+import { toPng } from "html-to-image";
 
 import { useFlowLogic } from "../hooks/useFlowLogic";
 import FlowCanvas from "../features/flow/FlowCanvas";
-import Sidebar from "../features/chat/Sidebar";
 import { diagramApi } from "../services/diagramApi";
 
-// --- INTERFACES: SOLID and Typescript adherence ---
+import { TopHeader } from "../components/layout/TopHeader";
+import { BottomToolbar } from "../components/layout/BottomToolbar";
+import { AiSidebarLeft } from "../components/layout/AiSidebarLeft";
+import { Sparkles } from "lucide-react";
+
 interface StrokeData {
   id: string;
   points: number[];
@@ -15,13 +19,14 @@ interface StrokeData {
 }
 
 interface SaveDiagramPayload {
-  title: string;
-  flow_data: {
+  tieu_de: string;
+  la_noi_bo: boolean;
+  du_lieu_so_do: {
     nodes: any[];
     edges: any[];
     strokes: StrokeData[];
   };
-  raw_text_input: string;
+  van_ban_dau_vao: string;
 }
 
 const getAuthToken = (): string | null => {
@@ -29,11 +34,15 @@ const getAuthToken = (): string | null => {
 };
 
 const DrawDiagram = () => {
+  const [provider, setProvider] = useState<"gemini" | "ollama">("gemini");
+  const [lastSavedTime, setLastSavedTime] = useState<string>("Bản nháp");
+  const [aiSidebarOpen, setAiSidebarOpen] = useState(false);
+
   const {
     nodes,
     edges,
     setNodes,
-    setEdges, // Đảm bảo hook useFlowLogic có trả về setEdges
+    setEdges,
     onNodesChange,
     onEdgesChange,
     isGenerating,
@@ -65,126 +74,188 @@ const DrawDiagram = () => {
     updateNodeData,
   } = useFlowLogic();
 
-  /**
-   * Helper function to bundle diagram data securely.
-   */
+  const handleGenerate = (text: string, provider: "gemini" | "ollama") => {
+    generateFlow(text, provider);
+  };
+
   const prepareDiagramData = (): SaveDiagramPayload => {
     return {
-      title: "Quy trình mới", // Sẽ lấy từ input người dùng sau này
-      flow_data: {
+      tieu_de: "Quy trình VNPT mới",
+      la_noi_bo: provider === "ollama",
+      du_lieu_so_do: {
         nodes,
         edges,
-        strokes: strokes as StrokeData[], // Lưu bao gồm cả dữ liệu strokes vẽ tay
+        strokes: strokes as StrokeData[],
       },
-      raw_text_input: "văn bản do AI tạo",
+      van_ban_dau_vao: "AI generated",
     };
   };
 
-  /**
-   * Main function to handle save logic triggered by the Save Button.
-   */
   const handleSave = async () => {
     const token = getAuthToken();
     if (!token) {
       alert("Bạn cần đăng nhập để có thể lưu sơ đồ!");
       return;
     }
-
-    const diagramData = prepareDiagramData();
-    console.log("Dữ liệu chuẩn bị lưu:", diagramData);
-
     try {
-      // Gọi lên Backend API kèm theo cấu trúc dữ liệu và Token
-      const result = await diagramApi.save(diagramData, token);
-
-      // result.diagram_id từ response API nếu tạo thành công
-      if (result.status === "Success" || result.diagram_id) {
-        alert(`Đã lưu thành công! id sơ đồ là: ${result.diagram_id}`);
-      } else {
-        alert(
-          `Lưu không thành công: ${result.message || "Lỗi không xác định"}`,
+      const diagramData = prepareDiagramData();
+      const result = await diagramApi.save(diagramData as any, token);
+      if (result.id_so_do) {
+        setLastSavedTime(
+          `Đã lưu lúc ${new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`,
         );
+      } else {
+        alert(`Lưu không thành công: ${result.message || "Lỗi không xác định"}`);
       }
     } catch (error) {
       console.error("Lỗi kết nối API:", error);
-      alert("Không thể kết nối tới backend, hãy kiểm tra uvicorn");
+      alert("Không thể kết nối tới backend, hãy kiểm tra lại server.");
     }
   };
 
+  const handleExportPNG = async () => {
+    if (nodes.length === 0) {
+      alert("Không có sơ đồ để xuất ảnh!");
+      return;
+    }
+    const nodesBounds = getNodesBounds(nodes);
+    const padding = 20;
+    const { x, y, zoom } = getViewportForBounds(
+      nodesBounds,
+      nodesBounds.width,
+      nodesBounds.height,
+      0.5,
+      2,
+      padding,
+    );
+    const element = document.querySelector(".react-flow__viewport") as HTMLElement;
+    if (element) {
+      try {
+        const dataUrl = await toPng(element, {
+          backgroundColor: "#ffffff",
+          width: nodesBounds.width + padding * 2,
+          height: nodesBounds.height + padding * 2,
+          style: {
+            width: `${nodesBounds.width + padding * 2}px`,
+            height: `${nodesBounds.height + padding * 2}px`,
+            transform: `translate(${x}px, ${y}px) scale(${zoom})`,
+          },
+        });
+        const link = document.createElement("a");
+        link.download = `VNPT-QuyTrinh-${Date.now()}.png`;
+        link.href = dataUrl;
+        link.click();
+      } catch (error) {
+        console.error("Lỗi khi xuất ảnh:", error);
+        alert("Có lỗi xảy ra khi xuất ảnh.");
+      }
+    }
+  };
+
+  const onDragStart = (event: React.DragEvent, nodeType: string) => {
+    event.dataTransfer.setData("application/reactflow", nodeType);
+    event.dataTransfer.effectAllowed = "move";
+  };
+
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#f8fafc] font-sans pt-16">
-      {/* 1. SIDEBAR NHẬP LIỆU HIỆN ĐẠI */}
-      <Sidebar
-        onGenerate={generateFlow}
-        onUpload={uploadFileAndGenerate}
-        loading={isGenerating}
+    <div className="flex h-screen w-screen overflow-hidden bg-[#f8fafc] font-sans">
+      
+      {/* ─── LAYER 1: CANVAS BACKGROUND (z-0) ─── */}
+      <main className="absolute inset-0 z-0 bg-[#0f172a] overflow-hidden pt-14">
+        <FlowCanvas
+          nodes={nodes}
+          edges={edges}
+          isGenerating={false} // Loading handled implicitly inside the flow via skeletons if needed
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          drawMode={drawMode}
+          setDrawMode={setDrawMode}
+          setNodes={setNodes}
+          setEdges={setEdges}
+          undo={undo}
+          redo={redo}
+          strokes={strokes}
+          addStroke={addStroke}
+          undoStroke={undoStroke}
+          clearStrokes={clearStrokes}
+          eraseAt={eraseAt}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          takeSnapshot={takeSnapshot}
+          autoLayout={autoLayout}
+          clearAll={clearAll}
+          onConnect={onConnect}
+          onDrop={onDrop}
+          onSelectionChange={onSelectionChange}
+          selectedNode={selectedNode}
+          setSelectedNode={setSelectedNode}
+          selectedElements={selectedElements}
+          setSelectedElements={setSelectedElements}
+          deleteSelected={deleteSelected}
+          addNoteAtCenter={addNoteAtCenter}
+          updateNodeData={updateNodeData}
+        />
+      </main>
+
+      {/* ─── LAYER 2: SPARKLES TRIGGER BUTTON (z-40) ─── */}
+      <div className="absolute left-4 top-1/2 -translate-y-1/2 z-[40]">
+         <button
+            onClick={() => setAiSidebarOpen(true)}
+            className="p-3 bg-gradient-to-tr from-[#0066cc] to-indigo-600 rounded-2xl shadow-xl hover:shadow-blue-500/50 hover:scale-105 active:scale-95 transition-all text-white flex flex-col items-center gap-1 group"
+          >
+            <Sparkles size={24} className="animate-pulse" />
+            <span className="text-[10px] font-bold tracking-widest uppercase">AI</span>
+            
+            <div className="absolute left-full top-1/2 -translate-y-1/2 ml-4 px-3 py-1.5 bg-slate-800 text-white text-[11px] font-bold rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-[100] shadow-lg pointer-events-none">
+              Mở AI Trợ Lý
+              <div className="absolute top-1/2 right-full -translate-y-1/2 border-4 border-transparent border-r-slate-800"></div>
+            </div>
+         </button>
+      </div>
+
+      {/* ─── LAYER 2: BOTTOM TOOLBAR (z-40) ─── */}
+      <BottomToolbar
+        activeMode={drawMode?.type}
+        onModeChange={(m: any) => setDrawMode(m)}
+        onAddNote={addNoteAtCenter}
+        onDeleteSelected={deleteSelected}
+        onUndo={undo}
+        onRedo={redo}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        onSetPenColor={(c: string) =>
+          setDrawMode((d: any) => ({ ...d, color: c, type: "pen" }))
+        }
+        onSetPenSize={(s: number) =>
+          setDrawMode((d: any) => ({ ...d, size: s, type: "pen" }))
+        }
+        onDragStart={onDragStart}
       />
 
-      {/* 2. KHÔNG GIAN CANVAS VẼ SƠ ĐỒ HIỆN ĐẠI */}
-      <main className="flex-1 flex flex-col relative bg-white overflow-hidden">
-        {/* Floating Tool Bar - Khu vực các nút chức năng cao cấp */}
-        <div className="absolute top-6 right-6 z-10 flex items-center gap-3">
-          <div className="bg-white/80 backdrop-blur-md px-4 py-2 rounded-full border border-slate-200 shadow-xl flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <div
-                className={`w-2 h-2 rounded-full ${isGenerating ? "bg-amber-500 animate-spin" : "bg-green-500 animate-pulse"}`}
-              />
-              <span className="text-[10px] font-bold text-slate-600 uppercase tracking-tighter">
-                {isGenerating ? "AI Processing..." : "AI Connected"}
-              </span>
-            </div>
+      {/* ─── LAYER 3: AI SIDEBAR LEFT (z-50) ─── */}
+      {/* Nằm dưới TopHeader nên có padding top 14 bên trong component */}
+      <div className="absolute top-14 left-0 bottom-0 z-[50] pointer-events-none">
+         <div className="h-full pointer-events-auto">
+           <AiSidebarLeft
+             isOpen={aiSidebarOpen}
+             onClose={() => setAiSidebarOpen(false)}
+             onGenerate={handleGenerate}
+             onUpload={uploadFileAndGenerate}
+             loading={isGenerating}
+             provider={provider}
+             setProvider={setProvider}
+           />
+         </div>
+      </div>
 
-            <div className="h-4 w-[1px] bg-slate-200" />
+      {/* ─── LAYER 4: TOP HEADER (z-60) ─── */}
+      <TopHeader
+        lastSavedTime={lastSavedTime}
+        isGenerating={isGenerating}
+        handleSave={handleSave}
+        handleExportPNG={handleExportPNG}
+      />
 
-            {/* Nút Lưu Database - Cực kỳ quan trọng để hoàn thiện đồ án */}
-            <button
-              onClick={handleSave}
-              className="text-slate-500 hover:text-indigo-600 transition-colors flex items-center gap-1"
-              title="Lưu vào PostgreSQL"
-            >
-              <CloudUpload className="w-4 h-4" />
-              <span className="text-[10px] font-bold">LƯU</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Canvas Area - Tích hợp đầy đủ logic */}
-        <div className="flex-1 w-full h-full min-h-0 bg-[#0f172a]">
-          <FlowCanvas
-            nodes={nodes}
-            edges={edges}
-            isGenerating={isGenerating}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            drawMode={drawMode} // THIẾU DÒNG NÀY SẼ GÂY LỖI
-            setDrawMode={setDrawMode} // THIẾU DÒNG NÀY SẼ GÂY LỖI
-            setNodes={setNodes}
-            setEdges={setEdges} // <-- Phải truyền cái này để nối dây bằng tay được
-            undo={undo}
-            redo={redo}
-            strokes={strokes}
-            addStroke={addStroke}
-            undoStroke={undoStroke}
-            clearStrokes={clearStrokes}
-            eraseAt={eraseAt}
-            canUndo={canUndo}
-            canRedo={canRedo}
-            takeSnapshot={takeSnapshot}
-            autoLayout={autoLayout}
-            clearAll={clearAll}
-            onConnect={onConnect}
-            onDrop={onDrop}
-            onSelectionChange={onSelectionChange}
-            selectedNode={selectedNode}
-            setSelectedNode={setSelectedNode}
-            selectedElements={selectedElements}
-            setSelectedElements={setSelectedElements}
-            deleteSelected={deleteSelected}
-            addNoteAtCenter={addNoteAtCenter}
-            updateNodeData={updateNodeData}
-          />
-        </div>
-      </main>
     </div>
   );
 };

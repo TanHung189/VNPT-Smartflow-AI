@@ -1,7 +1,6 @@
 import { API_URL } from "../env";
 
-// Phân giải URL cho xác thực nếu backend đặt ngoài route /api
-const SERVER_URL = API_URL.replace(/\/api\/?$/, "");
+const SERVER_URL = API_URL;
 
 export const authApi = {
   login: async (formData: URLSearchParams) => {
@@ -26,5 +25,5 @@ export const authApi = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ token }),
     });
-  }
+  },
 };

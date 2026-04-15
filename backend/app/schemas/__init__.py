@@ -1,28 +1,41 @@
-from .user import UserCreate, UserRead
-from .auth import Token, GoogleLoginRequest
-from .diagram import DiagramCreate, DiagramUpdate, DiagramResponse, DiagramUpsert, DiagramSaveRequest, DiagramListResponse
-from .ai_usage_log import AIUsageLogBase
-from .diagram_history import DiagramHistoryBase
-from .list_template import ListTemplateBase
-from .refresh_token import RefreshTokenBase
-from .role import RoleBase
-from .user_authen import UserAuthenBase
+# =============================================================
+# SCHEMAS PACKAGE — VNPT Smartflow AI
+# Xuất toàn bộ Pydantic Schema tương ứng với CSDL vnpt_smartflow_v1.
+# Tên gốc (Tiếng Việt) và alias (Tiếng Anh) đều được export.
+# =============================================================
+
+# ── Người dùng ──
+from .user import TaoNguoiDung, DocNguoiDung, UserCreate, UserRead
+
+# ── Xác thực ──
+from .auth import Token, YeuCauDangNhapGoogle, GoogleLoginRequest
+
+# ── Sơ đồ ──
+from .diagram import (
+    TaoSoDo, CapNhatSoDo, TraLoiSoDo, TraLoiDanhSachSoDo, LuuSoDoRequest,
+    DiagramCreate, DiagramUpdate, DiagramResponse, DiagramListResponse,
+    DiagramSaveRequest, DiagramUpdateBody,
+)
 
 __all__ = [
+    # Tiếng Việt
+    "TaoNguoiDung",
+    "DocNguoiDung",
+    "TaoSoDo",
+    "CapNhatSoDo",
+    "TraLoiSoDo",
+    "TraLoiDanhSachSoDo",
+    "LuuSoDoRequest",
+    "Token",
+    "YeuCauDangNhapGoogle",
+    # Alias tiếng Anh (tương thích ngược)
     "UserCreate",
     "UserRead",
-    "Token",
     "GoogleLoginRequest",
     "DiagramCreate",
     "DiagramUpdate",
     "DiagramResponse",
-    "DiagramUpsert",
-    "DiagramSaveRequest",
     "DiagramListResponse",
-    "AIUsageLogBase",
-    "DiagramHistoryBase",
-    "ListTemplateBase",
-    "RefreshTokenBase",
-    "RoleBase",
-    "UserAuthenBase"
+    "DiagramSaveRequest",
+    "DiagramUpdateBody",
 ]

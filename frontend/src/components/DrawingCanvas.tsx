@@ -34,14 +34,14 @@ const DrawingCanvas = ({
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    
+
     // resetTransform trước khi clear
     ctx.resetTransform();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     const dpr = window.devicePixelRatio || 1;
     const { x, y, zoom } = getViewport();
-    
+
     // Áp dụng viewport transform để các nét vẽ zoom/pan cùng với Node
     ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, x * dpr, y * dpr);
 
@@ -110,17 +110,17 @@ const DrawingCanvas = ({
       if (!active) return;
       // Convert screen coords to flow coords ngay lúc lấy tọa độ chuột
       const flowPoint = screenToFlowPosition({ x: ev.clientX, y: ev.clientY });
-      
+
       if (mode === "eraser") {
         onEraseAt?.(flowPoint.x, flowPoint.y, size);
         return;
       }
-      
+
       drawing.current = true;
       (canvas as any).setPointerCapture(ev.pointerId);
       current.current.push(flowPoint.x, flowPoint.y);
       redraw();
-      
+
       if (mode === "pen") {
         canvas.style.cursor = "grabbing";
       }
@@ -128,14 +128,17 @@ const DrawingCanvas = ({
 
     const pointerMove = (ev: PointerEvent) => {
       if (!active) return;
-      
-      if (mode === "eraser" && (ev.buttons & 1)) {
+
+      if (mode === "eraser" && ev.buttons & 1) {
         // Continuous erase if mouse is held down
-        const flowPoint = screenToFlowPosition({ x: ev.clientX, y: ev.clientY });
+        const flowPoint = screenToFlowPosition({
+          x: ev.clientX,
+          y: ev.clientY,
+        });
         onEraseAt?.(flowPoint.x, flowPoint.y, size);
         return;
       }
-      
+
       if (!drawing.current) return;
       const flowPoint = screenToFlowPosition({ x: ev.clientX, y: ev.clientY });
       current.current.push(flowPoint.x, flowPoint.y);
@@ -146,7 +149,7 @@ const DrawingCanvas = ({
       if (!active) return;
       if (!drawing.current) return;
       drawing.current = false;
-      
+
       canvas.style.cursor = mode === "eraser" ? "cell" : "crosshair";
 
       if (current.current.length >= 4) {
@@ -166,7 +169,16 @@ const DrawingCanvas = ({
       window.removeEventListener("pointermove", pointerMove as any);
       window.removeEventListener("pointerup", pointerUp as any);
     };
-  }, [active, mode, color, size, strokes, onAddStroke, onEraseAt, screenToFlowPosition]);
+  }, [
+    active,
+    mode,
+    color,
+    size,
+    strokes,
+    onAddStroke,
+    onEraseAt,
+    screenToFlowPosition,
+  ]);
 
   return (
     <div className="absolute inset-0 z-50 pointer-events-none">

@@ -1,124 +1,146 @@
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 import json
 import re
 import logging
+import hashlib
+import httpx
 from typing import Dict, Any, List
 from app.core.config import settings
+from app.core.redis import redis_client
 
-# Thiết lập log để theo dõi hành vi AI
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 class AIService:
     def __init__(self):
         self.current_key_index = 0
-        self.model_name = 'gemini-3-flash-preview' # Nâng cấp lên 1.5 để hiểu ngữ cảnh tốt hơn
+        self.model_name = 'gemini-3-flash-preview'
+        self.ollama_url = "http://localhost:11434/api/generate"
+        self.ollama_model = "qwen2.5-coder:3b"
 
-    def generate_smart_flow(self, text: str) -> Dict[str, Any]:
-        """Hàm chính điều hướng xử lý"""
+    def _get_current_client(self):
+        api_key = settings.GEMINI_API_KEYS[self.current_key_index]
+        return genai.Client(api_key=api_key)
+
+    # --- Centralized Prompt ---
+    def _build_system_prompt(self, text: str) -> str:
+        """Centralized prompt to ensure consistency across Gemini and Ollama"""
+        return (
+            f"BẠN LÀ CHUYÊN GIA PHÂN TÍCH HỆ THỐNG TẠI VNPT.\n"
+            f"NHIỆM VỤ: Chuyển đổi văn bản nghiệp vụ thành sơ đồ luồng chuẩn React Flow.\n\n"
+            f"--- QUY TẮC BẮT BUỘC VỀ ĐỊNH DẠNG JSON ---\n"
+            f"BẠN BẮT BUỘC PHẢI TRẢ VỀ JSON THEO ĐÚNG CẤU TRÚC SAU, KHÔNG ĐƯỢC THIẾU BẤT KỲ KEY NÀO:\n"
+            f"{{\n"
+            f"  \"nodes\": [{{\"id\": \"1\", \"data\": {{\"label\": \"Bước 1\"}}, \"position\": {{\"x\": 0, \"y\": 0}}}}],\n"
+            f"  \"edges\": [{{\"id\": \"e1-2\", \"source\": \"1\", \"target\": \"2\"}}]\n"
+            f"}}\n"
+            f"LƯU Ý: Mỗi node phải chứa đầy đủ type và các thông tin bên trong data.\n\n"
+            f"--- QUY TẮC PHÂN LOẠI NODE ---\n"
+            f"- 'start': Điểm bắt đầu quy trình.\n"
+            f"- 'step': Các bước thực hiện nghiệp vụ thông thường.\n"
+            f"- 'decision': Điểm kiểm tra, rẽ nhánh (Nếu/Thì).\n"
+            f"- 'end': Điểm kết thúc.\n\n"
+            f"--- CẤU TRÚC JSON BỔ SUNG ---\n"
+            f"Mỗi node bên trong mảng 'nodes' phải chứa block data: {{ 'label', 'description', 'executor', 'duration', 'type' }}.\n\n"
+            f"--- VĂN BẢN ---\n{text}\n\n"
+            f"YÊU CẦU: TRẢ VỀ DUY NHẤT 1 KHỐI JSON, KHÔNG CÓ MARKDOWN HAY CHỮ THỪA."
+        )
+
+    async def generate_smart_flow(self, text: str, provider: str = "gemini") -> Dict[str, Any]:
         logger.info(f"Bắt đầu phân tích văn bản: {text[:50]}...")
         
-        # 1. Xử lý trường hợp đặc biệt (Mock data hoặc Cache nếu cần)
         if "erp" in text.lower() and len(text) < 20:
             return self._get_mock_erp_data()
             
-        # 2. Gọi AI xử lý
-        return self._call_gemini_with_retry(text)
+        prompt_hash = hashlib.md5(text.encode('utf-8')).hexdigest()
+        cache_key = f"vnpt:flow:text:{prompt_hash}"
 
-    def generate_flow_from_image(self, image_bytes: bytes, mime_type: str) -> Dict[str, Any]:
-        """Hàm xử lý hình ảnh thành luồng quy trình"""
-        logger.info(f"Bắt đầu phân tích hình ảnh kích thước: {len(image_bytes)} bytes")
-        return self._call_gemini_vision_with_retry(image_bytes, mime_type)
-
-    def _call_gemini_vision_with_retry(self, image_bytes: bytes, mime_type: str) -> Dict[str, Any]:
         try:
-            api_key = settings.GEMINI_API_KEYS[self.current_key_index]
-            genai.configure(api_key=api_key)
-
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            
-            prompt = (
-                f"BẠN LÀ CHUYÊN GIA COMPUTER VISION VÀ SYSTEM ANALYST TẠI VNPT.\n"
-                f"NHIỆM VỤ: Phân tích hình ảnh chứa sơ đồ quy trình nghiệp vụ và trích xuất thành JSON chuẩn React Flow.\n\n"
-                f"--- QUY TẮC NHẬN DIỆN ---\n"
-                f"1. Phân tích văn bản, hình khối (vuông, thoi), và mũi tên nối (arrow relationships).\n"
-                f"2. Xác định các 'bước nghiệp vụ' (business steps), 'người thực hiện' (actors) từ text trong/ngoài khối.\n"
-                f"3. Xác định 'mối quan hệ đệ quy/tuần tự' thông qua chiều mũi tên (từ ID nào đến ID nào).\n"
-                f"4. XỬ LÝ LỖI: Nếu hình ảnh quá mờ, không thể đọc được chữ hoặc không có hình thái quy trình, KHÔNG CỐ ĐOÁN. Hãy trả về JSON với duy nhất key 'error': 'Hình ảnh quá mờ hoặc không nhận diện được quy trình. Vui lòng cung cấp ảnh rõ nét hơn.'\n\n"
-                f"--- CẤU TRÚC JSON YÊU CẦU ---\n"
-                f"Nếu nhận diện thành công, trả về JSON gồm 'nodes' và 'edges'.\n"
-                f"Mỗi node: {{id, type (start, step, decision, end), data: {{label, executor, description}} }}.\n"
-                f"Mỗi edge: {{id, source, target}}.\n"
-                f"CHÚ Ý: TRẢ VỀ DUY NHẤT 1 KHỐI JSON HỢP LỆ."
-            )
-
-            image_part = {
-                "mime_type": mime_type,
-                "data": image_bytes
-            }
-
-            response = model.generate_content(
-                [prompt, image_part],
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.1,
-                    response_mime_type="application/json",
-                )
-            )
-            
-            raw_text = response.text.strip()
-            json_match = re.search(r'(\{.*\}|\[.*\])', raw_text, re.DOTALL)
-            clean_json = json_match.group(0) if json_match else raw_text 
-            data = json.loads(clean_json) 
-            
-            # Ném exception nếu AI nhận diện ảnh mờ
-            if isinstance(data, dict) and "error" in data:
-                raise Exception(data["error"])
-                
-            return self._post_processing(data)
-
+            cached_data = redis_client.get(cache_key)
+            if cached_data:
+                logger.info("⚡ [Redis] Lấy kết quả từ Cache.")
+                return json.loads(cached_data)
         except Exception as e:
-            logger.error(f"Lỗi API Gemini Vision tại key index {self.current_key_index}: {str(e)}")
-            error_msg = str(e)
-            # Tự động Retry nếu lỗi rate limit (429) hoặc hết quota
-            if ("429" in error_msg or "limit" in error_msg.lower() or "quota" in error_msg.lower()) and \
-               self.current_key_index < len(settings.GEMINI_API_KEYS) - 1:
-                self.current_key_index += 1
-                return self._call_gemini_vision_with_retry(image_bytes, mime_type)
-            # Nếu là lỗi logic (ảnh mờ ném từ prompt) thì giữ nguyên message để Frontend hiển thị
-            raise Exception(error_msg)
+            logger.warning(f"⚠️ Lỗi Redis: {e}")
+
+        # Primary Execution Logic with Fallback
+        result = None
+        if provider == "ollama":
+            logger.info("🛡️ [Local AI] Đang xử lý bằng Ollama...")
+            result = await self._call_ollama(text)
+        else:
+            logger.info("☁️ [Cloud AI] Đang xử lý bằng Gemini...")
+            try:
+                result = self._call_gemini_with_retry(text)
+            except Exception as e:
+                logger.warning(f"Gemini thất bại hoàn toàn ({e}). Chuyển hướng sang Ollama...")
+                result = await self._call_ollama(text)
+
+        if result:
+            try:
+                redis_client.setex(cache_key, 86400, json.dumps(result))
+            except Exception as e:
+                logger.warning(f"⚠️ Không thể lưu vào Redis: {e}")
+
+        return result
+    
+    async def _call_ollama(self, prompt: str) -> Dict[str, Any]:
+        """Gọi AI nội bộ Ollama với xử lý lỗi chi tiết"""
+        # Tạo System Prompt cực kỳ sắt đá cho Qwen
+        # Prompt nâng cấp cho Qwen nội bộ
+        strict_prompt = (
+            "Bạn là chuyên gia phân tích quy trình tại VNPT.\n"
+            "NHIỆM VỤ: Chuyển văn bản sau thành JSON React Flow.\n"
+            "YÊU CẦU QUAN TRỌNG: Nội dung 'label' phải trích xuất chính xác từ văn bản.\n"
+            "Ví dụ: 'Tiếp nhận công văn', 'Phân loại', 'Trình lãnh đạo'...\n"
+            f"Văn bản: {prompt}"
+        )
+        
+        async with httpx.AsyncClient() as client:
+            payload = {
+                "model": self.ollama_model,
+                "prompt": strict_prompt,
+                "stream": False,
+                "format": "json" 
+            }
+            try:
+                # Tăng timeout lên 90s vì máy ProBook chạy Local AI có thể hơi chậm lúc đầu
+                response = await client.post(self.ollama_url, json=payload, timeout=90.0)
+                
+                if response.status_code != 200:
+                    raise Exception(f"Ollama trả về lỗi HTTP {response.status_code}")
+                    
+                result = response.json()
+                raw_response = result.get('response', '')
+                
+                logger.info(f"Ollama response: {raw_response[:100]}...") # Log để em xem nó trả về gì
+                return json.loads(raw_response)
+                
+            except httpx.ConnectError:
+                raise Exception("KHÔNG THỂ KẾT NỐI: Hãy đảm bảo ứng dụng Ollama đã được bật!")
+            except json.JSONDecodeError:
+                raise Exception("AI NỘI BỘ trả về dữ liệu không đúng định dạng JSON. Hãy thử lại.")
+            except Exception as e:
+                logger.error(f"Lỗi Ollama chi tiết: {str(e)}")
+                raise e
+
+    
 
     def _call_gemini_with_retry(self, text: str) -> Dict[str, Any]:
         try:
-            api_key = settings.GEMINI_API_KEYS[self.current_key_index]
-            genai.configure(api_key=api_key)
-            model = genai.GenerativeModel(self.model_name)
-            
-            # PROMPT CHUYÊN GIA: Ép AI suy luận logic trước khi xuất JSON
-            prompt = (
-                f"BẠN LÀ CHUYÊN GIA PHÂN TÍCH HỆ THỐNG (SYSTEM ANALYST) TẠI VNPT.\n"
-                f"NHIỆM VỤ: Chuyển đổi văn bản nghiệp vụ thành sơ đồ luồng (Flowchart) chuẩn React Flow.\n\n"
-                f"--- QUY TẮC PHÂN LOẠI NODE ---\n"
-                f"- 'start': Điểm bắt đầu quy trình.\n"
-                f"- 'step': Các bước thực hiện nghiệp vụ thông thường.\n"
-                f"- 'decision': Điểm kiểm tra, phê duyệt, rẽ nhánh (Nếu/Thì).\n"
-                f"- 'end': Điểm kết thúc quy trình.\n\n"
-                f"--- CẤU TRÚC JSON YÊU CẦU ---\n"
-                f"Mỗi node phải chứa data: {{ 'label', 'description', 'executor', 'duration', 'type' }}.\n"
-                f"LƯU Ý: 'type' trong data phải phản ánh tính chất nghiệp vụ (task, decision, v.v.).\n\n"
-                f"--- VĂN BẢN CẦN PHÂN TÍCH ---\n"
-                f"{text}\n\n"
-                f"YÊU CẦU: TRẢ VỀ DUY NHẤT 1 KHỐI JSON. Đảm bảo logic edge nối từ ID nguồn đến ID đích chính xác."
-            )
+            client = self._get_current_client()
+            prompt = self._build_system_prompt(text)
 
-            response = model.generate_content(
-                prompt,
-                generation_config=genai.types.GenerationConfig(
-                    temperature=0.2, # Giảm nhiệt độ để AI bớt 'sáng tạo' lung tung, tập trung vào cấu trúc
-                    response_mime_type="application/json", # Ép kiểu trả về là JSON 
+            response = client.models.generate_content(
+                model=self.model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    temperature=0.2, 
+                    response_mime_type="application/json", 
                 )
             )
             
-            # Làm sạch dữ liệu trả về
             raw_text = response.text.strip()
             json_match = re.search(r'(\{.*\}|\[.*\])', raw_text, re.DOTALL)
             clean_json = json_match.group(0) if json_match else raw_text 
@@ -133,77 +155,85 @@ class AIService:
                 return self._call_gemini_with_retry(text)
             raise e
 
+    # ... (Keep _post_processing and _get_mock_erp_data exactly as they are)
+
     def _post_processing(self, data: Dict) -> Dict:
-        """Chuẩn hóa dữ liệu sau khi AI trả về để đảm bảo Frontend không bị lỗi"""
+        """Chuẩn hóa dữ liệu từ AI để React Flow có thể hiển thị chính xác"""
         try:
-            # The model sometimes returns a list (of nodes or edges) instead of a dict.
-            # Normalize to a dict with 'nodes' and 'edges'.
             nodes: List[Dict[str, Any]] = []
             edges: List[Dict[str, Any]] = []
 
+            # 1. Bóc tách Nodes và Edges từ các cấu trúc AI có thể trả về
             if isinstance(data, dict):
                 nodes = data.get("nodes") or data.get("node") or []
                 edges = data.get("edges") or data.get("connections") or []
-
             elif isinstance(data, list):
-                # If it's a list, try to guess whether items are edges or nodes.
                 for item in data:
-                    if isinstance(item, dict) and "source" in item and "target" in item:
+                    if isinstance(item, dict) and ("source" in item or "target" in item):
                         edges.append(item)
                     elif isinstance(item, dict):
                         nodes.append(item)
-            else:
-                logger.warning("AI returned unexpected data type for flow: %s", type(data))
 
-            # Ensure nodes is a list of dicts
-            if nodes is None:
-                nodes = []
-            if edges is None:
-                edges = []
+            # 2. Xử lý trường hợp AI trả về rỗng
+            if not nodes:
+                nodes.append({
+                    "id": "empty_node",
+                    "type": "step",
+                    "position": {"x": 250, "y": 150},
+                    "data": {"label": "Sơ đồ rỗng (Hãy thử lại)", "executor": "Hệ thống"}
+                })
 
-            # Ensure every node has minimal fields expected by the frontend
+            # 3. Duyệt qua từng Node để chuẩn hóa Label và Position
             for i, node in enumerate(nodes):
-                if not isinstance(node, dict):
-                    # skip malformed entries
-                    continue
-                if "id" not in node:
-                    node["id"] = str(i + 1)
+                if not isinstance(node, dict): continue
+                
+                # Gán ID nếu thiếu
+                if "id" not in node: node["id"] = str(i + 1)
+                
+                # Gán vị trí nếu thiếu (Sắp xếp theo hàng dọc đơn giản)
                 if "position" not in node:
-                    node["position"] = {"x": i * 250, "y": i * 150}
-                if "type" not in node:
-                    # map common source types to frontend-friendly ones
-                    t = node.get("type") or node.get("nodeType") or "step"
-                    if t in ("start", "end", "decision", "step"):
-                        node["type"] = t
-                    else:
-                        node["type"] = "step"
-                if "data" not in node:
-                    node["data"] = {"label": node.get("label", "Bản tin trống"), "executor": node.get("executor", "N/A")}
+                    node["position"] = {"x": 250, "y": i * 150}
+                
+                # Xử lý data field (Phần Hưng đang bị lỗi mapping)
+                node_data = node.get("data", {})
+                
+                # Chiến thuật "truy tìm label" để dứt điểm lỗi "CHƯA GÁN"
+                raw_label = (
+                    node_data.get("label") or 
+                    node.get("label") or 
+                    node_data.get("task") or 
+                    node_data.get("step_name") or
+                    f"Bước {i + 1}"
+                )
+                
+                node["data"] = {
+                    "label": raw_label,
+                    "executor": node_data.get("executor") or node.get("executor") or "Chưa xác định",
+                    "description": node_data.get("description") or node.get("description") or "Nhấn để xem chi tiết..."
+                }
 
-            # Ensure edges have ids
+            # 4. Chuẩn hóa Edges
             for j, edge in enumerate(edges):
-                if not isinstance(edge, dict):
-                    continue
+                if not isinstance(edge, dict): continue
                 if "id" not in edge:
-                    src = edge.get("source", f"s{j}")
-                    tgt = edge.get("target", f"t{j}")
+                    src = edge.get("source")
+                    tgt = edge.get("target")
                     edge["id"] = f"e{src}-{tgt}-{j}"
 
             return {"nodes": nodes, "edges": edges}
 
         except Exception as ex:
-            logger.exception("Lỗi khi chuẩn hóa dữ liệu AI: %s", ex)
-            # Return a safe, empty structure to avoid crashing the frontend
+            logger.exception(f"Lỗi khi chuẩn hóa dữ liệu AI: {ex}")
             return {"nodes": [], "edges": []}
 
     def _get_mock_erp_data(self):
-        """Dữ liệu mẫu chuẩn để demo nhanh"""
+        """Hàm dự phòng khi demo (Luôn phải nằm ngoài khối try của hàm trên)"""
         return {
             "nodes": [
-                {"id": "1", "type": "start", "data": {"label": "Khởi tạo ERP", "executor": "Ban Giám Đốc"}, "position": {"x": 0, "y": 0}},
-                {"id": "2", "type": "step", "data": {"label": "Khảo sát hiện trạng", "executor": "Phòng CNTT"}, "position": {"x": 0, "y": 150}},
+                {"id": "1", "type": "start", "data": {"label": "Khởi tạo ERP", "executor": "Ban Giám Đốc"}, "position": {"x": 250, "y": 0}},
+                {"id": "2", "type": "step", "data": {"label": "Khảo sát hiện trạng", "executor": "Phòng CNTT"}, "position": {"x": 250, "y": 150}},
             ],
             "edges": [{"id": "e1-2", "source": "1", "target": "2"}]
         }
-
+    
 ai_service = AIService()

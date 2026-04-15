@@ -7,52 +7,48 @@ import {
 } from "react-router-dom";
 import { ReactFlowProvider } from "@xyflow/react";
 import { GoogleOAuthProvider } from "@react-oauth/google";
+import { AuthProvider } from "./context/AuthContext";
 import "@xyflow/react/dist/style.css";
 
 import Home from "./pages/Home";
-import Navbar from "./components/Navbar";
-import Footer from "./components/Footer";
 import DrawDiagram from "./pages/DrawDiagram";
 import Login from "./pages/Auth/Login";
 import Register from "./pages/Auth/Register";
 import ProtectedRoute from "./components/ProtectedRouter";
+import DashBoard from "./pages/DashBoard";
 import { GOOGLE_CLIENT_ID } from "./env";
+import AdminDashboard from "./pages/admin/AdminDashboard";
 
-console.log("App Client ID:", GOOGLE_CLIENT_ID);
 export default function App() {
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID || "missing-client-id"}>
-      <ReactFlowProvider>
-        <Router>
-          <Routes>
-            {/* 1. Nhóm Route CÔNG KHAI: Không có Navbar/Footer (thường là Login/Register) */}
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            {/* 2. Nhóm Route CÓ NAVBAR/FOOTER: Dùng Layout chung */}
-            <Route
-              path="/*"
-              element={
-                <>
-                  <Navbar />
-                  <Routes>
-                    {/* Trang chủ ai cũng vào được */}
-                    <Route path="/" element={<Home />} />
-                    <Route path="/register" element={<Register />} />
-                    {/* CÁC TRANG CẦN BẢO VỆ (Chỉ vào được khi đã Login) */}
-                    <Route element={<ProtectedRoute />}>
-                      <Route path="/DrawDiagram" element={<DrawDiagram />} />
-                    </Route>
+      <AuthProvider>
+        <ReactFlowProvider>
+          <Router>
+            <Routes>
+              {/* 1. Nhóm Guest Routes */}
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
 
-                    {/* Route dự phòng */}
-                    <Route path="*" element={<Navigate to="/" />} />
-                  </Routes>
-                  <Footer />
-                </>
-              }
-            />
-          </Routes>
-        </Router>
-      </ReactFlowProvider>
+              {/* 2. Nhóm Protected Routes (Yêu cầu đăng nhập) */}
+              <Route element={<ProtectedRoute />}>
+                {/* Trang Dashboard chung cho người dùng (Miro Grid clone) */}
+                <Route path="/dashboard" element={<DashBoard />} />
+
+                {/* Vẽ sơ đồ - Full màn hình, không Navbar ngoài */}
+                <Route path="/DrawDiagram" element={<DrawDiagram />} />
+
+                {/* Trang Admin: Tách biệt */}
+                <Route path="/admin/*" element={<AdminDashboard />} />
+              </Route>
+
+              {/* Route dự phòng - Quay về Home nếu gõ sai đường dẫn */}
+              <Route path="*" element={<Navigate to="/" />} />
+            </Routes>
+          </Router>
+        </ReactFlowProvider>
+      </AuthProvider>
     </GoogleOAuthProvider>
   );
 }
