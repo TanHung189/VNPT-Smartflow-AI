@@ -109,27 +109,32 @@ const FlowContent = ({
     const renderNodes = getNodes();
     if (renderNodes.length === 0) return {};
 
-    // Tùy chỉnh export toàn bộ sơ đồ (bọc lấy toàn bộ bounding box của nodes)
+    // 1. Lấy khung bao chuẩn xác của tất cả các node (Sát rạt các mép)
     const nodesBounds = getNodesBounds(renderNodes);
-    const width = nodesBounds.width || 800; // padding 50px mỗi bên
-    const height = nodesBounds.height || 600;
 
-    const viewport = getViewportForBounds(
-      nodesBounds,
-      width,
-      height,
-      0.1,
-      2,
-      1,
-    );
+    // 2. Định nghĩa khoảng lề (padding) an toàn.
+    // Giảm xuống 40px hoặc 50px để thấy nó cắt sát 4 cạnh như thế nào.
+    const padding = 50;
+
+    // 3. Ép kích thước BỨC ẢNH ĐẦU RA đúng bằng kích thước SƠ ĐỒ + LỀ (Không dư 1 pixel)
+    const imageWidth = nodesBounds.width + padding * 2;
+    const imageHeight = nodesBounds.height + padding * 2;
+
+    // 4. Tính toán tọa độ dịch chuyển:
+    // Dời góc trên cùng bên trái của sơ đồ về đúng vị trí lề của bức ảnh
+    const transformX = -nodesBounds.x + padding;
+    const transformY = -nodesBounds.y + padding;
 
     return {
-      width,
-      height,
+      width: imageWidth,
+      height: imageHeight,
+      pixelRatio: 1, // Đảm bảo nét căng
+      backgroundColor: "#ffffff", // Tránh lỗi nền đen khi lưu ảnh PNG trong suốt
       style: {
-        width: `${width}px`,
-        height: `${height}px`,
-        transform: `translate(${viewport.x}px, ${viewport.y}px) scale(${viewport.zoom})`,
+        width: `${imageWidth}px`,
+        height: `${imageHeight}px`,
+        // Ép tọa độ trực tiếp, KHÔNG dùng getViewportForBounds nữa, giữ nguyên Scale = 1
+        transform: `translate(${transformX}px, ${transformY}px) scale(1)`,
       },
     };
   };
@@ -222,7 +227,18 @@ const FlowContent = ({
           <option value="system">System</option>
         </select>
         <div className="absolute right-3 pointer-events-none text-slate-400 dark:text-slate-500">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          <svg
+            width="12"
+            height="12"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <path d="m6 9 6 6 6-6" />
+          </svg>
         </div>
       </div>
 

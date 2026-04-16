@@ -1,5 +1,10 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { useReactFlow, ReactFlowProvider, getNodesBounds, getViewportForBounds } from "@xyflow/react";
+import {
+  useReactFlow,
+  ReactFlowProvider,
+  getNodesBounds,
+  getViewportForBounds,
+} from "@xyflow/react";
 import { toJpeg, toSvg } from "html-to-image";
 import { toast } from "sonner";
 import { useSearchParams } from "react-router-dom";
@@ -35,7 +40,9 @@ const DrawDiagramContent = () => {
   // Lưu ID sơ đồ sau khi save lần đầu → dùng PATCH cho auto-save tiếp theo
   const [currentDiagramId, setCurrentDiagramId] = useState<string | null>(null);
   // Tiêu đề sơ đồ — được chia sẻ giữa DrawDiagram & TopHeader
-  const [diagramTitle, setDiagramTitle] = useState<string>("VNPT SmartFlow Workspace");
+  const [diagramTitle, setDiagramTitle] = useState<string>(
+    "VNPT SmartFlow Workspace",
+  );
   const { fitView, getNodes } = useReactFlow();
 
   const {
@@ -75,54 +82,149 @@ const DrawDiagramContent = () => {
   } = useFlowLogic();
 
   // ─────────────────── LOAD DIAGRAM FROM HISTORY ───────────────────
-  const handleLoadDiagram = useCallback((id: string, flowData?: any) => {
-    if (!flowData) return;
-    const loadedNodes = flowData.nodes ?? [];
-    const loadedEdges = flowData.edges ?? [];
-    
-    setNodes(loadedNodes);
-    setEdges(loadedEdges);
-    setCurrentDiagramId(id);
-    setTimeout(() => {
-      takeSnapshot();
-      fitView({ duration: 800, padding: 0.2 });
-    }, 100);
-    toast.success("Đã tải sơ đồ lên canvas thành công!");
-  }, [setNodes, setEdges, takeSnapshot, fitView]);
+  const handleLoadDiagram = useCallback(
+    (id: string, flowData?: any) => {
+      if (!flowData) return;
+      const loadedNodes = flowData.nodes ?? [];
+      const loadedEdges = flowData.edges ?? [];
+
+      setNodes(loadedNodes);
+      setEdges(loadedEdges);
+      setCurrentDiagramId(id);
+      setTimeout(() => {
+        takeSnapshot();
+        fitView({ duration: 800, padding: 0.2 });
+      }, 100);
+      toast.success("Đã tải sơ đồ lên canvas thành công!");
+    },
+    [setNodes, setEdges, takeSnapshot, fitView],
+  );
 
   // Bootstrapping template if exists
   useEffect(() => {
     if (templateParam && nodes.length === 0) {
       if (templateParam === "retro") {
-         setNodes([{ id: "intro_1", type: "infographic", position: { x: 100, y: 100 }, data: { variant: "swot", label: "Strengths", description: "Điểm mạnh cần phát huy." } }, { id: "intro_2", type: "infographic", position: { x: 450, y: 100 }, data: { variant: "comparison", label: "Weakness", description: "Điểm yếu cần khắc phục." } }]);
-         setDiagramTitle("Retrospective / SWOT");
+        setNodes([
+          {
+            id: "intro_1",
+            type: "infographic",
+            position: { x: 100, y: 100 },
+            data: {
+              variant: "swot",
+              label: "Strengths",
+              description: "Điểm mạnh cần phát huy.",
+            },
+          },
+          {
+            id: "intro_2",
+            type: "infographic",
+            position: { x: 450, y: 100 },
+            data: {
+              variant: "comparison",
+              label: "Weakness",
+              description: "Điểm yếu cần khắc phục.",
+            },
+          },
+        ]);
+        setDiagramTitle("Retrospective / SWOT");
       } else if (templateParam === "kanban") {
-         setNodes([{ id: "k_1", type: "infographic", position: { x: 50, y: 100 }, data: { variant: "process", label: "To Do", description: "Việc cần làm." } }, { id: "k_2", type: "infographic", position: { x: 400, y: 100 }, data: { variant: "timeline", label: "In Progress", description: "Đang tiến hành." } }, { id: "k_3", type: "infographic", position: { x: 750, y: 100 }, data: { variant: "mindmap", label: "Done", description: "Đã xong." } }]);
-         setEdges([{ id: "e1", source: "k_1", target: "k_2", animated: true }, { id: "e2", source: "k_2", target: "k_3", animated: true }]);
-         setDiagramTitle("Kanban Framework");
+        setNodes([
+          {
+            id: "k_1",
+            type: "infographic",
+            position: { x: 50, y: 100 },
+            data: {
+              variant: "process",
+              label: "To Do",
+              description: "Việc cần làm.",
+            },
+          },
+          {
+            id: "k_2",
+            type: "infographic",
+            position: { x: 400, y: 100 },
+            data: {
+              variant: "timeline",
+              label: "In Progress",
+              description: "Đang tiến hành.",
+            },
+          },
+          {
+            id: "k_3",
+            type: "infographic",
+            position: { x: 750, y: 100 },
+            data: {
+              variant: "mindmap",
+              label: "Done",
+              description: "Đã xong.",
+            },
+          },
+        ]);
+        setEdges([
+          { id: "e1", source: "k_1", target: "k_2", animated: true },
+          { id: "e2", source: "k_2", target: "k_3", animated: true },
+        ]);
+        setDiagramTitle("Kanban Framework");
       } else if (templateParam === "sequence") {
-         setNodes([{ id: "s_1", type: "infographic", position: { x: 100, y: 100 }, data: { variant: "process", label: "Client Request", description: "HTTP Request tới backend." } }, { id: "s_2", type: "infographic", position: { x: 100, y: 350 }, data: { variant: "timeline", label: "Backend API", description: "FastAPI xử lý Logic." } }]);
-         setEdges([{ id: "e1", source: "s_1", target: "s_2", label: "Gửi request", animated: true }]);
-         setDiagramTitle("UML Sequence");
+        setNodes([
+          {
+            id: "s_1",
+            type: "infographic",
+            position: { x: 100, y: 100 },
+            data: {
+              variant: "process",
+              label: "Client Request",
+              description: "HTTP Request tới backend.",
+            },
+          },
+          {
+            id: "s_2",
+            type: "infographic",
+            position: { x: 100, y: 350 },
+            data: {
+              variant: "timeline",
+              label: "Backend API",
+              description: "FastAPI xử lý Logic.",
+            },
+          },
+        ]);
+        setEdges([
+          {
+            id: "e1",
+            source: "s_1",
+            target: "s_2",
+            label: "Gửi request",
+            animated: true,
+          },
+        ]);
+        setDiagramTitle("UML Sequence");
       }
       setTimeout(() => fitView({ duration: 800, padding: 0.2 }), 200);
       searchParams.delete("template");
       setSearchParams(searchParams);
     }
-  }, [templateParam, nodes.length, setNodes, setEdges, searchParams, setSearchParams, fitView]);
+  }, [
+    templateParam,
+    nodes.length,
+    setNodes,
+    setEdges,
+    searchParams,
+    setSearchParams,
+    fitView,
+  ]);
 
   // Load old diagram if provided via ID
   const diagramIdParam = searchParams.get("id");
   useEffect(() => {
     if (diagramIdParam && nodes.length === 0) {
       const load = async () => {
-         const token = localStorage.getItem("token");
-         if(!token) return;
-         try {
-            const data = await diagramApi.getById(diagramIdParam, token);
-            handleLoadDiagram(diagramIdParam, data.du_lieu_so_do);
-            setDiagramTitle(data.tieu_de);
-         } catch (e) {}
+        const token = localStorage.getItem("token");
+        if (!token) return;
+        try {
+          const data = await diagramApi.getById(diagramIdParam, token);
+          handleLoadDiagram(diagramIdParam, data.du_lieu_so_do);
+          setDiagramTitle(data.tieu_de);
+        } catch (e) {}
       };
       load();
     }
@@ -145,34 +247,41 @@ const DrawDiagramContent = () => {
   );
 
   // ─────────────────── THUMBNAIL CAPTURE ───────────────────
-  const captureThumbnailBase64 = useCallback(async (): Promise<string | null> => {
+  const captureThumbnailBase64 = useCallback(async (): Promise<
+    string | null
+  > => {
     const renderNodes = getNodes();
     if (!renderNodes || renderNodes.length === 0) return null;
-    const padding = 20;
+
+    const padding = 50; // Lề an toàn 50px cho đẹp
+
     try {
       const nodesBounds = getNodesBounds(renderNodes);
-      const { x, y, zoom } = getViewportForBounds(
-        nodesBounds,
-        nodesBounds.width,
-        nodesBounds.height,
-        0.5,
-        2,
-        padding,
-      );
-      const element = document.querySelector(".react-flow__viewport") as HTMLElement;
+
+      // 1. Ép kích thước ảnh bằng đúng Khung sơ đồ + Lề
+      const imageWidth = nodesBounds.width + padding * 2;
+      const imageHeight = nodesBounds.height + padding * 2;
+
+      // 2. Tự tính toán tọa độ dịch chuyển tịnh tiến (Vứt bỏ getViewportForBounds)
+      const transformX = -nodesBounds.x + padding;
+      const transformY = -nodesBounds.y + padding;
+
+      const element = document.querySelector(
+        ".react-flow__viewport",
+      ) as HTMLElement;
       if (!element) return null;
-      
-      // Sử dụng Jpeg thay thế png đồng thời cấu hình ratio và quality
+
       return await toJpeg(element, {
         backgroundColor: "#ffffff",
-        pixelRatio: 0.3, // Compressed resolution
-        quality: 0.8, // Compressed Jpeg quality
-        width: nodesBounds.width + padding * 2,
-        height: nodesBounds.height + padding * 2,
+        pixelRatio: 0.5, // Nâng lên 0.5 để nét hơn, không bị mờ
+        quality: 0.8,
+        width: imageWidth,
+        height: imageHeight,
         style: {
-          width: `${nodesBounds.width + padding * 2}px`,
-          height: `${nodesBounds.height + padding * 2}px`,
-          transform: `translate(${x}px, ${y}px) scale(${zoom})`,
+          width: `${imageWidth}px`,
+          height: `${imageHeight}px`,
+          // 3. ÉP MẠNH TỌA ĐỘ VÀ SCALE = 1
+          transform: `translate(${transformX}px, ${transformY}px) scale(1)`,
         },
       });
     } catch {
@@ -180,81 +289,112 @@ const DrawDiagramContent = () => {
     }
   }, [getNodes]);
 
-  const buildDiagramPayload = useCallback(async (includeThumbnail = true) => {
-    const thumbnail = includeThumbnail ? await captureThumbnailBase64() : undefined;
-    
-    // Khởi tạo payload cơ bản
-    const payload: any = {
-      tieu_de: diagramTitle,
-      la_noi_bo: provider === "ollama",
-      du_lieu_so_do: {
-        nodes,
-        edges,
-        strokes: strokes as StrokeData[],
-      },
-      van_ban_dau_vao: "AI generated",
-    };
+  const buildDiagramPayload = useCallback(
+    async (includeThumbnail = true) => {
+      const thumbnail = includeThumbnail
+        ? await captureThumbnailBase64()
+        : undefined;
 
-    // Chỉ ghim anh_thu_nho vào nếu có capture (tránh ghi đè null lên ảnh cũ)
-    if (thumbnail) {
+      // Khởi tạo payload cơ bản
+      const payload: any = {
+        tieu_de: diagramTitle,
+        la_noi_bo: provider === "ollama",
+        du_lieu_so_do: {
+          nodes,
+          edges,
+          strokes: strokes as StrokeData[],
+        },
+        van_ban_dau_vao: "AI generated",
+      };
+
+      // Chỉ ghim anh_thu_nho vào nếu có capture (tránh ghi đè null lên ảnh cũ)
+      if (thumbnail) {
         payload.anh_thu_nho = thumbnail;
-    }
+      }
 
-    return payload;
-  }, [diagramTitle, provider, nodes, edges, strokes, captureThumbnailBase64]);
+      return payload;
+    },
+    [diagramTitle, provider, nodes, edges, strokes, captureThumbnailBase64],
+  );
 
   // ─────────────────── SAVE / UPDATE ───────────────────
-  const handleSave = useCallback(async (isAutoSave = false) => {
-    const token = getAuthToken();
-    if (!token) {
-      if (!isAutoSave) toast.error("Bạn cần đăng nhập để lưu sơ đồ!");
-      return;
-    }
-    if (!nodes || nodes.length === 0) {
-      if (!isAutoSave) toast.warning("Sơ đồ đang trống, chưa có gì để lưu.");
-      return;
-    }
-
-    if (!edges) {
-      if (!isAutoSave) toast.error("Lỗi cấu trúc dữ liệu! Vui lòng thử lại.");
-      return;
-    }
-
-    // Bắt đầu quá trình lưu
-    if (!isAutoSave) setIsSaving(true);
-    const payload = await buildDiagramPayload(!isAutoSave);
-
-    try {
-      let result: any;
-
-      if (currentDiagramId) {
-        // Đã có sơ đồ → cập nhật (PUT)
-        result = await diagramApi.update(currentDiagramId, payload as any, token);
-        if (result?.id_so_do) {
-          const savedAt = new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
-          setLastSavedTime(`Đã lưu lúc ${savedAt}`);
-          if (!isAutoSave) toast.success("Cập nhật sơ đồ thành công!");
-        } else {
-          if (!isAutoSave) toast.error(result?.message || "Cập nhật không thành công.");
-        }
-      } else {
-        // Chưa có → tạo mới (POST)
-        result = await diagramApi.save(payload as any, token);
-        if (result?.id_so_do) {
-          setCurrentDiagramId(result.id_so_do);
-          const savedAt = new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
-          setLastSavedTime(`Đã lưu lúc ${savedAt}`);
-          if (!isAutoSave) toast.success("Lưu sơ đồ thành công!");
-        } else {
-          if (!isAutoSave) toast.error(result?.message || "Lưu không thành công.");
-        }
+  const handleSave = useCallback(
+    async (isAutoSave = false) => {
+      const token = getAuthToken();
+      if (!token) {
+        if (!isAutoSave) toast.error("Bạn cần đăng nhập để lưu sơ đồ!");
+        return;
       }
-    } catch (error) {
-      if (!isAutoSave) toast.error("Không thể kết nối tới backend. Hãy kiểm tra lại server.");
-    } finally {
-      if (!isAutoSave) setIsSaving(false);
-    }
-  }, [nodes, edges, strokes, diagramTitle, provider, currentDiagramId, buildDiagramPayload]);
+      if (!nodes || nodes.length === 0) {
+        if (!isAutoSave) toast.warning("Sơ đồ đang trống, chưa có gì để lưu.");
+        return;
+      }
+
+      if (!edges) {
+        if (!isAutoSave) toast.error("Lỗi cấu trúc dữ liệu! Vui lòng thử lại.");
+        return;
+      }
+
+      // Bắt đầu quá trình lưu
+      if (!isAutoSave) setIsSaving(true);
+      const payload = await buildDiagramPayload(!isAutoSave);
+
+      try {
+        let result: any;
+
+        if (currentDiagramId) {
+          // Đã có sơ đồ → cập nhật (PUT)
+          result = await diagramApi.update(
+            currentDiagramId,
+            payload as any,
+            token,
+          );
+          if (result?.id_so_do) {
+            const savedAt = new Date().toLocaleTimeString("vi-VN", {
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+            setLastSavedTime(`Đã lưu lúc ${savedAt}`);
+            if (!isAutoSave) toast.success("Cập nhật sơ đồ thành công!");
+          } else {
+            if (!isAutoSave)
+              toast.error(result?.message || "Cập nhật không thành công.");
+          }
+        } else {
+          // Chưa có → tạo mới (POST)
+          result = await diagramApi.save(payload as any, token);
+          if (result?.id_so_do) {
+            setCurrentDiagramId(result.id_so_do);
+            const savedAt = new Date().toLocaleTimeString("vi-VN", {
+              hour: "2-digit",
+              minute: "2-digit",
+            });
+            setLastSavedTime(`Đã lưu lúc ${savedAt}`);
+            if (!isAutoSave) toast.success("Lưu sơ đồ thành công!");
+          } else {
+            if (!isAutoSave)
+              toast.error(result?.message || "Lưu không thành công.");
+          }
+        }
+      } catch (error) {
+        if (!isAutoSave)
+          toast.error(
+            "Không thể kết nối tới backend. Hãy kiểm tra lại server.",
+          );
+      } finally {
+        if (!isAutoSave) setIsSaving(false);
+      }
+    },
+    [
+      nodes,
+      edges,
+      strokes,
+      diagramTitle,
+      provider,
+      currentDiagramId,
+      buildDiagramPayload,
+    ],
+  );
 
   // ─────────────────── AUTO-SAVE EFFECT ───────────────────
   useEffect(() => {
@@ -277,14 +417,19 @@ const DrawDiagramContent = () => {
         handleSave(false);
       }
       // Ctrl+Z — Undo
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z" && !e.shiftKey) {
+      if (
+        (e.ctrlKey || e.metaKey) &&
+        e.key.toLowerCase() === "z" &&
+        !e.shiftKey
+      ) {
         e.preventDefault();
         undo();
       }
       // Ctrl+Y / Ctrl+Shift+Z — Redo
       if (
         (e.ctrlKey || e.metaKey) &&
-        (e.key.toLowerCase() === "y" || (e.shiftKey && e.key.toLowerCase() === "z"))
+        (e.key.toLowerCase() === "y" ||
+          (e.shiftKey && e.key.toLowerCase() === "z"))
       ) {
         e.preventDefault();
         redo();
@@ -297,7 +442,8 @@ const DrawDiagramContent = () => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a" && !inInput) {
         e.preventDefault();
         setSelectedElements(nodes);
-        if (nodes.length > 0) toast.info(`Đã chọn tất cả ${nodes.length} node.`);
+        if (nodes.length > 0)
+          toast.info(`Đã chọn tất cả ${nodes.length} node.`);
       }
     };
     window.addEventListener("keydown", handleKeyDown);
@@ -305,21 +451,28 @@ const DrawDiagramContent = () => {
   }, [handleSave, undo, redo, deleteSelected, nodes, setSelectedElements]);
 
   // ─────────────────── RENAME via PATCH ───────────────────
-  const handleRename = useCallback(async (newTitle: string) => {
-    setDiagramTitle(newTitle);
-    if (!currentDiagramId) return; // Chưa lưu, không PATCH
-    const token = getAuthToken();
-    if (!token) return;
-    try {
-      await diagramApi.update(
-        currentDiagramId,
-        { tieu_de: newTitle, du_lieu_so_do: { nodes, edges, strokes }, la_noi_bo: provider === "ollama" } as any,
-        token,
-      );
-    } catch (_) {
-      // Silent
-    }
-  }, [currentDiagramId, nodes, edges, strokes, provider]);
+  const handleRename = useCallback(
+    async (newTitle: string) => {
+      setDiagramTitle(newTitle);
+      if (!currentDiagramId) return; // Chưa lưu, không PATCH
+      const token = getAuthToken();
+      if (!token) return;
+      try {
+        await diagramApi.update(
+          currentDiagramId,
+          {
+            tieu_de: newTitle,
+            du_lieu_so_do: { nodes, edges, strokes },
+            la_noi_bo: provider === "ollama",
+          } as any,
+          token,
+        );
+      } catch (_) {
+        // Silent
+      }
+    },
+    [currentDiagramId, nodes, edges, strokes, provider],
+  );
 
   // ─────────────────── EXPORT JPEG ───────────────────
   const handleExportPNG = async () => {
@@ -351,9 +504,16 @@ const DrawDiagramContent = () => {
       const padding = 20;
       const nodesBounds = getNodesBounds(renderNodes);
       const { x, y, zoom } = getViewportForBounds(
-        nodesBounds, nodesBounds.width, nodesBounds.height, 0.5, 2, padding
+        nodesBounds,
+        nodesBounds.width,
+        nodesBounds.height,
+        0.5,
+        2,
+        padding,
       );
-      const element = document.querySelector(".react-flow__viewport") as HTMLElement;
+      const element = document.querySelector(
+        ".react-flow__viewport",
+      ) as HTMLElement;
       if (!element) return;
       const imgData = await toJpeg(element, {
         backgroundColor: "#ffffff",
@@ -368,11 +528,22 @@ const DrawDiagramContent = () => {
         },
       });
       const pdf = new jsPDF({
-        orientation: nodesBounds.width > nodesBounds.height ? "landscape" : "portrait",
+        orientation:
+          nodesBounds.width > nodesBounds.height ? "landscape" : "portrait",
         unit: "px",
-        format: [nodesBounds.width + padding * 2, nodesBounds.height + padding * 2],
+        format: [
+          nodesBounds.width + padding * 2,
+          nodesBounds.height + padding * 2,
+        ],
       });
-      pdf.addImage(imgData, "JPEG", 0, 0, nodesBounds.width + padding * 2, nodesBounds.height + padding * 2);
+      pdf.addImage(
+        imgData,
+        "JPEG",
+        0,
+        0,
+        nodesBounds.width + padding * 2,
+        nodesBounds.height + padding * 2,
+      );
       pdf.save(`VNPT-QuyTrinh-${Date.now()}.pdf`);
       toast.success("Xuất PDF thành công!");
     } catch (e) {
@@ -391,9 +562,16 @@ const DrawDiagramContent = () => {
       const padding = 20;
       const nodesBounds = getNodesBounds(renderNodes);
       const { x, y, zoom } = getViewportForBounds(
-        nodesBounds, nodesBounds.width, nodesBounds.height, 0.5, 2, padding
+        nodesBounds,
+        nodesBounds.width,
+        nodesBounds.height,
+        0.5,
+        2,
+        padding,
       );
-      const element = document.querySelector(".react-flow__viewport") as HTMLElement;
+      const element = document.querySelector(
+        ".react-flow__viewport",
+      ) as HTMLElement;
       if (!element) return;
       const svgData = await toSvg(element, {
         backgroundColor: "#ffffff",
@@ -422,7 +600,6 @@ const DrawDiagramContent = () => {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#f8fafc] font-sans">
-      
       {/* ─── LAYER 1: CANVAS BACKGROUND (z-0) ─── */}
       <main className="absolute inset-0 z-0 bg-[#0f172a] overflow-hidden pt-14">
         <FlowCanvas
@@ -461,31 +638,36 @@ const DrawDiagramContent = () => {
       </main>
 
       {/* ─── LAYER 2: SPARKLES TRIGGER BUTTON (z-[60]) ─── */}
-      <div 
+      <div
         className={`absolute top-1/2 -translate-y-1/2 z-[60] transition-all duration-300 ease-in-out ${
           aiSidebarOpen ? "left-[330px] lg:left-[360px]" : "left-4"
         }`}
       >
-         <button
-            onClick={() => setAiSidebarOpen(!aiSidebarOpen)}
-            className={`p-3 bg-gradient-to-tr from-[#0066cc] to-indigo-600 rounded-full shadow-xl hover:shadow-blue-500/50 hover:scale-105 active:scale-95 transition-all text-white flex flex-col items-center justify-center gap-1 group overflow-hidden ${
-              aiSidebarOpen ? "w-12 h-12" : "w-14 h-14"
-            }`}
-          >
-            {aiSidebarOpen ? (
-              <X size={24} className="transition-transform duration-300 rotate-90 group-hover:rotate-0" />
-            ) : (
-              <>
-                <Sparkles size={22} className="animate-pulse" />
-                <span className="text-[9px] font-bold tracking-widest uppercase">AI</span>
-              </>
-            )}
-            
-            <div className="absolute left-full top-1/2 -translate-y-1/2 ml-4 px-3 py-1.5 bg-slate-800 text-white text-[11px] font-bold rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-[100] shadow-lg pointer-events-none">
-              {aiSidebarOpen ? "Đóng bảng AI" : "Mở AI Trợ Lý"}
-              <div className="absolute top-1/2 right-full -translate-y-1/2 border-4 border-transparent border-r-slate-800"></div>
-            </div>
-         </button>
+        <button
+          onClick={() => setAiSidebarOpen(!aiSidebarOpen)}
+          className={`p-3 bg-gradient-to-tr from-[#0066cc] to-indigo-600 rounded-full shadow-xl hover:shadow-blue-500/50 hover:scale-105 active:scale-95 transition-all text-white flex flex-col items-center justify-center gap-1 group overflow-hidden ${
+            aiSidebarOpen ? "w-12 h-12" : "w-14 h-14"
+          }`}
+        >
+          {aiSidebarOpen ? (
+            <X
+              size={24}
+              className="transition-transform duration-300 rotate-90 group-hover:rotate-0"
+            />
+          ) : (
+            <>
+              <Sparkles size={22} className="animate-pulse" />
+              <span className="text-[9px] font-bold tracking-widest uppercase">
+                AI
+              </span>
+            </>
+          )}
+
+          <div className="absolute left-full top-1/2 -translate-y-1/2 ml-4 px-3 py-1.5 bg-slate-800 text-white text-[11px] font-bold rounded-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all whitespace-nowrap z-[100] shadow-lg pointer-events-none">
+            {aiSidebarOpen ? "Đóng bảng AI" : "Mở AI Trợ Lý"}
+            <div className="absolute top-1/2 right-full -translate-y-1/2 border-4 border-transparent border-r-slate-800"></div>
+          </div>
+        </button>
       </div>
 
       {/* ─── LAYER 2: BOTTOM TOOLBAR (z-40) ─── */}
@@ -509,17 +691,17 @@ const DrawDiagramContent = () => {
 
       {/* ─── LAYER 3: AI SIDEBAR LEFT (z-50) ─── */}
       <div className="absolute top-14 left-0 bottom-0 z-[50] pointer-events-none">
-         <div className="h-full pointer-events-auto">
-           <AiSidebarLeft
-             isOpen={aiSidebarOpen}
-             onClose={() => setAiSidebarOpen(false)}
-             onGenerate={handleGenerate}
-             onUpload={uploadFileAndGenerate}
-             loading={isGenerating}
-             provider={provider}
-             setProvider={setProvider}
-           />
-         </div>
+        <div className="h-full pointer-events-auto">
+          <AiSidebarLeft
+            isOpen={aiSidebarOpen}
+            onClose={() => setAiSidebarOpen(false)}
+            onGenerate={handleGenerate}
+            onUpload={uploadFileAndGenerate}
+            loading={isGenerating}
+            provider={provider}
+            setProvider={setProvider}
+          />
+        </div>
       </div>
 
       {/* ─── LAYER 4: TOP HEADER (z-60) ─── */}
@@ -534,7 +716,6 @@ const DrawDiagramContent = () => {
         onRename={handleRename}
         onLoadDiagram={handleLoadDiagram}
       />
-
     </div>
   );
 };

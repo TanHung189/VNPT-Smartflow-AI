@@ -39,7 +39,7 @@ export const DashBoard: React.FC = () => {
   const [activeTab, setActiveTab] = useState("Home");
   const [diagrams, setDiagrams] = useState<DiagramListItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   // ─────────────────── AUTO-POLLING API ───────────────────
   useEffect(() => {
     let isMounted = true;
@@ -97,41 +97,93 @@ export const DashBoard: React.FC = () => {
     return (
       <div className="mb-8">
         <h3 className="text-sm font-bold text-slate-800 mb-4 ml-1">{title}</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {list.map((d) => (
-            <div
-              key={d.id_so_do}
-              onClick={() => navigate(`/DrawDiagram?id=${d.id_so_do}`)}
-              className="group cursor-pointer flex flex-col"
-            >
-              <div className="h-32 bg-slate-50 border border-slate-200 rounded-xl mb-2 flex items-center justify-center overflow-hidden transition-all group-hover:border-blue-400 group-hover:shadow-md relative">
-                {d.anh_thu_nho ? (
-                  <img
-                    src={d.anh_thu_nho}
-                    alt={d.tieu_de}
-                    className="w-full h-full object-contain object-center opacity-90 group-hover:opacity-100 transition-opacity"
-                  />
-                ) : (
-                  <FileBox className="w-8 h-8 text-slate-300" />
-                )}
-                {d.la_noi_bo && (
-                  <div className="absolute top-2 left-2 bg-teal-100/90 text-teal-800 text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm backdrop-blur-sm border border-teal-200/50 flex flex-center gap-1">
-                    LOCAL AI
+
+        {viewMode === "grid" ? (
+          // ─── GIAO DIỆN GRID (CŨ) ───
+          <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {list.map((d) => (
+              <div
+                key={d.id_so_do}
+                onClick={() => navigate(`/DrawDiagram?id=${d.id_so_do}`)}
+                className="group cursor-pointer flex flex-col"
+              >
+                <div className="h-32 bg-slate-50 border border-slate-200 rounded-xl mb-2 flex items-center justify-center overflow-hidden transition-all group-hover:border-blue-400 group-hover:shadow-md relative">
+                  {d.anh_thu_nho ? (
+                    <img
+                      src={d.anh_thu_nho}
+                      alt={d.tieu_de}
+                      className="w-full h-full object-contain p-2 bg-white mix-blend-multiply opacity-90 group-hover:opacity-100 transition-all duration-300 group-hover:scale-105"
+                    />
+                  ) : (
+                    <FileBox className="w-8 h-8 text-slate-300" />
+                  )}
+                  {d.la_noi_bo && (
+                    <div className="absolute top-2 left-2 bg-teal-100/90 text-teal-800 text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm backdrop-blur-sm border border-teal-200/50 flex flex-center gap-1">
+                      LOCAL AI
+                    </div>
+                  )}
+                  <button className="absolute top-2 right-2 p-1.5 bg-white/90 shadow-sm rounded border border-slate-200 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-slate-100 text-slate-600">
+                    <MoreVertical className="w-3 h-3" />
+                  </button>
+                </div>
+                <p className="text-sm font-bold text-slate-800 truncate px-1">
+                  {d.tieu_de}
+                </p>
+                <p className="text-xs text-slate-500 truncate px-1">
+                  Đã sửa: {format(new Date(d.ngay_cap_nhat), "HH:mm")}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : (
+          // ─── GIAO DIỆN LIST (MỚI) ───
+          <div className="flex flex-col gap-2">
+            {list.map((d) => (
+              <div
+                key={d.id_so_do}
+                onClick={() => navigate(`/DrawDiagram?id=${d.id_so_do}`)}
+                className="group cursor-pointer flex items-center justify-between p-3 bg-white border border-slate-200 rounded-xl hover:border-blue-400 hover:shadow-sm transition-all"
+              >
+                <div className="flex items-center gap-4">
+                  {/* Thumbnail nhỏ xíu */}
+                  <div className="w-20 h-14 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-center overflow-hidden shrink-0 relative">
+                    {d.anh_thu_nho ? (
+                      <img
+                        src={d.anh_thu_nho}
+                        alt={d.tieu_de}
+                        className="w-full h-full object-contain bg-white mix-blend-multiply"
+                      />
+                    ) : (
+                      <FileBox className="w-5 h-5 text-slate-300" />
+                    )}
                   </div>
-                )}
-                <button className="absolute top-2 right-2 p-1.5 bg-white/90 shadow-sm rounded border border-slate-200 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-slate-100 text-slate-600">
-                  <MoreVertical className="w-3 h-3" />
+
+                  {/* Thông tin Text */}
+                  <div>
+                    <p className="text-sm font-bold text-slate-800 group-hover:text-[#0066cc] transition-colors">
+                      {d.tieu_de}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <p className="text-xs text-slate-500 font-medium">
+                        Đã sửa: {format(new Date(d.ngay_cap_nhat), "HH:mm")}
+                      </p>
+                      {d.la_noi_bo && (
+                        <span className="bg-teal-100 text-teal-800 text-[9px] font-bold px-1.5 py-[1px] rounded">
+                          LOCAL AI
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Nút Action */}
+                <button className="p-2 text-slate-400 opacity-0 group-hover:opacity-100 group-hover:text-slate-700 hover:bg-slate-100 rounded-full transition-all">
+                  <MoreVertical className="w-4 h-4" />
                 </button>
               </div>
-              <p className="text-sm font-bold text-slate-800 truncate px-1">
-                {d.tieu_de}
-              </p>
-              <p className="text-xs text-slate-500 truncate px-1">
-                Đã sửa: {format(new Date(d.ngay_cap_nhat), "HH:mm")}
-              </p>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
     );
   };
@@ -230,9 +282,6 @@ export const DashBoard: React.FC = () => {
             </span>
           </div>
           <div className="flex items-center gap-3">
-            <button className="bg-[#0066cc] hover:bg-blue-700 text-white text-xs font-bold px-4 py-2 flex items-center gap-1.5 rounded-lg transition-all shadow-sm">
-              <Plus className="w-3.5 h-3.5" /> Tạo sơ đồ mới
-            </button>
             <div className="w-[1px] h-6 bg-slate-200 mx-1" />
             <button className="p-2 text-slate-600 hover:bg-slate-100 rounded-full transition-colors relative">
               <Bell className="w-5 h-5" />
@@ -294,11 +343,18 @@ export const DashBoard: React.FC = () => {
               <h2 className="text-2xl font-black text-slate-900 tracking-tight">
                 VNPT Workspace
               </h2>
+              {/* ─── NÚT TOGGLE GRID / LIST ─── */}
               <div className="flex bg-slate-100 p-1 rounded-lg">
-                <button className="p-1.5 bg-white text-slate-800 shadow-sm rounded-md">
+                <button
+                  onClick={() => setViewMode("grid")}
+                  className={`p-1.5 rounded-md transition-colors ${viewMode === "grid" ? "bg-white text-slate-800 shadow-sm" : "text-slate-400 hover:text-slate-800"}`}
+                >
                   <LayoutGrid className="w-4 h-4" />
                 </button>
-                <button className="p-1.5 text-slate-400 hover:text-slate-800 rounded-md">
+                <button
+                  onClick={() => setViewMode("list")}
+                  className={`p-1.5 rounded-md transition-colors ${viewMode === "list" ? "bg-white text-slate-800 shadow-sm" : "text-slate-400 hover:text-slate-800"}`}
+                >
                   <List className="w-4 h-4" />
                 </button>
               </div>
