@@ -8,7 +8,50 @@ import {
   type Edge,
 } from "@xyflow/react";
 import dagre from "@dagrejs/dagre";
+import { toast } from "sonner";
 import { diagramApi } from "../services/diagramApi";
+
+// ─── NODE TYPE MAP ──────────────────────────────────────────────────────────
+// Map từ `the_loai` (thể loại sơ đồ) → React Flow node type string.
+// Khi AI trả về nodes, useFlowLogic sẽ ép đúng type dựa trên loại sơ đồ hiện tại.
+export const NODE_TYPE_MAP: Record<string, string> = {
+  // Network & Infrastructure
+  "network": "networkNode",
+  "ha-tang-mang": "networkNode",
+  "infrastructure": "networkNode",
+  "retro": "networkNode",           // template "Hạ tầng Mạng VNPT"
+  // iOffice Workflow
+  "ioffice": "iofficeNode",
+  "quy-trinh": "iofficeNode",
+  "workflow": "iofficeNode",
+  "kanban": "iofficeNode",           // template "Quy trình iOffice"
+  // Cloud
+  "cloud": "cloudNode",
+  "vnpt-cloud": "cloudNode",
+  "kien-truc-cloud": "cloudNode",
+  // Smart City / IoT
+  "iot": "iotNode",
+  "smart-city": "iotNode",
+  "ioc": "iotNode",
+  "sequence": "iotNode",             // template "Smart City (IOC)"
+  // UML / UseCase
+  "uml": "umlNode",
+  "usecase": "umlNode",
+  "class-diagram": "umlNode",
+  // Flowchart (default)
+  "flowchart": "customNode",
+  "ai": "customNode",
+};
+
+/**
+ * Resolve node type từ the_loai của sơ đồ.
+ * Fallback về "customNode" nếu không map được.
+ */
+const resolveNodeType = (theLoai?: string): string => {
+  if (!theLoai) return "customNode";
+  const key = theLoai.toLowerCase().trim();
+  return NODE_TYPE_MAP[key] ?? "customNode";
+};
 
 const getLayoutedElements = (
   nodes: Node[],
@@ -23,8 +66,8 @@ const getLayoutedElements = (
   // 1. TỐI ƯU DAGRE: Bỏ align để sơ đồ tự động căn giữa (Center-aligned)
   dagreGraph.setGraph({
     rankdir: direction,
-    nodesep: 100, // Tăng khoảng cách ngang để các nhánh không chen lấn
-    ranksep: 120, // Khoảng cách dọc
+    nodesep: 150, // Auto-clean: đảm bảo không bao giờ bị đè node
+    ranksep: 200, // Khoảng cách dọc rộng cho sơ đồ enterprise
   });
 
   nodes.forEach((node) => {
@@ -155,14 +198,21 @@ export const useFlowLogic = () => {
     [takeSnapshot],
   );
 
-  // --- 3. LOGIC NORMALIZE (GIỮ NGUYÊN CỦA HƯNG) ---
-  const normalizeGraph = (data: any) => {
+  // --- 3. LOGIC NORMALIZE (hỗ trợ NODE_TYPE_MAP) ---
+  /**
+   * @param data       Dữ liệu raw từ AI { nodes, edges }
+   * @param diagramType  Thể loại sơ đồ (the_loai) để map node type
+   */
+  const normalizeGraph = (data: any, diagramType?: string) => {
     const rawNodes = data?.nodes ?? [];
     const rawEdges = data?.edges ?? [];
+    const resolvedType = resolveNodeType(diagramType);
 
     const nodesOut = rawNodes.map((n: any) => ({
       ...n,
-      type: "customNode",
+      // Ưu tiên type đã có sẵn trong data (nếu AI trả về explicit type)
+      // Nếu không có → dùng resolvedType từ NODE_TYPE_MAP
+      type: n.type && n.type !== "customNode" ? n.type : resolvedType,
       data: { ...n.data, label: n.label || n.data?.label || "" },
     }));
 
@@ -182,27 +232,43 @@ export const useFlowLogic = () => {
   };
 
   // --- 4. API CALLS ---
+  /**
+   * Sinh / chỉnh sửa sơ đồ bằng AI.
+   * @param text          Prompt của người dùng
+   * @param provider      gemini | ollama
+   * @param currentNodes  Nodes hiện tại trên canvas (Chat-to-Edit)
+   * @param currentEdges  Edges hiện tại trên canvas (Chat-to-Edit)
+   * @param diagramType   Thể loại sơ đồ để resolve node type
+   */
   const generateFlow = useCallback(
-    // 1. Thêm tham số provider (mặc định là gemini để an toàn)
-    async (text: string, provider: "gemini" | "ollama" = "gemini") => {
+    async (
+      text: string,
+      provider: "gemini" | "ollama" = "gemini",
+      currentNodes?: Node[],
+      currentEdges?: Edge[],
+      diagramType?: string,
+    ) => {
       if (!text) return;
       setIsGenerating(true);
       try {
-        // 2. Truyền provider này xuống API
-        const response = await diagramApi.generateFlowText(text, provider);
+        const response = await diagramApi.generateFlowText(
+          text,
+          provider,
+          currentNodes,
+          currentEdges,
+        );
 
-        // (Lưu ý: Nếu em dùng fetch() thì dùng response.json(),
-        // nếu dùng axios thì thường là response.data nhé)
         const resData = await response.json();
 
         if (resData.result === "SUCCESS") {
-          const normalized = normalizeGraph(resData.data);
-          console.log("Dữ liệu normalized:", normalized);
+          const normalized = normalizeGraph(resData.data, diagramType);
+          console.log("[useFlowLogic] Normalized:", normalized);
 
           if (!normalized.nodes || normalized.nodes.length === 0) {
-            alert("AI trả về dữ liệu không hợp lệ. Vui lòng thử lại với prompt chi tiết hơn.");
-            // Stop processing if empty, wait, the user asked to alert but if we return empty the node fallback from backend might be ignored.
-            // Actually, backend now returns a default node so length won't be 0, but this handles front-end safety.
+            toast.warning(
+              "AI trả về dữ liệu trống. Vui lòng thử lại với prompt chi tiết hơn.",
+            );
+            return;
           }
 
           const { nodes: lNodes, edges: lEdges } = getLayoutedElements(
@@ -211,12 +277,13 @@ export const useFlowLogic = () => {
           );
           setNodes(lNodes as Node[]);
           setEdges(lEdges as Edge[]);
-          // Lưu lịch sử sau khi AI tạo xong
           setTimeout(takeSnapshot, 100);
+        } else {
+          toast.error(resData.message ?? "AI không thể xử lý yêu cầu này.");
         }
       } catch (error) {
         console.error(error);
-        // Có thể thêm toast thông báo lỗi ở đây nếu cần
+        toast.error("Lỗi kết nối tới AI backend. Kiểm tra lại server.");
       } finally {
         setIsGenerating(false);
       }
@@ -243,9 +310,11 @@ export const useFlowLogic = () => {
           setNodes(lNodes as Node[]);
           setEdges(lEdges as Edge[]);
           setTimeout(takeSnapshot, 100);
+        } else {
+          toast.error(resData.message ?? "Không thể phân tích file. Vui lòng thử lại.");
         }
       } catch (error) {
-        alert("Lỗi kết nối!");
+        toast.error("Lỗi kết nối tới server khi xử lý file!");
       } finally {
         setIsGenerating(false);
       }

@@ -11,7 +11,8 @@ import {
   RotateCw,
   Trash2,
   ChevronUp,
-  PaintBucket
+  PaintBucket,
+  StickyNote,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -116,10 +117,21 @@ export const BottomToolbar: React.FC<BottomToolbarProps> = ({
                 </div>
                 <ToolButton
                   icon={<Type size={20} />}
-                  label="Thêm Ghi chú"
+                  label="Thêm Ghi chú (node text)"
                   onClick={onAddNote}
                   color="text-emerald-600 hover:bg-emerald-50"
                 />
+                <div
+                  onDragStart={(e) => onDragStart(e, "stickyNode")}
+                  draggable
+                  className="cursor-grab active:cursor-grabbing"
+                >
+                  <ToolButton
+                    icon={<StickyNote size={20} />}
+                    label="Kéo: Sticky Note (Ghi chú màu vàng)"
+                    color="text-yellow-600 hover:bg-yellow-50"
+                  />
+                </div>
               </motion.div>
             )}
           </AnimatePresence>

@@ -19,11 +19,33 @@ import {
   exportToPng,
   exportToPdf,
 } from "../../utils/exportDiagram";
+import NetworkNode from "./nodes/NetworkNode";
+import IofficeNode from "./nodes/IofficeNode";
+import CloudNode from "./nodes/CloudNode";
+import IotNode from "./nodes/IotNode";
+import UmlNode from "./nodes/UmlNode";
+import StickyNode from "./nodes/StickyNode";
+import { useTheme } from "next-themes";
 
+// ─── NODE TYPE REGISTRY ──────────────────────────────────────────────────────
+// Đăng ký tất cả custom node types — thêm type mới vào đây để ReactFlow nhận diện
 const nodeTypes = {
+  // Legacy / generic
   taskNode: SmartNode,
   conditionNode: SmartNode,
   customNode: SmartNode,
+  start: SmartNode,
+  end: SmartNode,
+  step: SmartNode,
+  decision: SmartNode,
+  infographic: SmartNode,
+  // Enterprise node types
+  networkNode: NetworkNode, // Hạ tầng mạng VNPT
+  iofficeNode: IofficeNode, // Quy trình iOffice
+  cloudNode: CloudNode, // Kiến trúc VNPT Cloud (glassmorphism)
+  iotNode: IotNode, // Smart City / IoT
+  umlNode: UmlNode, // UML / UseCase diagrams
+  stickyNode: StickyNode, // Sticky notes
 };
 
 const FlowContent = ({
@@ -66,6 +88,7 @@ const FlowContent = ({
   onOpenAI,
   aiMode,
 }: any) => {
+  const { theme, setTheme } = useTheme();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
@@ -187,7 +210,24 @@ const FlowContent = ({
         </button>
       </div>*/}
 
+      {/* ─── THEME TOGGLE COMBOBOX (z-50) ─── */}
+      <div className="absolute top-6 right-6 z-[60] bg-white dark:bg-slate-800 rounded-lg shadow-md border border-slate-200 dark:border-slate-700 flex items-center gap-2 p-1 transition-colors">
+        <select
+          value={theme}
+          onChange={(e) => setTheme(e.target.value)}
+          className="bg-transparent border-none text-sm font-medium text-slate-700 dark:text-slate-200 focus:ring-0 cursor-pointer px-2 py-1 outline-none appearance-none pr-6 relative"
+        >
+          <option value="light">Light</option>
+          <option value="dark">Dark</option>
+          <option value="system">System</option>
+        </select>
+        <div className="absolute right-3 pointer-events-none text-slate-400 dark:text-slate-500">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+        </div>
+      </div>
+
       <ReactFlow
+        colorMode={(theme as "light" | "dark" | "system") || "system"}
         style={{ width: "100%", height: "100%" }}
         panOnDrag={!(drawMode?.type === "pen" || drawMode?.type === "eraser")}
         nodes={nodes.concat(
@@ -246,16 +286,20 @@ const FlowContent = ({
         />
         {showMiniMap && (
           <MiniMap
-            position="bottom-right"
-            className="bg-slate-900/80 border-slate-700 shadow-2xl"
-            maskColor="rgba(15, 23, 42, 0.6)"
-            nodeBorderRadius={10}
+            position="bottom-left"
+            className="bg-white/90 backdrop-blur-sm border border-slate-200 rounded-lg shadow-md mb-8 ml-6"
+            maskColor="rgba(241, 245, 249, 0.7)"
+            nodeBorderRadius={4}
             zoomable
             pannable
-            style={{
-              right: "24px",
-              bottom: "80px",
-              transition: "right 0.3s ease-in-out",
+            nodeColor={(node) => {
+              if (node.type === "networkNode") return "#0066cc";
+              if (node.type === "iofficeNode") return "#10b981";
+              if (node.type === "cloudNode") return "#6366f1";
+              if (node.type === "iotNode") return "#f59e0b";
+              if (node.type === "conditionNode") return "#f59e0b";
+              if (node.type === "taskNode") return "#3b82f6";
+              return "#cbd5e1";
             }}
           />
         )}
@@ -456,11 +500,7 @@ const FlowContent = ({
 
 // 6. COMPONENT EXPORT (BẮT BUỘC CÓ PROVIDER)
 const FlowCanvas = (props: any) => {
-  return (
-    <ReactFlowProvider>
-      <FlowContent {...props} />
-    </ReactFlowProvider>
-  );
+  return <FlowContent {...props} />;
 };
 
 export default FlowCanvas;

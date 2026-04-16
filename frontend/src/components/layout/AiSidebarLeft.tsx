@@ -182,21 +182,35 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
                 className="flex flex-col gap-2 mt-4"
               >
                 <p className="text-[10px] font-bold text-slate-400 mb-1 tracking-widest uppercase">
-                  📌 Gợi ý nhanh
+                  📌 VNPT Templates
                 </p>
                 <button
-                  onClick={() => handleTemplateClick("Vẽ sơ đồ quy trình đăng ký Cáp Quang VNPT.")}
-                  className="text-left p-2.5 rounded-xl border border-blue-200 bg-blue-50/50 hover:bg-blue-100/50 text-blue-800 text-xs transition-colors"
+                  onClick={() => handleTemplateClick("Hệ thống đóng vai trò là một kỹ sư hạ tầng mạng VNPT. Hãy vẽ sơ đồ topology ví dụ gồm: Core Switch, Router, Firewall, IDC và các lớp bảo mật.")}
+                  className="text-left p-2.5 rounded-xl border border-slate-200 bg-slate-50 shadow-sm hover:bg-slate-100/80 text-slate-800 text-xs transition-colors"
                 >
-                  <span className="block font-bold">🌐 Cáp quang VNPT</span>
-                  Tạo nhanh sơ đồ xử lý cáp quang...
+                  <span className="block font-bold text-[#0066cc]">🌐 Hạ tầng Mạng VNPT</span>
+                  Sơ đồ Topology, Lớp bảo mật...
                 </button>
                 <button
-                  onClick={() => handleTemplateClick("Vẽ sơ đồ luồng xử lý sự cố viễn thông.")}
-                  className="text-left p-2.5 rounded-xl border border-emerald-200 bg-emerald-50/50 hover:bg-emerald-100/50 text-emerald-800 text-xs transition-colors"
+                  onClick={() => handleTemplateClick("Hệ thống đóng vai trò là một chuyên gia quy trình số. Hãy lập quy trình luồng công việc iOffice/e-Gov cơ bản với các thẻ card Shadcn UI.")}
+                  className="text-left p-2.5 rounded-xl border border-slate-200 bg-slate-50 shadow-sm hover:bg-slate-100/80 text-slate-800 text-xs transition-colors"
                 >
-                  <span className="block font-bold">🔧 Hỗ trợ sự cố</span>
-                  Luồng điều hành báo hỏng mạng tĩnh...
+                  <span className="block font-bold text-emerald-600">📄 Quy trình iOffice / e-Gov</span>
+                  Luồng văn bản số thủ tục...
+                </button>
+                <button
+                  onClick={() => handleTemplateClick("Hệ thống đóng vai trò là chuyên gia giải pháp VNPT Cloud. Hãy tạo kiến trúc Cloud gồm Load Balancer, Web Server, Database Storage.")}
+                  className="text-left p-2.5 rounded-xl border border-slate-200 bg-slate-50 shadow-sm hover:bg-slate-100/80 text-slate-800 text-xs transition-colors"
+                >
+                  <span className="block font-bold text-teal-600">☁️ Kiến trúc VNPT Cloud</span>
+                  Sơ đồ điện toán đám mây...
+                </button>
+                <button
+                  onClick={() => handleTemplateClick("Hệ thống đóng vai trò là tư vấn viên Smart City IOC. Hãy tạo sơ đồ luồng dịch vụ Smart City điều hành tập trung thông minh.")}
+                  className="text-left p-2.5 rounded-xl border border-slate-200 bg-slate-50 shadow-sm hover:bg-slate-100/80 text-slate-800 text-xs transition-colors"
+                >
+                  <span className="block font-bold text-amber-500">🏙️ Dịch vụ IOC Smart City</span>
+                  Luồng điều hành dữ liệu số...
                 </button>
               </motion.div>
             )}

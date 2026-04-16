@@ -26,6 +26,9 @@ class GenerateRequest(BaseModel):
     text: str
     provider: Optional[str] = "gemini"
     is_internal: bool = False
+    # Chat-to-Edit: truyền context canvas hiện tại để AI nhận biết nodes/edges đã có
+    current_nodes: Optional[list] = None
+    current_edges: Optional[list] = None
 
 # ==============================================================
 # [1] NHÓM API AI — Tạo sơ đồ tự động
@@ -43,12 +46,28 @@ async def generate_flow(req: GenerateRequest):
         if req.is_internal:
             req.provider = "ollama"
             logger.info("🔒 [SECURITY] Quy trình nội bộ -> Cưỡng bức dùng Ollama (KHÔNG gửi lên Cloud).")
-            
-        data = await ai_service.generate_smart_flow(req.text, req.provider)
+
+        # Xây dựng prompt context từ canvas hiện tại (Chat-to-Edit)
+        text_with_context = req.text
+        if req.current_nodes or req.current_edges:
+            import json
+            context_str = json.dumps({
+                "nodes": req.current_nodes or [],
+                "edges": req.current_edges or [],
+            }, ensure_ascii=False)
+            text_with_context = (
+                f"{req.text}\n\n"
+                f"[Ngữ cảnh Canvas hiện tại - Hãy ADD/UPDATE/DELETE dựa trên sơ đồ này, KHÔNG tạo mới hoàn toàn]:\n"
+                f"{context_str}"
+            )
+            logger.info(f"[Chat-to-Edit] Context inject: {len(req.current_nodes or [])} nodes, {len(req.current_edges or [])} edges")
+
+        data = await ai_service.generate_smart_flow(text_with_context, req.provider)
         return {"result": "SUCCESS", "data": data}
     except Exception as e:
         logger.error(f"[generate_flow] Lỗi AI ({req.provider}): {e}", exc_info=True)
         return {"result": "ERROR", "message": str(e)}
+
 
 
 @router.post(

@@ -47,6 +47,7 @@ export interface DiagramListItem {
   la_noi_bo: boolean;
   la_mau_chuan: boolean;
   ngay_cap_nhat: string;
+  anh_thu_nho?: string;
 }
 
 // ============================================================
@@ -139,12 +140,25 @@ export const diagramApi = {
   /**
    * Tạo sơ đồ từ văn bản bằng mô hình AI.
    * POST /api/ai/generate/text
+   * @param currentNodes  Nodes hiện tại (Chat-to-Edit context)
+   * @param currentEdges  Edges hiện tại (Chat-to-Edit context)
    */
-  generateFlowText: async (text: string, provider: string) => {
+  generateFlowText: async (
+    text: string,
+    provider: string,
+    currentNodes?: any[],
+    currentEdges?: any[],
+  ) => {
     return fetch("http://127.0.0.1:8000/api/ai/generate/text", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text, provider }),
+      body: JSON.stringify({
+        text,
+        provider,
+        // Trưyền cấu trúc dữ liệu hiện tại cho AI nhận biết context (Chat-to-Edit)
+        current_nodes: currentNodes && currentNodes.length > 0 ? currentNodes : undefined,
+        current_edges: currentEdges && currentEdges.length > 0 ? currentEdges : undefined,
+      }),
     });
   },
 

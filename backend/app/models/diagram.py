@@ -7,11 +7,14 @@
 # =============================================================
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from sqlmodel import Field, Relationship, Column
-from sqlalchemy import ForeignKey
+from sqlalchemy import ForeignKey, DateTime
 from sqlalchemy.dialects.postgresql import UUID, JSONB
+
+def naive_utc() -> datetime:
+    return datetime.now(timezone.utc).replace(tzinfo=None)
 
 from app.database.base import Base
 
@@ -61,14 +64,23 @@ class SoDo(Base, table=True):
     la_mau_chuan: bool = Field(default=False)
 
     # Thời điểm tạo sơ đồ
-    ngay_tao: datetime = Field(default_factory=datetime.utcnow)
+    ngay_tao: datetime = Field(
+        default_factory=naive_utc,
+        sa_column=Column(DateTime(timezone=False), nullable=False, default=naive_utc)
+    )
 
     # Thời điểm cập nhật gần nhất
-    ngay_cap_nhat: datetime = Field(default_factory=datetime.utcnow)
+    ngay_cap_nhat: datetime = Field(
+        default_factory=naive_utc,
+        sa_column=Column(DateTime(timezone=False), nullable=False, default=naive_utc, onupdate=naive_utc)
+    )
 
     # Thời điểm xóa mềm — NULL = sơ đồ đang tồn tại
     # QUAN TRỌNG: Mọi SELECT phải có điều kiện ngay_xoa IS NULL
-    ngay_xoa: Optional[datetime] = Field(default=None, index=True)
+    ngay_xoa: Optional[datetime] = Field(
+        default=None, 
+        sa_column=Column(DateTime(timezone=False), nullable=True)
+    )
 
     # ── Quan hệ ──
     # SQLAlchemy tự detect FK từ sa_column → không cần sa_relationship_kwargs nữa

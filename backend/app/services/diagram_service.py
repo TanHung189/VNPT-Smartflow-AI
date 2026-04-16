@@ -81,6 +81,7 @@ async def create_diagram(
             du_lieu_so_do=data.du_lieu_so_do,
             la_noi_bo=data.la_noi_bo,
             van_ban_dau_vao=getattr(data, "van_ban_dau_vao", None),
+            anh_thu_nho=getattr(data, "anh_thu_nho", None),
         )
         session.add(so_do_moi)
         await session.commit()
@@ -228,7 +229,10 @@ async def update_diagram(
         so_do.tieu_de       = data.tieu_de
         so_do.du_lieu_so_do = data.du_lieu_so_do
         so_do.la_noi_bo     = data.la_noi_bo
-        so_do.ngay_cap_nhat = datetime.now(timezone.utc)
+        so_do.ngay_cap_nhat = datetime.now(timezone.utc).replace(tzinfo=None)
+        
+        if getattr(data, "anh_thu_nho", None) is not None:
+             so_do.anh_thu_nho = data.anh_thu_nho
 
         await session.commit()
         await session.refresh(so_do)
@@ -272,7 +276,7 @@ async def delete_diagram(
             return False
 
         # ⭐ Soft Delete — ghi dấu thời gian xóa
-        so_do.ngay_xoa = datetime.now(timezone.utc)
+        so_do.ngay_xoa = datetime.now(timezone.utc).replace(tzinfo=None)
         await session.commit()
         _invalidate_user_cache(user_id, str(so_do_id))
 
