@@ -24,8 +24,8 @@ const getLayoutedElements = (
   // 1. TỐI ƯU DAGRE: Bỏ align để sơ đồ tự động căn giữa (Center-aligned)
   dagreGraph.setGraph({
     rankdir: direction,
-    nodesep: 100, // Tăng khoảng cách ngang để các nhánh không chen lấn
-    ranksep: 120, // Khoảng cách dọc
+    nodesep: 150, // Tăng khoảng cách ngang lên 150 để thả lỏng node
+    ranksep: 250, // Tăng khoảng cách dọc lên 250
   });
 
   nodes.forEach((node) => {
@@ -184,17 +184,12 @@ export const useFlowLogic = () => {
 
   // --- 4. API CALLS ---
   const generateFlow = useCallback(
-    // 1. Thêm tham số provider (mặc định là gemini để an toàn)
-    async (text: string, provider: "gemini" | "ollama" = "gemini") => {
+    async (text: string, provider: "gemini" | "ollama" = "gemini", currentState?: string) => {
       if (!text) return;
       setIsGenerating(true);
       try {
-        // 2. Truyền provider này xuống API
-        const response = await diagramApi.generateFlowText(text, provider);
-
-        // (Lưu ý: Nếu em dùng fetch() thì dùng response.json(),
-        // nếu dùng axios thì thường là response.data nhé)
-        const resData = await response.json();
+        const response = await diagramApi.generateFlowText(text, provider, currentState);
+        const resData = (response as any).data || response;
 
         if (resData.result === "SUCCESS") {
           const normalized = normalizeGraph(resData.data);
@@ -231,7 +226,7 @@ export const useFlowLogic = () => {
       formData.append("is_internal", provider === "ollama" ? "true" : "false");
       try {
         const response = await diagramApi.uploadProcessImage(formData);
-        const resData = await response.json();
+        const resData = (response as any).data || response;
         if (resData.result === "SUCCESS") {
           const normalized = normalizeGraph(resData.data);
           const { nodes: lNodes, edges: lEdges } = getLayoutedElements(

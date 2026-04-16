@@ -17,6 +17,7 @@ class TaoSoDo(BaseModel):
     la_noi_bo: bool = False                           # Chỉ dùng AI nội bộ?
     van_ban_dau_vao: Optional[str] = None             # Văn bản prompt gốc của người dùng
     the_loai: str = "flowchart"                       # Thể loại sơ đồ
+    anh_thu_nho: Optional[str] = None                 # Base64 thumbnail
 
 
 class CapNhatSoDo(BaseModel):
@@ -24,6 +25,7 @@ class CapNhatSoDo(BaseModel):
     tieu_de: str                                      # Tiêu đề mới
     du_lieu_so_do: Dict[str, Any]                     # Dữ liệu JSON mới
     la_noi_bo: bool = False                           # Cờ AI nội bộ
+    anh_thu_nho: Optional[str] = None                 # Base64 thumbnail
 
 
 class TraLoiSoDo(BaseModel):
@@ -51,6 +53,7 @@ class TraLoiDanhSachSoDo(BaseModel):
     la_noi_bo: bool = False                           # Cờ nội bộ
     la_mau_chuan: bool = False                        # Template?
     ngay_cap_nhat: datetime                           # Lần cuối cập nhật
+    anh_thu_nho: Optional[str] = None                 # Thumbnail Base64
 
     model_config = ConfigDict(from_attributes=True)
 

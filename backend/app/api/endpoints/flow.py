@@ -26,6 +26,7 @@ class GenerateRequest(BaseModel):
     text: str
     provider: Optional[str] = "gemini"
     is_internal: bool = False
+    current_diagram_state: Optional[str] = None
 
 # ==============================================================
 # [1] NHÓM API AI — Tạo sơ đồ tự động
@@ -44,7 +45,7 @@ async def generate_flow(req: GenerateRequest):
             req.provider = "ollama"
             logger.info("🔒 [SECURITY] Quy trình nội bộ -> Cưỡng bức dùng Ollama (KHÔNG gửi lên Cloud).")
             
-        data = await ai_service.generate_smart_flow(req.text, req.provider)
+        data = await ai_service.generate_smart_flow(req.text, req.provider, current_state=req.current_diagram_state)
         return {"result": "SUCCESS", "data": data}
     except Exception as e:
         logger.error(f"[generate_flow] Lỗi AI ({req.provider}): {e}", exc_info=True)

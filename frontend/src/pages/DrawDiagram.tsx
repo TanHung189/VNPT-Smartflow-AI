@@ -1,7 +1,8 @@
-import React, { useState, useCallback } from "react";
-import { getNodesBounds, getViewportForBounds } from "@xyflow/react";
+import React, { useState, useCallback, useEffect } from "react";
+import { useReactFlow, getViewportForBounds } from "@xyflow/react";
 import { toPng } from "html-to-image";
 import { toast } from "sonner";
+import { useSearchParams } from "react-router-dom";
 
 import { useFlowLogic } from "../hooks/useFlowLogic";
 import FlowCanvas from "../features/flow/FlowCanvas";
@@ -24,13 +25,18 @@ const getAuthToken = (): string | null => {
 };
 
 const DrawDiagram = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const templateParam = searchParams.get("template");
+
   const [provider, setProvider] = useState<"gemini" | "ollama">("gemini");
   const [lastSavedTime, setLastSavedTime] = useState<string>("Bản nháp");
+  const [isSaving, setIsSaving] = useState(false);
   const [aiSidebarOpen, setAiSidebarOpen] = useState(false);
   // Lưu ID sơ đồ sau khi save lần đầu → dùng PATCH cho auto-save tiếp theo
   const [currentDiagramId, setCurrentDiagramId] = useState<string | null>(null);
   // Tiêu đề sơ đồ — được chia sẻ giữa DrawDiagram & TopHeader
   const [diagramTitle, setDiagramTitle] = useState<string>("VNPT SmartFlow Workspace");
+  const { getNodesBounds, fitView } = useReactFlow();
 
   const {
     nodes,
@@ -73,44 +79,128 @@ const DrawDiagram = () => {
     if (!flowData) return;
     const loadedNodes = flowData.nodes ?? [];
     const loadedEdges = flowData.edges ?? [];
-    const loadedStrokes = flowData.strokes ?? [];
+    
     setNodes(loadedNodes);
     setEdges(loadedEdges);
-    // strokes are internal to useFlowLogic — trigger via clearStrokes + addStroke not available here,
-    // but we pass the id and title back to state so the next save will do a PUT
     setCurrentDiagramId(id);
-    setTimeout(takeSnapshot, 100);
+    setTimeout(() => {
+      takeSnapshot();
+      fitView({ duration: 800, padding: 0.2 });
+    }, 100);
     toast.success("Đã tải sơ đồ lên canvas thành công!");
-  }, [setNodes, setEdges, takeSnapshot]);
+  }, [setNodes, setEdges, takeSnapshot, fitView]);
 
-  const handleGenerate = (text: string, provider: "gemini" | "ollama") => {
-    generateFlow(text, provider);
-  };
+  // Bootstrapping template if exists
+  useEffect(() => {
+    if (templateParam && nodes.length === 0) {
+      if (templateParam === "retro") {
+         setNodes([{ id: "intro_1", type: "infographic", position: { x: 100, y: 100 }, data: { variant: "swot", label: "Strengths", description: "Điểm mạnh cần phát huy." } }, { id: "intro_2", type: "infographic", position: { x: 450, y: 100 }, data: { variant: "comparison", label: "Weakness", description: "Điểm yếu cần khắc phục." } }]);
+         setDiagramTitle("Retrospective / SWOT");
+      } else if (templateParam === "kanban") {
+         setNodes([{ id: "k_1", type: "infographic", position: { x: 50, y: 100 }, data: { variant: "process", label: "To Do", description: "Việc cần làm." } }, { id: "k_2", type: "infographic", position: { x: 400, y: 100 }, data: { variant: "timeline", label: "In Progress", description: "Đang tiến hành." } }, { id: "k_3", type: "infographic", position: { x: 750, y: 100 }, data: { variant: "mindmap", label: "Done", description: "Đã xong." } }]);
+         setEdges([{ id: "e1", source: "k_1", target: "k_2", animated: true }, { id: "e2", source: "k_2", target: "k_3", animated: true }]);
+         setDiagramTitle("Kanban Framework");
+      } else if (templateParam === "sequence") {
+         setNodes([{ id: "s_1", type: "infographic", position: { x: 100, y: 100 }, data: { variant: "process", label: "Client Request", description: "HTTP Request tới backend." } }, { id: "s_2", type: "infographic", position: { x: 100, y: 350 }, data: { variant: "timeline", label: "Backend API", description: "FastAPI xử lý Logic." } }]);
+         setEdges([{ id: "e1", source: "s_1", target: "s_2", label: "Gửi request", animated: true }]);
+         setDiagramTitle("UML Sequence");
+      }
+      setTimeout(() => fitView({ duration: 800, padding: 0.2 }), 200);
+      searchParams.delete("template");
+      setSearchParams(searchParams);
+    }
+  }, [templateParam, nodes.length, setNodes, setEdges, searchParams, setSearchParams, fitView]);
 
-  const buildDiagramPayload = () => ({
-    tieu_de: diagramTitle,
-    la_noi_bo: provider === "ollama",
-    du_lieu_so_do: {
-      nodes,
-      edges,
-      strokes: strokes as StrokeData[],
-    },
-    van_ban_dau_vao: "AI generated",
-  });
+  // Load old diagram if provided via ID
+  const diagramIdParam = searchParams.get("id");
+  useEffect(() => {
+    if (diagramIdParam && nodes.length === 0) {
+      const load = async () => {
+         const token = localStorage.getItem("token");
+         if(!token) return;
+         try {
+            const data = await diagramApi.getById(diagramIdParam, token);
+            handleLoadDiagram(diagramIdParam, data.du_lieu_so_do);
+            setDiagramTitle(data.tieu_de);
+         } catch (e) {}
+      };
+      load();
+    }
+  }, [diagramIdParam]);
+
+  const handleGenerate = useCallback((text: string, currentProvider: "gemini" | "ollama") => {
+    const currentState = nodes.length > 0 ? JSON.stringify({ nodes, edges }) : undefined;
+    generateFlow(text, currentProvider, currentState);
+  }, [generateFlow, nodes, edges]);
+
+  // ─────────────────── THUMBNAIL CAPTURE ───────────────────
+  const captureThumbnailBase64 = useCallback(async (): Promise<string | null> => {
+    if (!nodes || nodes.length === 0) return null;
+    const padding = 20;
+    try {
+      const nodesBounds = getNodesBounds(nodes);
+      const { x, y, zoom } = getViewportForBounds(
+        nodesBounds,
+        nodesBounds.width,
+        nodesBounds.height,
+        0.5,
+        2,
+        padding,
+      );
+      const element = document.querySelector(".react-flow__viewport") as HTMLElement;
+      if (!element) return null;
+      
+      return await toPng(element, {
+        backgroundColor: "#ffffff",
+        pixelRatio: 0.3,
+        width: nodesBounds.width + padding * 2,
+        height: nodesBounds.height + padding * 2,
+        style: {
+          width: `${nodesBounds.width + padding * 2}px`,
+          height: `${nodesBounds.height + padding * 2}px`,
+          transform: `translate(${x}px, ${y}px) scale(${zoom})`,
+        },
+      });
+    } catch {
+      return null;
+    }
+  }, [nodes, getNodesBounds]);
+
+  const buildDiagramPayload = useCallback(async () => {
+    const thumbnail = await captureThumbnailBase64();
+    return {
+      tieu_de: diagramTitle,
+      la_noi_bo: provider === "ollama",
+      du_lieu_so_do: {
+        nodes,
+        edges,
+        strokes: strokes as StrokeData[],
+      },
+      van_ban_dau_vao: "AI generated",
+      anh_thu_nho: thumbnail || undefined,
+    };
+  }, [diagramTitle, provider, nodes, edges, strokes, captureThumbnailBase64]);
 
   // ─────────────────── SAVE / UPDATE ───────────────────
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(async (isAutoSave = false) => {
     const token = getAuthToken();
     if (!token) {
-      toast.error("Bạn cần đăng nhập để lưu sơ đồ!");
+      if (!isAutoSave) toast.error("Bạn cần đăng nhập để lưu sơ đồ!");
       return;
     }
-    if (nodes.length === 0) {
-      toast.warning("Sơ đồ đang trống, chưa có gì để lưu.");
+    if (!nodes || nodes.length === 0) {
+      if (!isAutoSave) toast.warning("Sơ đồ đang trống, chưa có gì để lưu.");
       return;
     }
 
-    const payload = buildDiagramPayload();
+    // Validate payload to prevent 500 errors
+    if (!edges) {
+      if (!isAutoSave) toast.error("Lỗi cấu trúc dữ liệu! Vui lòng thử lại.");
+      return;
+    }
+
+    setIsSaving(true);
+    const payload = await buildDiagramPayload();
 
     try {
       let result: any;
@@ -121,9 +211,9 @@ const DrawDiagram = () => {
         if (result?.id_so_do) {
           const savedAt = new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
           setLastSavedTime(`Đã lưu lúc ${savedAt}`);
-          toast.success("Cập nhật sơ đồ thành công!");
+          if (!isAutoSave) toast.success("Cập nhật sơ đồ thành công!");
         } else {
-          toast.error(result?.message || "Cập nhật không thành công.");
+          if (!isAutoSave) toast.error(result?.message || "Cập nhật không thành công.");
         }
       } else {
         // Chưa có → tạo mới (POST)
@@ -132,15 +222,63 @@ const DrawDiagram = () => {
           setCurrentDiagramId(result.id_so_do);
           const savedAt = new Date().toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
           setLastSavedTime(`Đã lưu lúc ${savedAt}`);
-          toast.success("Lưu sơ đồ thành công!");
+          if (!isAutoSave) toast.success("Lưu sơ đồ thành công!");
         } else {
-          toast.error(result?.message || "Lưu không thành công.");
+          if (!isAutoSave) toast.error(result?.message || "Lưu không thành công.");
         }
       }
     } catch (error) {
-      toast.error("Không thể kết nối tới backend. Hãy kiểm tra lại server.");
+      if (!isAutoSave) toast.error("Không thể kết nối tới backend. Hãy kiểm tra lại server.");
+    } finally {
+      setIsSaving(false);
     }
-  }, [nodes, edges, strokes, diagramTitle, provider, currentDiagramId]);
+  }, [nodes, edges, strokes, diagramTitle, provider, currentDiagramId, buildDiagramPayload]);
+
+  // ─────────────────── AUTO-SAVE EFFECT ───────────────────
+  useEffect(() => {
+    if (nodes.length === 0 || !currentDiagramId) return; // Chỉ auto-save khi sơ đồ đã được save lần đầu
+    const timeoutId = setTimeout(() => {
+      handleSave(true);
+    }, 3000);
+    return () => clearTimeout(timeoutId);
+  }, [nodes, edges, currentDiagramId, handleSave]);
+
+  // ─────────────────── GLOBAL HOTKEYS ───────────────────
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        handleSave(false);
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.shiftKey && e.key.toLowerCase() === 'z'))) {
+        e.preventDefault();
+        redo();
+      }
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        if (document.activeElement?.tagName === 'INPUT' || document.activeElement?.tagName === 'TEXTAREA') return;
+        deleteSelected();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        const kw = window.prompt("Nhập từ khóa Node cần tìm kiếm:");
+        if (kw && kw.trim()) {
+          const found = nodes.find(n => (n.data?.label as string || '').toLowerCase().includes(kw.trim().toLowerCase()));
+          if (found) {
+            setSelectedNode(found);
+            fitView({ nodes: [{ id: found.id }], duration: 800 });
+          } else {
+            toast.info("Không tìm thấy Node nào chứa từ khóa này.");
+          }
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleSave, undo, redo, deleteSelected, nodes, setSelectedNode, fitView]);
 
   // ─────────────────── RENAME via PATCH ───────────────────
   const handleRename = useCallback(async (newTitle: string) => {
@@ -165,37 +303,15 @@ const DrawDiagram = () => {
       toast.warning("Không có sơ đồ để xuất ảnh!");
       return;
     }
-    const nodesBounds = getNodesBounds(nodes);
-    const padding = 20;
-    const { x, y, zoom } = getViewportForBounds(
-      nodesBounds,
-      nodesBounds.width,
-      nodesBounds.height,
-      0.5,
-      2,
-      padding,
-    );
-    const element = document.querySelector(".react-flow__viewport") as HTMLElement;
-    if (element) {
-      try {
-        const dataUrl = await toPng(element, {
-          backgroundColor: "#ffffff",
-          width: nodesBounds.width + padding * 2,
-          height: nodesBounds.height + padding * 2,
-          style: {
-            width: `${nodesBounds.width + padding * 2}px`,
-            height: `${nodesBounds.height + padding * 2}px`,
-            transform: `translate(${x}px, ${y}px) scale(${zoom})`,
-          },
-        });
-        const link = document.createElement("a");
-        link.download = `VNPT-QuyTrinh-${Date.now()}.png`;
-        link.href = dataUrl;
-        link.click();
-        toast.success("Xuất PNG thành công!");
-      } catch (error) {
-        toast.error("Có lỗi xảy ra khi xuất ảnh.");
-      }
+    const dataUrl = await captureThumbnailBase64();
+    if (dataUrl) {
+      const link = document.createElement("a");
+      link.download = `VNPT-QuyTrinh-${Date.now()}.png`;
+      link.href = dataUrl;
+      link.click();
+      toast.success("Xuất PNG thành công!");
+    } else {
+      toast.error("Có lỗi xảy ra khi trích xuất ảnh.");
     }
   };
 
@@ -296,9 +412,9 @@ const DrawDiagram = () => {
 
       {/* ─── LAYER 4: TOP HEADER (z-60) ─── */}
       <TopHeader
-        lastSavedTime={lastSavedTime}
+        lastSavedTime={isSaving ? "Đang lưu..." : lastSavedTime}
         isGenerating={isGenerating}
-        handleSave={handleSave}
+        handleSave={() => handleSave(false)}
         handleExportPNG={handleExportPNG}
         diagramTitle={diagramTitle}
         onRename={handleRename}

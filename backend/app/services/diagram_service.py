@@ -81,14 +81,24 @@ async def create_diagram(
             du_lieu_so_do=data.du_lieu_so_do,
             la_noi_bo=data.la_noi_bo,
             van_ban_dau_vao=getattr(data, "van_ban_dau_vao", None),
+            anh_thu_nho=getattr(data, "anh_thu_nho", None),
         )
         session.add(so_do_moi)
         await session.commit()
         await session.refresh(so_do_moi)
 
-        _invalidate_user_cache(user_id_str)
+        _invalidate_user_cache(user_id_str) # Invalidate list
+        
+        response_data = DiagramResponse.model_validate(so_do_moi)
+        # Tự động ghim vào cache cho lần load sau (sub-100ms)
+        try:
+            cache_key = _one_cache_key(user_id_str, str(so_do_moi.id_so_do))
+            redis_client.setex(cache_key, CACHE_TTL_SECONDS, response_data.model_dump_json())
+        except Exception:
+            pass
+
         logger.info(f"[DiagramService] Thành công: id_so_do={so_do_moi.id_so_do}")
-        return DiagramResponse.model_validate(so_do_moi)
+        return response_data
 
     except Exception as e:
         await session.rollback()
@@ -228,14 +238,27 @@ async def update_diagram(
         so_do.tieu_de       = data.tieu_de
         so_do.du_lieu_so_do = data.du_lieu_so_do
         so_do.la_noi_bo     = data.la_noi_bo
+        if getattr(data, "anh_thu_nho", None) is not None:
+            so_do.anh_thu_nho = data.anh_thu_nho
         so_do.ngay_cap_nhat = datetime.now(timezone.utc)
 
         await session.commit()
         await session.refresh(so_do)
-        _invalidate_user_cache(user_id, str(so_do_id))
+        
+        # Chỉ xóa cache list
+        _invalidate_user_cache(user_id) 
+
+        response_data = DiagramResponse.model_validate(so_do)
+
+        # Snapshot lại luôn vào cache diag_one
+        try:
+            cache_key = _one_cache_key(user_id, str(so_do_id))
+            redis_client.setex(cache_key, CACHE_TTL_SECONDS, response_data.model_dump_json())
+        except Exception:
+            pass
 
         logger.info(f"[DiagramService] Cập nhật thành công: id_so_do={so_do_id}")
-        return DiagramResponse.model_validate(so_do)
+        return response_data
 
     except Exception as e:
         await session.rollback()

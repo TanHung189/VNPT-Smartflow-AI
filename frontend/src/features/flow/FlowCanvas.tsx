@@ -14,6 +14,7 @@ import { Save, Trash2 } from "lucide-react";
 import SmartNode from "../../components/SmartNode";
 import DrawingCanvas from "../../components/DrawingCanvas";
 import FlowSkeleton from "../../components/FlowSkeleton";
+import InfographicNode from "./nodes/InfographicNode";
 import {
   exportToJpg,
   exportToPng,
@@ -24,6 +25,7 @@ const nodeTypes = {
   taskNode: SmartNode,
   conditionNode: SmartNode,
   customNode: SmartNode,
+  infographic: InfographicNode,
 };
 
 const FlowContent = ({

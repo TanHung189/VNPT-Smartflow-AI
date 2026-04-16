@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthContext } from "../context/AuthContext";
+import { diagramApi, DiagramListItem } from "../services/diagramApi";
+import { isToday, isYesterday, isThisWeek } from "date-fns";
 import {
   Search,
   Home,
@@ -17,17 +19,65 @@ import {
 } from "lucide-react";
 
 const templates = [
-  { id: "blank", name: "Blank board", icon: <Plus className="w-8 h-8 text-slate-400" /> },
+  { id: "blank", name: "Trang trắng", icon: <Plus className="w-8 h-8 text-slate-400" /> },
   { id: "ai", name: "AI Playground", isAi: true },
-  { id: "retro", name: "Retrospective", color: "bg-orange-100" },
-  { id: "kanban", name: "Kanban Framework", color: "bg-blue-100" },
-  { id: "sequence", name: "UML Sequence", color: "bg-purple-100" },
+  { id: "network", name: "Hạ tầng VNPT", color: "bg-blue-100" },
+  { id: "ioffice", name: "Quy trình iOffice", color: "bg-emerald-100" },
+  { id: "cloud", name: "Kiến trúc Cloud", color: "bg-cyan-100" },
+  { id: "ioc", name: "Smart City", color: "bg-purple-100" },
+  { id: "uml", name: "Chuẩn UML", color: "bg-amber-100" },
 ];
 
 const DashBoard: React.FC = () => {
   const { user, logout } = useAuthContext();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("Home");
+  const [recentDiagrams, setRecentDiagrams] = useState<DiagramListItem[]>([]);
+  const [isLoadingDiagrams, setIsLoadingDiagrams] = useState(false);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+
+  useEffect(() => {
+    let intervalId: NodeJS.Timeout;
+    const fetchDiagrams = async () => {
+      setIsLoadingDiagrams(true);
+      try {
+        const token = localStorage.getItem("token");
+        const data = await diagramApi.getAll(token);
+        setRecentDiagrams(Array.isArray(data) ? data : []);
+      } catch (error) {
+      } finally {
+        setIsLoadingDiagrams(false);
+      }
+    };
+    if (user) {
+      fetchDiagrams();
+      intervalId = setInterval(async () => {
+        try {
+          const token = localStorage.getItem("token");
+          const data = await diagramApi.getAll(token);
+          setRecentDiagrams(Array.isArray(data) ? data : []);
+        } catch (error) {}
+      }, 30000); // 30s auto-polling
+    }
+    return () => clearInterval(intervalId);
+  }, [user]);
+
+  const groupedDiagrams = React.useMemo(() => {
+    const groups: { label: string; items: DiagramListItem[] }[] = [
+      { label: "Hôm nay", items: [] },
+      { label: "Hôm qua", items: [] },
+      { label: "Tuần này", items: [] },
+      { label: "Cũ hơn", items: [] },
+    ];
+    recentDiagrams.forEach((d) => {
+      const date = new Date(d.ngay_cap_nhat);
+      if (isToday(date)) groups[0].items.push(d);
+      else if (isYesterday(date)) groups[1].items.push(d);
+      else if (isThisWeek(date)) groups[2].items.push(d);
+      else groups[3].items.push(d);
+    });
+    return groups.filter(g => g.items.length > 0);
+  }, [recentDiagrams]);
 
   if (!user) {
     return (
@@ -170,7 +220,11 @@ const DashBoard: React.FC = () => {
               {templates.map((tpl) => (
                 <div key={tpl.id} className="flex-shrink-0 w-48 group">
                   <div
-                    onClick={() => tpl.id === "blank" || tpl.isAi ? navigate("/DrawDiagram") : null}
+                    onClick={() => {
+                        if (tpl.id === "blank") navigate("/DrawDiagram");
+                        else if (tpl.isAi) navigate("/DrawDiagram");
+                        else navigate(`/DrawDiagram?template=${tpl.id}`);
+                    }}
                     className={`h-32 border border-slate-200 rounded-xl mb-3 flex items-center justify-center cursor-pointer transition-all ${
                       tpl.id === "blank" 
                        ? "bg-white hover:border-blue-400 hover:shadow-md" 
@@ -227,23 +281,111 @@ const DashBoard: React.FC = () => {
                  <div className="hidden md:flex items-center gap-1.5 cursor-pointer hover:text-slate-900 ml-4">Last opened <span className="text-[10px]">▼</span></div>
                </div>
                <div className="flex bg-slate-100 p-0.5 rounded-lg">
-                 <button className="p-1.5 bg-white text-slate-800 shadow-sm rounded-md"><LayoutGrid className="w-4 h-4" /></button>
-                 <button className="p-1.5 text-slate-500 hover:text-slate-800 rounded-md"><List className="w-4 h-4" /></button>
+                 <button onClick={() => setViewMode("grid")} className={`p-1.5 rounded-md transition-colors ${viewMode === "grid" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}><LayoutGrid className="w-4 h-4" /></button>
+                 <button onClick={() => setViewMode("list")} className={`p-1.5 rounded-md transition-colors ${viewMode === "list" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-800"}`}><List className="w-4 h-4" /></button>
                </div>
             </div>
 
-            {/* Empty State / List */}
-            <div className="flex flex-col items-center justify-center py-16 bg-white border border-slate-200 border-dashed rounded-3xl">
-              <FolderOpen className="w-12 h-12 text-slate-300 mb-4" />
-              <h3 className="text-lg font-bold text-slate-800">No boards created yet</h3>
-              <p className="text-sm text-slate-500 mt-1 mb-6">Create your first board or try a template.</p>
-              <button
-                 onClick={() => navigate("/DrawDiagram")}
-                 className="bg-slate-900 hover:bg-black text-white text-sm font-bold px-5 py-2.5 rounded-xl transition-all shadow-md"
-              >
-                 Create New Board
-              </button>
-            </div>
+            {/* Danh sách Diagrams từ DB */}
+            {isLoadingDiagrams ? (
+              <div className="flex justify-center items-center py-16">
+                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : recentDiagrams.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-16 bg-white border border-slate-200 border-dashed rounded-3xl">
+                <FolderOpen className="w-12 h-12 text-slate-300 mb-4" />
+                <h3 className="text-lg font-bold text-slate-800">No boards created yet</h3>
+                <p className="text-sm text-slate-500 mt-1 mb-6">Create your first board or try a template.</p>
+                <button
+                   onClick={() => navigate("/DrawDiagram")}
+                   className="bg-slate-900 hover:bg-black text-white text-sm font-bold px-5 py-2.5 rounded-xl transition-all shadow-md"
+                >
+                   Create New Board
+                </button>
+              </div>
+            ) : viewMode === "grid" ? (
+              <div className="space-y-8">
+                {groupedDiagrams.map((group) => (
+                  <div key={group.label}>
+                    <h3 className="text-sm font-bold text-slate-500 mb-3 ml-1">{group.label}</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                      {group.items.map((d) => (
+                        <div 
+                          key={d.id_so_do} 
+                          onClick={() => navigate(`/DrawDiagram?id=${d.id_so_do}`)}
+                          className="bg-white border hover:border-blue-400 hover:shadow-md cursor-pointer border-slate-200 p-4 rounded-xl transition-all h-40 flex flex-col justify-between overflow-hidden relative group"
+                        >
+                          {d.anh_thu_nho && (
+                            <div className="absolute inset-x-0 top-0 h-24 bg-slate-50 border-b border-slate-100 flex items-center justify-center p-1">
+                              <img 
+                                src={d.anh_thu_nho} 
+                                alt="Thumbnail" 
+                                className="w-full h-full object-contain opacity-80 group-hover:opacity-100 transition-opacity" 
+                              />
+                            </div>
+                          )}
+                          <div className={`relative z-10 ${d.anh_thu_nho ? "mt-24 pt-2 border-t border-slate-100" : ""}`}>
+                            <h4 className="font-bold text-slate-800 truncate leading-tight">{d.tieu_de}</h4>
+                            <p className="text-[11px] text-slate-500 capitalize">{d.the_loai}</p>
+                          </div>
+                          <div className="text-[10px] text-slate-400 font-medium mt-auto flex justify-between items-center">
+                            <span>{new Date(d.ngay_cap_nhat).toLocaleDateString("vi-VN")}</span>
+                            <span className="bg-slate-100 px-1.5 rounded">{d.la_noi_bo ? 'Local' : 'Cloud'}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col border border-slate-200 rounded-xl overflow-hidden bg-white shadow-sm space-y-4 bg-slate-50/50 p-4">
+                <div className="flex items-center px-4 py-2 bg-slate-100 rounded-lg text-xs font-bold text-slate-500 uppercase tracking-wider">
+                  <div className="w-12"></div>
+                  <div className="flex-1">Tên bảng</div>
+                  <div className="w-32">Loại AI</div>
+                  <div className="w-40 text-right">Cập nhật</div>
+                </div>
+                {groupedDiagrams.map((group) => (
+                  <div key={group.label} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="bg-slate-50 px-4 py-2 text-xs font-bold text-slate-600 border-b border-slate-100">
+                      {group.label}
+                    </div>
+                    {group.items.map((d, idx) => (
+                      <div
+                        key={d.id_so_do}
+                        onClick={() => navigate(`/DrawDiagram?id=${d.id_so_do}`)}
+                        className={`flex items-center px-4 py-3 cursor-pointer hover:bg-blue-50 transition-colors ${idx !== group.items.length - 1 ? 'border-b border-slate-50' : ''}`}
+                      >
+                        <div className="w-12">
+                          {d.anh_thu_nho ? (
+                            <div className="w-8 h-8 rounded shrink-0 bg-white border border-slate-200 overflow-hidden">
+                              <img src={d.anh_thu_nho} className="w-full h-full object-contain" alt="" />
+                            </div>
+                          ) : (
+                            <div className="w-8 h-8 rounded bg-slate-100 border border-slate-200 flex items-center justify-center">
+                              <FolderOpen className="w-4 h-4 text-slate-400" />
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-bold text-slate-800 text-sm">{d.tieu_de}</h4>
+                          <p className="text-[10px] text-slate-500 capitalize">{d.the_loai}</p>
+                        </div>
+                        <div className="w-32">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${d.la_noi_bo ? 'bg-teal-50 text-teal-700 border border-teal-100' : 'bg-blue-50 text-blue-700 border border-blue-100'}`}>
+                            {d.la_noi_bo ? 'Nội bộ' : 'Đám mây'}
+                          </span>
+                        </div>
+                        <div className="w-40 text-right text-xs text-slate-500 font-medium">
+                          {new Date(d.ngay_cap_nhat).toLocaleTimeString("vi-VN", {hour: "2-digit", minute: "2-digit"})}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))}
+              </div>
+            )}
 
           </section>
 

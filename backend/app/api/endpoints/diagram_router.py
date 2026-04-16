@@ -77,6 +77,14 @@ async def save_diagram(
         f"[DiagramRouter] POST /diagrams/save — id_nguoi_dung={user_id_str}, tieu_de='{data.tieu_de}'"
     )
     try:
+        # Validate ReactFlow payload structure
+        flow_data = data.du_lieu_so_do
+        if not isinstance(flow_data, dict) or "nodes" not in flow_data or "edges" not in flow_data:
+            raise HTTPException(
+                status_code=400,
+                detail="Dữ liệu sơ đồ không hợp lệ (Missing 'nodes' or 'edges' keys)."
+            )
+
         result = await diagram_service.create_diagram(session, current_user, data)
         logger.info(
             f"[DiagramRouter] Lưu thành công — id_so_do={result.id_so_do}"
@@ -209,6 +217,14 @@ async def update_diagram(
         f"[DiagramRouter] PUT /diagrams/{diagram_id} — id_nguoi_dung={user_id_str}, tieu_de='{data.tieu_de}'"
     )
     try:
+        # Validate ReactFlow payload structure
+        flow_data = data.du_lieu_so_do
+        if not isinstance(flow_data, dict) or "nodes" not in flow_data or "edges" not in flow_data:
+            raise HTTPException(
+                status_code=400,
+                detail="Dữ liệu sơ đồ không hợp lệ (Missing 'nodes' or 'edges' keys)."
+            )
+
         result = await diagram_service.update_diagram(session, user_id_str, diagram_id, data)
         if result is None:
             logger.warning(
@@ -223,8 +239,6 @@ async def update_diagram(
         )
         return result
 
-    except HTTPException:
-        raise
     except Exception as e:
         logger.error(
             f"[DiagramRouter] Lỗi PUT /diagrams/{diagram_id}: {e}",

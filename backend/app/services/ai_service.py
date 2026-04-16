@@ -24,9 +24,9 @@ class AIService:
         return genai.Client(api_key=api_key)
 
     # --- Centralized Prompt ---
-    def _build_system_prompt(self, text: str) -> str:
+    def _build_system_prompt(self, text: str, current_state: str = None) -> str:
         """Centralized prompt to ensure consistency across Gemini and Ollama"""
-        return (
+        prompt = (
             f"BẠN LÀ CHUYÊN GIA PHÂN TÍCH HỆ THỐNG TẠI VNPT.\n"
             f"NHIỆM VỤ: Chuyển đổi văn bản nghiệp vụ thành sơ đồ luồng chuẩn React Flow.\n\n"
             f"--- QUY TẮC BẮT BUỘC VỀ ĐỊNH DẠNG JSON ---\n"
@@ -41,13 +41,26 @@ class AIService:
             f"- 'step': Các bước thực hiện nghiệp vụ thông thường.\n"
             f"- 'decision': Điểm kiểm tra, rẽ nhánh (Nếu/Thì).\n"
             f"- 'end': Điểm kết thúc.\n\n"
+        )
+        if current_state:
+            prompt += (
+                f"--- SƠ ĐỒ HIỆN TẠI ---\n"
+                f"Người dùng muốn bạn CHỈNH SỬA hoặc THÊM vào sơ đồ hiện tại. Đây là JSON trạng thái hiện tại (nếu có):\n"
+                f"{current_state}\n"
+                f"LƯU Ý QUAN TRỌNG: Hãy phân tích kỹ yêu cầu để giữ nguyên cấu trúc cũ nếu không bị ảnh hưởng, và chỉ CẬP NHẬT/THÊM/XÓA Node. "
+                f"NẾU THÊM MỚI, HÃY SINH ID MỚI KHÔNG TRÙNG LẶP. "
+                f"BẠN PHẢI TRẢ VỀ TOÀN BỘ SƠ ĐỒ BAO GỒM TẤT CẢ NODE/EDGE (NẾU GIỮ LẠI) ĐỂ ĐỒNG BỘ LẠI.\n\n"
+            )
+        
+        prompt += (
             f"--- CẤU TRÚC JSON BỔ SUNG ---\n"
             f"Mỗi node bên trong mảng 'nodes' phải chứa block data: {{ 'label', 'description', 'executor', 'duration', 'type' }}.\n\n"
-            f"--- VĂN BẢN ---\n{text}\n\n"
+            f"--- VĂN BẢN (YÊU CẦU CỦA NGƯỜI DÙNG) ---\n{text}\n\n"
             f"YÊU CẦU: TRẢ VỀ DUY NHẤT 1 KHỐI JSON, KHÔNG CÓ MARKDOWN HAY CHỮ THỪA."
         )
+        return prompt
 
-    async def generate_smart_flow(self, text: str, provider: str = "gemini") -> Dict[str, Any]:
+    async def generate_smart_flow(self, text: str, provider: str = "gemini", current_state: str = None) -> Dict[str, Any]:
         logger.info(f"Bắt đầu phân tích văn bản: {text[:50]}...")
         
         if "erp" in text.lower() and len(text) < 20:
@@ -72,7 +85,7 @@ class AIService:
         else:
             logger.info("☁️ [Cloud AI] Đang xử lý bằng Gemini...")
             try:
-                result = self._call_gemini_with_retry(text)
+                result = self._call_gemini_with_retry(text, current_state)
             except Exception as e:
                 logger.warning(f"Gemini thất bại hoàn toàn ({e}). Chuyển hướng sang Ollama...")
                 result = await self._call_ollama(text)
@@ -127,10 +140,10 @@ class AIService:
 
     
 
-    def _call_gemini_with_retry(self, text: str) -> Dict[str, Any]:
+    def _call_gemini_with_retry(self, text: str, current_state: str = None) -> Dict[str, Any]:
         try:
             client = self._get_current_client()
-            prompt = self._build_system_prompt(text)
+            prompt = self._build_system_prompt(text, current_state)
 
             response = client.models.generate_content(
                 model=self.model_name,
@@ -152,7 +165,7 @@ class AIService:
             if ("429" in str(e) or "limit" in str(e).lower()) and \
                self.current_key_index < len(settings.GEMINI_API_KEYS) - 1:
                 self.current_key_index += 1
-                return self._call_gemini_with_retry(text)
+                return self._call_gemini_with_retry(text, current_state)
             raise e
 
     # ... (Keep _post_processing and _get_mock_erp_data exactly as they are)
