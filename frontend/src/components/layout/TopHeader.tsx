@@ -12,6 +12,7 @@ interface TopHeaderProps {
   handleExportPDF?: () => void;
   handleExportSVG?: () => void;
   diagramTitle?: string;
+  diagramType?: string;
   onRename?: (newTitle: string) => void;
   onLoadDiagram?: (id: string, flowData?: any) => void;
 }
@@ -24,6 +25,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   handleExportPDF,
   handleExportSVG,
   diagramTitle = "VNPT SmartFlow Workspace",
+  diagramType = "process",
   onRename,
   onLoadDiagram,
 }) => {
@@ -62,8 +64,27 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           value={diagramTitle}
           onChange={(e) => onRename?.(e.target.value)}
           className="font-bold text-slate-800 dark:text-slate-100 text-base md:text-lg tracking-tight bg-transparent border-2 border-transparent hover:border-slate-200 focus:border-[#0066cc] focus:bg-white rounded-lg px-3 py-1 outline-none transition-all w-48 sm:w-64 md:w-80 truncate"
-          placeholder="Nhập tên sơ đồ..."
         />
+
+        {/* Template Badge Indicator */}
+        <div className="flex items-center gap-2">
+          {(() => {
+            const config: Record<string, { label: string; color: string }> = {
+              "org-chart": { label: "Sơ đồ Tổ chức", color: "bg-orange-100 text-orange-700 border-orange-200" },
+              "ioffice": { label: "Quy trình iOffice", color: "bg-emerald-100 text-emerald-700 border-emerald-200" },
+              "layered": { label: "Kiến trúc Phân tầng", color: "bg-blue-100 text-blue-700 border-blue-200" },
+              "mindmap": { label: "Sơ đồ Tư duy", color: "bg-amber-100 text-amber-700 border-amber-200" },
+              "uml": { label: "Thiết kế UML", color: "bg-purple-100 text-purple-700 border-purple-200" },
+              "process": { label: "Luồng Quy trình", color: "bg-slate-100 text-slate-600 border-slate-200" },
+            };
+            const current = config[diagramType] || config["process"];
+            return (
+              <span className={`px-2 py-0.5 text-[10px] font-bold border rounded-md uppercase tracking-wide whitespace-nowrap shadow-sm ${current.color}`}>
+                {current.label}
+              </span>
+            );
+          })()}
+        </div>
       </div>
 
       {/* ─── RIGHT: Status & Actions ─── */}

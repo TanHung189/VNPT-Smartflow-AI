@@ -27,10 +27,11 @@ const templates = [
     icon: <Plus className="w-8 h-8 text-slate-400" />,
   },
   { id: "ai", name: "Smart AI Playground", isAi: true },
-  { id: "retro", name: "Hạ tầng Mạng VNPT", color: "bg-orange-100" },
-  { id: "kanban", name: "Quy trình iOffice", color: "bg-emerald-100" },
-  { id: "cloud", name: "Kiến trúc VNPT Cloud", color: "bg-blue-100" },
-  { id: "sequence", name: "Dịch vụ Smart City (IOC)", color: "bg-amber-100" },
+  { id: "org-chart", name: "Sơ đồ Tổ chức (HR)", color: "bg-orange-100" },
+  { id: "ioffice", name: "Quy trình iOffice", color: "bg-emerald-100" },
+  { id: "layered", name: "Kiến trúc Phân tầng", color: "bg-blue-100" },
+  { id: "mindmap", name: "Sơ đồ Tư duy (Mindmap)", color: "bg-amber-100" },
+  { id: "uml", name: "Sơ đồ Phần mềm (UML)", color: "bg-purple-100" },
 ];
 
 export const DashBoard: React.FC = () => {

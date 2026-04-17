@@ -18,6 +18,7 @@ class TaoSoDo(BaseModel):
     van_ban_dau_vao: Optional[str] = None             # Văn bản prompt gốc của người dùng
     the_loai: str = "flowchart"                       # Thể loại sơ đồ
     anh_thu_nho: Optional[str] = None                 # Ảnh thu nhỏ dạng Base64
+    ly_do_thay_doi: Optional[str] = None              # Tùy chọn lý do lưu log version
 
 
 
@@ -27,6 +28,7 @@ class CapNhatSoDo(BaseModel):
     du_lieu_so_do: Dict[str, Any]                     # Dữ liệu JSON mới
     la_noi_bo: bool = False                           # Cờ AI nội bộ
     anh_thu_nho: Optional[str] = None                 # Ảnh thu nhỏ dạng Base64
+    ly_do_thay_doi: Optional[str] = None              # Tùy chọn lý do lưu log version
 
 
 class TraLoiSoDo(BaseModel):

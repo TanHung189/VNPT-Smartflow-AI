@@ -26,6 +26,8 @@ class GenerateRequest(BaseModel):
     text: str
     provider: Optional[str] = "gemini"
     is_internal: bool = False
+    # Context-Aware: loại sơ đồ để AI inject đúng System Prompt
+    the_loai: Optional[str] = "process"
     # Chat-to-Edit: truyền context canvas hiện tại để AI nhận biết nodes/edges đã có
     current_nodes: Optional[list] = None
     current_edges: Optional[list] = None
@@ -62,7 +64,12 @@ async def generate_flow(req: GenerateRequest):
             )
             logger.info(f"[Chat-to-Edit] Context inject: {len(req.current_nodes or [])} nodes, {len(req.current_edges or [])} edges")
 
-        data = await ai_service.generate_smart_flow(text_with_context, req.provider)
+        data = await ai_service.generate_smart_flow(
+            text_with_context,
+            req.provider,
+            the_loai=req.the_loai or "process",
+        )
+        logger.info(f"[Context-Aware] the_loai={req.the_loai} → prompt injected.")
         return {"result": "SUCCESS", "data": data}
     except Exception as e:
         logger.error(f"[generate_flow] Lỗi AI ({req.provider}): {e}", exc_info=True)

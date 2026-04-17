@@ -12,35 +12,59 @@ import { toast } from "sonner";
 import { diagramApi } from "../services/diagramApi";
 
 // ─── NODE TYPE MAP ──────────────────────────────────────────────────────────
-// Map từ `the_loai` (thể loại sơ đồ) → React Flow node type string.
-// Khi AI trả về nodes, useFlowLogic sẽ ép đúng type dựa trên loại sơ đồ hiện tại.
+// Map từ `the_loai` → React Flow node type key (registered in FlowCanvas nodeTypes)
 export const NODE_TYPE_MAP: Record<string, string> = {
-  // Network & Infrastructure
-  "network": "networkNode",
-  "ha-tang-mang": "networkNode",
-  "infrastructure": "networkNode",
-  "retro": "networkNode",           // template "Hạ tầng Mạng VNPT"
-  // iOffice Workflow
-  "ioffice": "iofficeNode",
-  "quy-trinh": "iofficeNode",
-  "workflow": "iofficeNode",
-  "kanban": "iofficeNode",           // template "Quy trình iOffice"
-  // Cloud
-  "cloud": "cloudNode",
-  "vnpt-cloud": "cloudNode",
+  // ── Context-Aware NodeRegistry types (NEW) ──
+  "org-chart":  "org-chart",
+  "org":        "org-chart",
+  "layered":    "layer",
+  "layer":      "layer",
+  "uml":        "uml",
+  "uml-class":  "uml",
+  "process":    "process",
+  "ioffice":    "process",
+  "quy-trinh":  "process",
+  "workflow":   "process",
+  "mindmap":    "mindmap",
+  // ── Legacy / enterprise node keys ──
+  "network":         "networkNode",
+  "ha-tang-mang":    "networkNode",
+  "infrastructure":  "networkNode",
+  "retro":           "networkNode",
+  "kanban":          "iofficeNode",
+  "cloud":           "cloudNode",
+  "vnpt-cloud":      "cloudNode",
   "kien-truc-cloud": "cloudNode",
-  // Smart City / IoT
-  "iot": "iotNode",
-  "smart-city": "iotNode",
-  "ioc": "iotNode",
-  "sequence": "iotNode",             // template "Smart City (IOC)"
-  // UML / UseCase
-  "uml": "umlNode",
-  "usecase": "umlNode",
-  "class-diagram": "umlNode",
-  // Flowchart (default)
-  "flowchart": "customNode",
-  "ai": "customNode",
+  "iot":             "iotNode",
+  "smart-city":      "iotNode",
+  "ioc":             "iotNode",
+  "sequence":        "iotNode",
+  "usecase":         "uml",
+  "class-diagram":   "uml",
+  "flowchart":       "customNode",
+  "ai":              "customNode",
+};
+
+// ─── LAYOUT DIRECTION MAP ────────────────────────────────────────────────────
+// TB = Top-to-Bottom (org chart, layered)
+// LR = Left-to-Right (process, ioffice, sequence)
+export const LAYOUT_DIRECTION_MAP: Record<string, "TB" | "LR"> = {
+  "org-chart":    "TB",
+  "org":          "TB",
+  "layered":      "TB",
+  "layer":        "TB",
+  "uml":          "TB",
+  "uml-class":    "TB",
+  "process":      "LR",
+  "ioffice":      "LR",
+  "quy-trinh":    "LR",
+  "workflow":     "LR",
+  "mindmap":      "TB",
+  "network":      "TB",
+  "infrastructure":"TB",
+  "cloud":        "TB",
+  "iot":          "LR",
+  "smart-city":   "LR",
 };
 
 /**
@@ -53,46 +77,76 @@ const resolveNodeType = (theLoai?: string): string => {
   return NODE_TYPE_MAP[key] ?? "customNode";
 };
 
+/**
+ * getLayoutedElements — Tự động chọn hướng dựa trên the_loai
+ * TB (Top-Bottom): Org Chart, UML, Layered
+ * LR (Left-Right): Process, iOffice, Workflow
+ */
 const getLayoutedElements = (
   nodes: Node[],
   edges: Edge[],
-  direction = "TB",
+  direction: "TB" | "LR" = "TB",
+  diagramType?: string,
 ) => {
   const dagreGraph = new dagre.graphlib.Graph();
   dagreGraph.setDefaultEdgeLabel(() => ({}));
-
   const isHorizontal = direction === "LR";
 
-  // 1. TỐI ƯU DAGRE: Bỏ align để sơ đồ tự động căn giữa (Center-aligned)
+  // Node size hints for Dagre — wider for UML/OrgChart
+  const nodeW = isHorizontal ? 260 : 300;
+  const nodeH = isHorizontal ? 130 : 170;
+
+  // Cấu hình khoảng cách mặc định
+  let customNodeSep = isHorizontal ? 100 : 140;
+  let customRankSep = isHorizontal ? 180 : 200;
+
+  // Yêu cầu của người dùng: Nới rộng nodesep/ranksep cho mindmap/org-chart/uml
+  if (diagramType) {
+    const t = diagramType.toLowerCase();
+    if (t === "org-chart" || t === "uml") {
+      customNodeSep = 200;
+      customRankSep = 250;
+    } else if (t === "mindmap") {
+      customNodeSep = 350; // Kéo cực giãn bề ngang cho mindmap (Tỏa tròn ảo)
+      customRankSep = 200;
+    }
+  }
+
   dagreGraph.setGraph({
     rankdir: direction,
-    nodesep: 150, // Auto-clean: đảm bảo không bao giờ bị đè node
-    ranksep: 200, // Khoảng cách dọc rộng cho sơ đồ enterprise
+    nodesep: customNodeSep,
+    ranksep: customRankSep,
+    align: undefined,
   });
 
   nodes.forEach((node) => {
-    dagreGraph.setNode(node.id, { width: 280, height: 160 });
+    dagreGraph.setNode(node.id, { width: nodeW, height: nodeH });
   });
-
   edges.forEach((edge) => dagreGraph.setEdge(edge.source, edge.target));
   dagre.layout(dagreGraph);
 
   return {
     nodes: nodes.map((node) => {
-      const { x, y } = dagreGraph.node(node.id);
+      const pos = dagreGraph.node(node.id);
+      if (!pos) return node;
       return {
         ...node,
         targetPosition: isHorizontal ? "left" : "top",
         sourcePosition: isHorizontal ? "right" : "bottom",
-        // 2. ÉP LÀM TRÒN SỐ: Khắc phục lỗi mũi tên bị gãy khúc do lệch thập phân
         position: {
-          x: Math.round(x - 140),
-          y: Math.round(y - 80),
+          x: Math.round(pos.x - nodeW / 2),
+          y: Math.round(pos.y - nodeH / 2),
         },
       };
     }),
     edges,
   };
+};
+
+/** Resolve layout direction from the_loai */
+const resolveLayoutDirection = (theLoai?: string): "TB" | "LR" => {
+  if (!theLoai) return "TB";
+  return LAYOUT_DIRECTION_MAP[theLoai.toLowerCase()] ?? "TB";
 };
 
 export const useFlowLogic = () => {
@@ -221,7 +275,7 @@ export const useFlowLogic = () => {
         id: e.id || `e${i}`,
         source: String(e.source || ""),
         target: String(e.target || ""),
-        type: "smoothstep",
+        type: "default",
         animated: true,
         style: { stroke: "#6366f1", strokeWidth: 3 },
         markerEnd: { type: "arrowclosed", color: "#6366f1" },
@@ -243,7 +297,7 @@ export const useFlowLogic = () => {
   const generateFlow = useCallback(
     async (
       text: string,
-      provider: "gemini" | "ollama" = "gemini",
+      provider: string = "gemini",
       currentNodes?: Node[],
       currentEdges?: Edge[],
       diagramType?: string,
@@ -256,9 +310,10 @@ export const useFlowLogic = () => {
           provider,
           currentNodes,
           currentEdges,
+          diagramType,   // ← pass the_loai to backend for Context-Aware prompt
         );
 
-        const resData = await response.json();
+        const resData = response;
 
         if (resData.result === "SUCCESS") {
           const normalized = normalizeGraph(resData.data, diagramType);
@@ -271,9 +326,13 @@ export const useFlowLogic = () => {
             return;
           }
 
+          // ─ Auto-layout direction based on diagram type ─
+          const direction = resolveLayoutDirection(diagramType);
           const { nodes: lNodes, edges: lEdges } = getLayoutedElements(
             normalized.nodes,
             normalized.edges,
+            direction,
+            diagramType,
           );
           setNodes(lNodes as Node[]);
           setEdges(lEdges as Edge[]);
@@ -292,7 +351,7 @@ export const useFlowLogic = () => {
   );
 
   const uploadFileAndGenerate = useCallback(
-    async (file: File, provider: "gemini" | "ollama" = "gemini") => {
+    async (file: File, provider: string = "gemini") => {
       setIsGenerating(true);
       const formData = new FormData();
       formData.append("file", file);
@@ -300,7 +359,7 @@ export const useFlowLogic = () => {
       formData.append("is_internal", provider === "ollama" ? "true" : "false");
       try {
         const response = await diagramApi.uploadProcessImage(formData);
-        const resData = await response.json();
+        const resData = response;
         if (resData.result === "SUCCESS") {
           const normalized = normalizeGraph(resData.data);
           const { nodes: lNodes, edges: lEdges } = getLayoutedElements(
@@ -322,11 +381,14 @@ export const useFlowLogic = () => {
     [setNodes, setEdges, takeSnapshot],
   );
 
-  const applyAutoLayout = useCallback(() => {
+  const applyAutoLayout = useCallback((diagramType?: string) => {
     try {
+      const direction = resolveLayoutDirection(diagramType);
       const { nodes: lNodes, edges: lEdges } = getLayoutedElements(
         nodes,
         edges,
+        direction,
+        diagramType,
       );
       setNodes(lNodes as Node[]);
       setEdges(lEdges as Edge[]);
@@ -348,7 +410,7 @@ export const useFlowLogic = () => {
   const onConnect = useCallback(
     (params: any) => {
       setEdges((eds) =>
-        addEdge({ ...params, animated: true, type: "smoothstep" }, eds),
+        addEdge({ ...params, animated: true, type: "bezier" }, eds),
       );
       if (takeSnapshot) takeSnapshot();
     },

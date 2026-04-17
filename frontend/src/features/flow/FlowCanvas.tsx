@@ -9,8 +9,10 @@ import {
   ReactFlowProvider,
   getNodesBounds,
   getViewportForBounds,
+  Panel,
 } from "@xyflow/react";
 import { Save, Trash2 } from "lucide-react";
+import { BottomToolbar } from "../../components/layout/BottomToolbar";
 import SmartNode from "../../components/SmartNode";
 import DrawingCanvas from "../../components/DrawingCanvas";
 import FlowSkeleton from "../../components/FlowSkeleton";
@@ -25,12 +27,18 @@ import CloudNode from "./nodes/CloudNode";
 import IotNode from "./nodes/IotNode";
 import UmlNode from "./nodes/UmlNode";
 import StickyNode from "./nodes/StickyNode";
+import { NODE_REGISTRY } from "./nodes/NodeRegistry";
 import { useTheme } from "next-themes";
 
 // ─── NODE TYPE REGISTRY ──────────────────────────────────────────────────────
 // Đăng ký tất cả custom node types — thêm type mới vào đây để ReactFlow nhận diện
+// NODE_REGISTRY chứa các Context-Aware nodes mới (OrgNode, LayerNode, UMLNode, ProcessNode)
+// được spread đầu tiên, các legacy nodes bên dưới sẽ ghi đè nếu trùng key.
 const nodeTypes = {
-  // Legacy / generic
+  // ── Context-Aware Template Nodes (NodeRegistry.tsx) ──
+  ...NODE_REGISTRY,
+
+  // ── Legacy / generic (SmartNode fallback) ──
   taskNode: SmartNode,
   conditionNode: SmartNode,
   customNode: SmartNode,
@@ -39,12 +47,13 @@ const nodeTypes = {
   step: SmartNode,
   decision: SmartNode,
   infographic: SmartNode,
-  // Enterprise node types
+
+  // ── Enterprise node types (cũ) ──
   networkNode: NetworkNode, // Hạ tầng mạng VNPT
-  iofficeNode: IofficeNode, // Quy trình iOffice
+  iofficeNode: IofficeNode, // Quy trình iOffice (legacy key)
   cloudNode: CloudNode, // Kiến trúc VNPT Cloud (glassmorphism)
   iotNode: IotNode, // Smart City / IoT
-  umlNode: UmlNode, // UML / UseCase diagrams
+  umlNode: UmlNode, // UML / UseCase diagrams (legacy key)
   stickyNode: StickyNode, // Sticky notes
 };
 
@@ -87,6 +96,7 @@ const FlowContent = ({
   isGenerating,
   onOpenAI,
   aiMode,
+  onDragStart,
 }: any) => {
   const { theme, setTheme } = useTheme();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -200,8 +210,7 @@ const FlowContent = ({
     <div
       ref={containerRef}
       onContextMenu={onContextMenu}
-      className="w-full h-full relative overflow-hidden"
-      style={{ width: "100%", height: "100%" }}
+      className="absolute inset-0 overflow-hidden"
     >
       {isGenerating && <FlowSkeleton />}
 
@@ -214,33 +223,6 @@ const FlowContent = ({
           Sắp xếp tự động
         </button>
       </div>*/}
-
-      {/* ─── THEME TOGGLE COMBOBOX (z-50) ─── */}
-      <div className="absolute top-6 right-6 z-[60] bg-white dark:bg-slate-800 rounded-lg shadow-md border border-slate-200 dark:border-slate-700 flex items-center gap-2 p-1 transition-colors">
-        <select
-          value={theme}
-          onChange={(e) => setTheme(e.target.value)}
-          className="bg-transparent border-none text-sm font-medium text-slate-700 dark:text-slate-200 focus:ring-0 cursor-pointer px-2 py-1 outline-none appearance-none pr-6 relative"
-        >
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-          <option value="system">System</option>
-        </select>
-        <div className="absolute right-3 pointer-events-none text-slate-400 dark:text-slate-500">
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="m6 9 6 6 6-6" />
-          </svg>
-        </div>
-      </div>
 
       <ReactFlow
         colorMode={(theme as "light" | "dark" | "system") || "system"}
@@ -291,6 +273,35 @@ const FlowContent = ({
       >
         <Background variant={BackgroundVariant.Dots} gap={20} color="#334155" />
 
+        {/* ─── THEME TOGGLE (MOVED TO PANEL TO FIX Z-INDEX & REACT FLOW SYNC) ─── */}
+        <Panel position="top-right" className="!top-20 !right-4 z-[100]">
+          <div className="bg-white dark:bg-slate-800 rounded-lg shadow-lg border border-slate-200 dark:border-slate-700 flex items-center gap-2 p-1 transition-colors backdrop-blur-sm bg-white/90 dark:bg-slate-800/90">
+            <select
+              value={theme}
+              onChange={(e) => setTheme(e.target.value)}
+              className="bg-transparent border-none text-sm font-medium text-slate-700 dark:text-slate-200 focus:ring-0 cursor-pointer px-3 py-1.5 outline-none appearance-none pr-7 relative"
+            >
+              <option value="light">Light</option>
+              <option value="dark">Dark</option>
+              <option value="system">System</option>
+            </select>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="m6 9 6 6 6-6" />
+              </svg>
+            </div>
+          </div>
+        </Panel>
+
         <Controls
           position="bottom-right"
           className="bg-slate-800 border-slate-700 fill-white shadow-2xl"
@@ -309,6 +320,16 @@ const FlowContent = ({
             zoomable
             pannable
             nodeColor={(node) => {
+              // ── Context-Aware Nodes (NodeRegistry) ──
+              if (node.type === "org-chart" || node.type === "org")
+                return "#003087";
+              if (node.type === "layer" || node.type === "layered")
+                return "#8b5cf6";
+              if (node.type === "uml" || node.type === "uml-class")
+                return "#0ea5e9";
+              if (node.type === "process" || node.type === "ioffice")
+                return "#10b981";
+              // ── Legacy nodes ──
               if (node.type === "networkNode") return "#0066cc";
               if (node.type === "iofficeNode") return "#10b981";
               if (node.type === "cloudNode") return "#6366f1";
@@ -421,40 +442,26 @@ const FlowContent = ({
         </div>
       )}
 
-      {/* 4. THANH CÔNG CỤ NGỮ CẢNH (KHI CHỌN NODE) */}
-      {selectedNode && (
-        <div
-          className="absolute z-[110] flex gap-2 bg-slate-900 text-white p-2 rounded-xl shadow-2xl animate-in fade-in zoom-in duration-200"
-          style={{
-            left: selectedNode.position.x + 100,
-            top: Math.max(0, selectedNode.position.y - 60),
-          }}
-        >
-          <button
-            onClick={() => updateNodeData("type", "start")}
-            className="w-5 h-5 rounded-full bg-emerald-500 border border-white"
-            title="Chuyển thành Bắt đầu"
-          />
-          <button
-            onClick={() => updateNodeData("type", "decision")}
-            className="w-5 h-5 rounded-full bg-amber-500 border border-white"
-            title="Chuyển thành Điều kiện"
-          />
-          <div className="w-[1px] bg-slate-700 mx-1" />
-          <button
-            onClick={() => {
-              setNodes((nds: any) =>
-                nds.filter((n: any) => n.id !== selectedNode.id),
-              );
-              setSelectedNode(null);
-              if (takeSnapshot) takeSnapshot();
-            }}
-            className="text-red-400 hover:text-red-300"
-          >
-            <Trash2 size={16} />
-          </button>
-        </div>
-      )}
+      {/* 4. THANH CÔNG CỤ BOTTOM BAR (MOVED TO PANEL) */}
+      <Panel position="bottom-center" className="z-50 mb-6">
+        <BottomToolbar
+          activeMode={drawMode?.type || "select"}
+          onModeChange={(m: any) => setDrawMode(m)}
+          onAddNote={addNoteAtCenter}
+          onDeleteSelected={deleteSelected}
+          onUndo={undo}
+          onRedo={redo}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onSetPenColor={(c: string) =>
+            setDrawMode((d: any) => ({ ...d, color: c, type: "pen" }))
+          }
+          onSetPenSize={(s: number) =>
+            setDrawMode((d: any) => ({ ...d, size: s, type: "pen" }))
+          }
+          onDragStart={onDragStart}
+        />
+      </Panel>
 
       {/* 5. SIDEBAR CHI TIẾT (GIỮ LẠI CỦA HƯNG) */}
       {selectedNode && (
