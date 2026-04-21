@@ -55,7 +55,7 @@ export interface UserAdminUpdateDTO {
 export const AdminApi = {
   getStats: async (): Promise<AdminStatsDTO> => {
     const res = await api.get("/admin/stats");
-    return res.data;
+    return res.data?.data || res.data;
   },
 
   getUsers: async (params?: { search?: string; id_vai_tro?: number; skip?: number; limit?: number }): Promise<{ total: number, items: UserAdminDTO[] }> => {
@@ -80,7 +80,7 @@ export const AdminApi = {
 
   getAiModels: async (): Promise<AiModelDTO[]> => {
     const res = await api.get("/admin/ai-models");
-    return res.data;
+    return res.data?.data || res.data?.items || res.data;
   },
 
   createAiModel: async (model: AiModelDTO): Promise<AiModelDTO> => {

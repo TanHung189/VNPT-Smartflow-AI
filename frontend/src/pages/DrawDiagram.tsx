@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { useSearchParams } from "react-router-dom";
 
 import { useFlowLogic } from "../hooks/useFlowLogic";
+import { useExportImage } from "../hooks/useExportImage";
 import FlowCanvas from "../features/flow/FlowCanvas";
 import { diagramApi } from "../services/diagramApi";
 
@@ -32,7 +33,8 @@ const DrawDiagramContent = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const templateParam = searchParams.get("template");
   // Context-Aware: loại sơ đồ từ URL param `type` (từ dashboard) hoặc `template`
-  const diagramTypeParam = searchParams.get("type") || templateParam || "process";
+  const diagramTypeParam =
+    searchParams.get("type") || templateParam || "process";
 
   const [provider, setProvider] = useState<string>("gemini");
   const [lastSavedTime, setLastSavedTime] = useState<string>("Bản nháp");
@@ -44,8 +46,17 @@ const DrawDiagramContent = () => {
   const [diagramTitle, setDiagramTitle] = useState<string>(
     "VNPT SmartFlow Workspace",
   );
-  const [lastActionReason, setLastActionReason] = useState<string>("Tạo mới/Cập nhật thủ công");
+  const [lastActionReason, setLastActionReason] = useState<string>(
+    "Tạo mới/Cập nhật thủ công",
+  );
   const { fitView, getNodes } = useReactFlow();
+
+  // Custom hook Export
+  const {
+    downloadImage,
+    copyImageToClipboard,
+    isExporting: isUiExporting,
+  } = useExportImage();
 
   const {
     nodes,
@@ -89,10 +100,10 @@ const DrawDiagramContent = () => {
       if (!flowData) return;
       const loadedNodes = (flowData.nodes ?? []).map((n: any) => ({
         ...n,
-        data: { 
-          ...n.data, 
-          themeConfig: flowData.themeConfig 
-        }
+        data: {
+          ...n.data,
+          themeConfig: flowData.themeConfig,
+        },
       }));
       const loadedEdges = flowData.edges ?? [];
 
@@ -206,6 +217,50 @@ const DrawDiagramContent = () => {
           },
         ]);
         setDiagramTitle("UML Sequence");
+      } else if (templateParam === "mindmap") {
+        setNodes([
+          {
+            id: "root",
+            type: "mindmapNode",
+            position: { x: 400, y: 300 },
+            data: { label: "✨ Nhập prompt để AI vẽ Mindmap..." },
+          },
+        ]);
+        setDiagramTitle("Sơ đồ Tư duy (Mindmap)");
+      } else if (templateParam === "org-chart") {
+        setNodes([
+          {
+            id: "root",
+            type: "orgNode",
+            position: { x: 400, y: 100 },
+            data: { label: "👑 CEO / Giám đốc" },
+          },
+        ]);
+        setDiagramTitle("Sơ đồ Tổ chức (Org-Chart)");
+      } else if (templateParam === "uml") {
+        setNodes([
+          {
+            id: "root",
+            type: "umlNode",
+            position: { x: 400, y: 200 },
+            data: { label: "Hệ thống (Nhập prompt...)" },
+          },
+        ]);
+        setDiagramTitle("Thiết kế Hạ tầng (UML)");
+      } else if (templateParam === "ioffice") {
+        setNodes([
+          {
+            id: "root",
+            type: "processNode",
+            position: { x: 100, y: 200 },
+            data: {
+              label: "Bước 1: Bắt đầu",
+              executor: "Admin",
+              status: "PENDING",
+            },
+          },
+        ]);
+        setDiagramTitle("Quy trình Nghiệp vụ (iOffice)");
       }
       setTimeout(() => fitView({ duration: 800, padding: 0.2 }), 200);
       searchParams.delete("template");
@@ -240,16 +295,19 @@ const DrawDiagramContent = () => {
 
   const handleGenerate = useCallback(
     async (text: string, currentProvider: string) => {
-      const modelName = currentProvider === "gemini" ? "Gemini 2.0 Flash" : "Ollama Qwen2.5 Coder";
+      const modelName =
+        currentProvider === "gemini"
+          ? "Gemini 2.0 Flash"
+          : "Ollama Qwen2.5 Coder";
       setLastActionReason(`AI Generated - ${modelName}`);
-      
+
       // Truyền nodes/edges hiện tại (Chat-to-Edit) + diagramType để AI inject đúng system prompt
       await generateFlow(
         text,
         currentProvider,
         nodes.length > 0 ? nodes : undefined,
         edges.length > 0 ? edges : undefined,
-        diagramTypeParam,  // ← Context-Aware: the_loai được inject vào prompt AI
+        diagramTypeParam, // ← Context-Aware: the_loai được inject vào prompt AI
       );
       setTimeout(() => fitView({ duration: 800, padding: 0.2 }), 200);
     },
@@ -387,7 +445,7 @@ const DrawDiagramContent = () => {
               toast.error(result?.message || "Lưu không thành công.");
           }
         }
-        
+
         // Reset lý do lại thành thủ công sau khi lưu thành công phiên bản AI
         if (!isAutoSave) {
           setLastActionReason("Cập nhật thủ công");
@@ -491,125 +549,6 @@ const DrawDiagramContent = () => {
     [currentDiagramId, nodes, edges, strokes, provider],
   );
 
-  // ─────────────────── EXPORT JPEG ───────────────────
-  const handleExportPNG = async () => {
-    if (nodes.length === 0) {
-      toast.warning("Không có sơ đồ để xuất ảnh!");
-      return;
-    }
-    const dataUrl = await captureThumbnailBase64();
-    if (dataUrl) {
-      const link = document.createElement("a");
-      link.download = `VNPT-QuyTrinh-${Date.now()}.jpeg`;
-      link.href = dataUrl;
-      link.click();
-      toast.success("Xuất JPEG thành công!");
-    } else {
-      toast.error("Có lỗi xảy ra khi trích xuất ảnh.");
-    }
-  };
-
-  // ─────────────────── EXPORT PDF ───────────────────
-  const handleExportPDF = useCallback(async () => {
-    const renderNodes = getNodes();
-    if (renderNodes.length === 0) {
-      toast.warning("Không có sơ đồ để xuất PDF!");
-      return;
-    }
-    try {
-      const { jsPDF } = await import("jspdf");
-      const padding = 20;
-      const nodesBounds = getNodesBounds(renderNodes);
-      const { x, y, zoom } = getViewportForBounds(
-        nodesBounds,
-        nodesBounds.width,
-        nodesBounds.height,
-        0.5,
-        2,
-        padding,
-      );
-      const element = document.querySelector(
-        ".react-flow__viewport",
-      ) as HTMLElement;
-      if (!element) return;
-      const imgData = await toJpeg(element, {
-        backgroundColor: "#ffffff",
-        pixelRatio: 1.5,
-        quality: 0.95,
-        width: nodesBounds.width + padding * 2,
-        height: nodesBounds.height + padding * 2,
-        style: {
-          width: `${nodesBounds.width + padding * 2}px`,
-          height: `${nodesBounds.height + padding * 2}px`,
-          transform: `translate(${x}px, ${y}px) scale(${zoom})`,
-        },
-      });
-      const pdf = new jsPDF({
-        orientation:
-          nodesBounds.width > nodesBounds.height ? "landscape" : "portrait",
-        unit: "px",
-        format: [
-          nodesBounds.width + padding * 2,
-          nodesBounds.height + padding * 2,
-        ],
-      });
-      pdf.addImage(
-        imgData,
-        "JPEG",
-        0,
-        0,
-        nodesBounds.width + padding * 2,
-        nodesBounds.height + padding * 2,
-      );
-      pdf.save(`VNPT-QuyTrinh-${Date.now()}.pdf`);
-      toast.success("Xuất PDF thành công!");
-    } catch (e) {
-      toast.error("Lỗi khi xuất PDF!");
-    }
-  }, [getNodes]);
-
-  // ─────────────────── EXPORT SVG ───────────────────
-  const handleExportSVG = useCallback(async () => {
-    const renderNodes = getNodes();
-    if (renderNodes.length === 0) {
-      toast.warning("Không có sơ đồ để xuất SVG!");
-      return;
-    }
-    try {
-      const padding = 20;
-      const nodesBounds = getNodesBounds(renderNodes);
-      const { x, y, zoom } = getViewportForBounds(
-        nodesBounds,
-        nodesBounds.width,
-        nodesBounds.height,
-        0.5,
-        2,
-        padding,
-      );
-      const element = document.querySelector(
-        ".react-flow__viewport",
-      ) as HTMLElement;
-      if (!element) return;
-      const svgData = await toSvg(element, {
-        backgroundColor: "#ffffff",
-        width: nodesBounds.width + padding * 2,
-        height: nodesBounds.height + padding * 2,
-        style: {
-          width: `${nodesBounds.width + padding * 2}px`,
-          height: `${nodesBounds.height + padding * 2}px`,
-          transform: `translate(${x}px, ${y}px) scale(${zoom})`,
-        },
-      });
-      const link = document.createElement("a");
-      link.download = `VNPT-QuyTrinh-${Date.now()}.svg`;
-      link.href = svgData;
-      link.click();
-      toast.success("Xuất SVG thành công!");
-    } catch (e) {
-      toast.error("Lỗi khi xuất SVG!");
-    }
-  }, [getNodes]);
-
   const onDragStart = (event: React.DragEvent, nodeType: string) => {
     event.dataTransfer.setData("application/reactflow", nodeType);
     event.dataTransfer.effectAllowed = "move";
@@ -708,10 +647,10 @@ const DrawDiagramContent = () => {
       <TopHeader
         lastSavedTime={isSaving ? "Đang lưu..." : lastSavedTime}
         isGenerating={isGenerating}
+        isExporting={isUiExporting}
         handleSave={() => handleSave(false)}
-        handleExportPNG={handleExportPNG}
-        handleExportPDF={handleExportPDF}
-        handleExportSVG={handleExportSVG}
+        handleDownloadPNG={downloadImage}
+        handleCopyPNG={copyImageToClipboard}
         diagramTitle={diagramTitle}
         diagramType={diagramTypeParam}
         onRename={handleRename}

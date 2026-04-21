@@ -2,7 +2,7 @@ import React, { memo } from "react";
 import { Handle, Position } from "@xyflow/react";
 import { Play, CheckCircle2, AlertCircle, Settings } from "lucide-react";
 
-const SmartNode = ({ data, selected }: any) => {
+const SmartNode = ({ data, selected, targetPosition, sourcePosition }: any) => {
   const getStyle = () => {
     switch (data.type) {
       case "start":
@@ -70,21 +70,38 @@ const SmartNode = ({ data, selected }: any) => {
         </span>
       </div>
 
-      {/* Các Handle giữ nguyên */}
-      {/* Handle Target (Top) — style ép căn giữa tuyệt đối, tránh mũi tên gãy hình chữ Z */}
-      <Handle
-        type="target"
-        position={Position.Top}
-        style={{ left: "50%", transform: "translateX(-50%)" }}
-        className="!w-3 !h-3 !bg-white !border-2 !border-slate-200"
-      />
-      {/* Handle Source (Bottom) — style ép căn giữa tuyệt đối */}
-      <Handle
-        type="source"
-        position={Position.Bottom}
-        style={{ left: "50%", transform: "translateX(-50%)" }}
-        className="!w-3 !h-3 !bg-indigo-500 !border-2 !border-white"
-      />
+      {/* Handles linh hoạt theo position */}
+      {data.isRoot ? (
+        // Root Node (Mindmap): cần 2 Handle Source để tỏa ra 2 bên
+        <>
+          <Handle
+            type="source"
+            position={Position.Left}
+            id="left"
+            className="!w-3 !h-3 !bg-indigo-500 !border-2 !border-white"
+          />
+          <Handle
+            type="source"
+            position={Position.Right}
+            id="right"
+            className="!w-3 !h-3 !bg-indigo-500 !border-2 !border-white"
+          />
+        </>
+      ) : (
+        // Các Node thường: tự nhận diện source/target position (truyền ẩn trong object Node của ReactFlow)
+        <>
+          <Handle
+            type="target"
+            position={targetPosition || Position.Top}
+            className="!w-3 !h-3 !bg-white !border-2 !border-slate-200"
+          />
+          <Handle
+            type="source"
+            position={sourcePosition || Position.Bottom}
+            className="!w-3 !h-3 !bg-indigo-500 !border-2 !border-white"
+          />
+        </>
+      )}
     </div>
   );
 };

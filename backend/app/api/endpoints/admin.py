@@ -10,6 +10,7 @@ from pydantic import BaseModel, ConfigDict
 from typing import List, Any, Optional
 import datetime
 from datetime import timedelta
+from app.api.dependency import get_current_user
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -75,7 +76,8 @@ async def get_all_diagrams(
     search: str | None = None,
     skip: int = 0,
     limit: int = 20,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: NguoiDung = Depends(get_current_user)
 ):
     """Lấy danh sách tất cả sơ đồ để quản trị viên có thể xem và set làm mẫu chuẩn."""
     try:
@@ -110,7 +112,7 @@ async def get_all_diagrams(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/stats", response_model=AdminStatsDTO)
-async def get_admin_stats(db: Session = Depends(get_db)):
+async def get_admin_stats(db: Session = Depends(get_db), current_user: NguoiDung = Depends(get_current_user)):
     """Lấy thống kê tổng quan cho trang Admin."""
     try:
         total_users = (await db.execute(select(func.count(NguoiDung.id_nguoi_dung)).where(NguoiDung.ngay_xoa == None))).scalar_one()
@@ -182,7 +184,8 @@ async def get_all_users(
     id_vai_tro: int | None = None,
     skip: int = 0,
     limit: int = 20,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: NguoiDung = Depends(get_current_user)
 ):
     """Lấy danh sách người dùng cho Admin."""
     try:
@@ -228,7 +231,8 @@ async def get_all_users(
 async def update_user_admin(
     user_id: str,
     payload: UserAdminUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: NguoiDung = Depends(get_current_user)
 ):
     """Cập nhật trạng thái/vai trò người dùng."""
     try:
@@ -255,7 +259,8 @@ async def update_user_admin(
 async def update_diagram_admin(
     diagram_id: str,
     payload: DiagramAdminUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: NguoiDung = Depends(get_current_user)
 ):
     """Cập nhật thông tin sơ đồ từ trang Admin (Template/Theme)."""
     try:
@@ -284,7 +289,7 @@ async def update_diagram_admin(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/ai-models", response_model=List[AiModelDTO])
-async def get_ai_models(db: Session = Depends(get_db)):
+async def get_ai_models(db: Session = Depends(get_db), current_user: NguoiDung = Depends(get_current_user)):
     try:
         stmt = select(MoHinhAI).order_by(desc(MoHinhAI.ngay_tao))
         result = await db.execute(stmt)
@@ -293,7 +298,7 @@ async def get_ai_models(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/ai-models", response_model=AiModelDTO)
-async def create_ai_model(payload: AiModelBase, db: Session = Depends(get_db)):
+async def create_ai_model(payload: AiModelBase, db: Session = Depends(get_db), current_user: NguoiDung = Depends(get_current_user)):
     try:
         new_model = MoHinhAI(**payload.model_dump())
         db.add(new_model)
@@ -305,7 +310,7 @@ async def create_ai_model(payload: AiModelBase, db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/ai-models/{model_id}", response_model=AiModelDTO)
-async def update_ai_model(model_id: int, payload: AiModelBase, db: Session = Depends(get_db)):
+async def update_ai_model(model_id: int, payload: AiModelBase, db: Session = Depends(get_db), current_user: NguoiDung = Depends(get_current_user)):
     try:
         stmt = select(MoHinhAI).where(MoHinhAI.id_mo_hinh == model_id)
         result = await db.execute(stmt)
@@ -324,7 +329,7 @@ async def update_ai_model(model_id: int, payload: AiModelBase, db: Session = Dep
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/ai-models/{model_id}")
-async def delete_ai_model(model_id: int, db: Session = Depends(get_db)):
+async def delete_ai_model(model_id: int, db: Session = Depends(get_db), current_user: NguoiDung = Depends(get_current_user)):
     try:
         stmt = select(MoHinhAI).where(MoHinhAI.id_mo_hinh == model_id)
         result = await db.execute(stmt)

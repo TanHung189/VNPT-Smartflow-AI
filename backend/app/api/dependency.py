@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 from app.database.session import get_db
 from app.models import NguoiDung
+from app.models.role import VaiTro
 from app.core.config import Settings
 import uuid
 
@@ -54,15 +55,26 @@ async def get_current_user(
     return user  # Trả về đối tượng NguoiDung để các endpoint sử dụng
 
 
-async def get_current_admin(current_user: NguoiDung = Depends(get_current_user)) -> NguoiDung:
+async def get_current_admin(
+    current_user: NguoiDung = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db)
+) -> NguoiDung:
     """
     Dependency: Kiểm tra người dùng có vai trò 'quan_tri' (Quản trị viên).
     Ném HTTP 403 nếu không đủ quyền.
+    Sử dụng id_vai_tro để tránh lazy-load relation trong async session.
     """
-    if (
-        current_user.vai_tro is None
-        or current_user.vai_tro.ten_vai_tro != "quan_tri"
-    ):
+    if current_user.id_vai_tro is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn cần quyền Quản trị viên (quan_tri) để thực hiện thao tác này.",
+        )
+
+    # Query vai_tro trực tiếp để tránh lỗi MissingGreenlet khi dùng lazy relationship
+    result = await session.exec(select(VaiTro).where(VaiTro.id_vai_tro == current_user.id_vai_tro))
+    vai_tro = result.first()
+
+    if vai_tro is None or vai_tro.ten_vai_tro != "quan_tri":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Bạn cần quyền Quản trị viên (quan_tri) để thực hiện thao tác này.",
@@ -70,12 +82,24 @@ async def get_current_admin(current_user: NguoiDung = Depends(get_current_user))
     return current_user
 
 
-async def get_current_nhan_vien(current_user: NguoiDung = Depends(get_current_user)) -> NguoiDung:
+async def get_current_nhan_vien(
+    current_user: NguoiDung = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db)
+) -> NguoiDung:
     """
     Dependency: Kiểm tra người dùng có ít nhất vai trò 'nhan_vien'.
     Cho phép cả 'nhan_vien' lẫn 'quan_tri' truy cập.
     """
-    if current_user.vai_tro is None or current_user.vai_tro.ten_vai_tro not in ["nhan_vien", "quan_tri"]:
+    if current_user.id_vai_tro is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Bạn không có quyền truy cập tính năng này.",
+        )
+
+    result = await session.exec(select(VaiTro).where(VaiTro.id_vai_tro == current_user.id_vai_tro))
+    vai_tro = result.first()
+
+    if vai_tro is None or vai_tro.ten_vai_tro not in ["nhan_vien", "quan_tri"]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Bạn không có quyền truy cập tính năng này.",

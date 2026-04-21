@@ -2,7 +2,7 @@
  * NodeRegistry.tsx
  * ─────────────────────────────────────────────────────────────────────────────
  * VNPT SmartFlow AI – Context-Aware Custom Node Registry
- * 
+ *
  * Architecture:
  *   1. INTERFACES  – TypeScript data contracts per node type
  *   2. STYLES      – Tailwind class constants (Glassmorphism / VNPT brand)
@@ -12,7 +12,13 @@
  */
 
 import React, { memo } from "react";
-import { Handle, Position, NodeProps, useReactFlow, NodeResizer } from "@xyflow/react";
+import {
+  Handle,
+  Position,
+  NodeProps,
+  useReactFlow,
+  NodeResizer,
+} from "@xyflow/react";
 import { Badge } from "../../../components/ui/badge";
 import { Separator } from "../../../components/ui/separator";
 import {
@@ -53,7 +59,12 @@ export interface OrgNodeData {
 export interface LayerNodeData {
   label: string;
   description?: string;
-  layer_type?: "presentation" | "business" | "data" | "infrastructure" | "generic";
+  layer_type?:
+    | "presentation"
+    | "business"
+    | "data"
+    | "infrastructure"
+    | "generic";
   tech_stack?: string[];
   color_scheme?: string;
   themeConfig?: any;
@@ -85,7 +96,12 @@ export interface ProcessNodeData {
 export interface InfographicNodeData {
   label: string;
   description?: string;
-  variant?: "swot-strength" | "swot-weakness" | "swot-opportunity" | "swot-threat" | "step";
+  variant?:
+    | "swot-strength"
+    | "swot-weakness"
+    | "swot-opportunity"
+    | "swot-threat"
+    | "step";
   icon_name?: string;
   themeConfig?: any;
 }
@@ -145,12 +161,12 @@ const LEVEL_CONFIG: Record<
 const OrgNodeComponent = ({ data, selected }: NodeProps) => {
   const d = data as unknown as OrgNodeData;
   const level = d.level ?? "staff";
-  
+
   // Dynamic Theme Override
   const defaultCfg = LEVEL_CONFIG[level] ?? LEVEL_CONFIG.staff;
   const cfg = {
     ...defaultCfg,
-    ...(d.themeConfig?.[level] || d.themeConfig?.all || {})
+    ...(d.themeConfig?.[level] || d.themeConfig?.all || {}),
   };
 
   return (
@@ -195,13 +211,17 @@ const OrgNodeComponent = ({ data, selected }: NodeProps) => {
           {d.department && (
             <div className="flex items-center gap-2">
               <Building2 className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-              <span className="text-[11px] text-slate-600 truncate">{d.department}</span>
+              <span className="text-[11px] text-slate-600 truncate">
+                {d.department}
+              </span>
             </div>
           )}
           {d.email && (
             <div className="flex items-center gap-2">
               <Network className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
-              <span className="text-[11px] text-slate-500 truncate">{d.email}</span>
+              <span className="text-[11px] text-slate-500 truncate">
+                {d.email}
+              </span>
             </div>
           )}
         </div>
@@ -212,16 +232,36 @@ const OrgNodeComponent = ({ data, selected }: NodeProps) => {
             className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border ${cfg.badge}`}
           >
             {cfg.icon}
-            {level === "executive" ? "Lãnh đạo" : level === "manager" ? "Quản lý" : "Nhân viên"}
+            {level === "executive"
+              ? "Lãnh đạo"
+              : level === "manager"
+                ? "Quản lý"
+                : "Nhân viên"}
           </span>
         </div>
       </div>
 
       {/* Handles */}
-      <Handle type="target" position={Position.Top} className={HANDLE_STYLE.target} />
-      <Handle type="source" position={Position.Bottom} className={HANDLE_STYLE.source} />
-      <Handle type="target" position={Position.Left} className={HANDLE_STYLE.target} />
-      <Handle type="source" position={Position.Right} className={HANDLE_STYLE.source} />
+      <Handle
+        type="target"
+        position={Position.Top}
+        className={HANDLE_STYLE.target}
+      />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        className={HANDLE_STYLE.source}
+      />
+      <Handle
+        type="target"
+        position={Position.Left}
+        className={HANDLE_STYLE.target}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        className={HANDLE_STYLE.source}
+      />
     </div>
   );
 };
@@ -269,21 +309,21 @@ const LAYER_CONFIG: Record<
 const LayerNodeComponent = ({ data, selected }: NodeProps) => {
   const d = data as unknown as LayerNodeData;
   const type = d.layer_type ?? "generic";
-  
+
   // Dynamic Theme Override
   const defaultCfg = LAYER_CONFIG[type] ?? LAYER_CONFIG.generic;
   const cfg = {
     ...defaultCfg,
-    ...(d.themeConfig?.[type] || d.themeConfig?.all || {})
+    ...(d.themeConfig?.[type] || d.themeConfig?.all || {}),
   };
 
   return (
     <>
-      <NodeResizer 
-        color="#8b5cf6" 
-        isVisible={selected} 
-        minWidth={280} 
-        minHeight={120} 
+      <NodeResizer
+        color="#8b5cf6"
+        isVisible={selected}
+        minWidth={280}
+        minHeight={120}
       />
       <div
         className={[
@@ -296,46 +336,66 @@ const LayerNodeComponent = ({ data, selected }: NodeProps) => {
         ].join(" ")}
         style={{ backdropFilter: "blur(12px)" }}
       >
-      {/* Glassmorphism shine overlay */}
-      <div className="absolute inset-0 rounded-2xl bg-white/30 pointer-events-none" />
+        {/* Glassmorphism shine overlay */}
+        <div className="absolute inset-0 rounded-2xl bg-white/30 pointer-events-none" />
 
-      {/* Header */}
-      <div className="relative flex items-center gap-2 mb-3">
-        <div className="p-2 rounded-xl bg-white/60 shadow-sm">{cfg.icon}</div>
-        <div>
-          <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">
-            {cfg.label_vn}
+        {/* Header */}
+        <div className="relative flex items-center gap-2 mb-3">
+          <div className="p-2 rounded-xl bg-white/60 shadow-sm">{cfg.icon}</div>
+          <div>
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">
+              {cfg.label_vn}
+            </p>
+            <p className="text-sm font-extrabold text-slate-800 leading-tight">
+              {d.label}
+            </p>
+          </div>
+        </div>
+
+        {/* Description */}
+        {d.description && (
+          <p className="relative text-[11px] text-slate-600 mb-3 leading-relaxed">
+            {d.description}
           </p>
-          <p className="text-sm font-extrabold text-slate-800 leading-tight">{d.label}</p>
-        </div>
-      </div>
+        )}
 
-      {/* Description */}
-      {d.description && (
-        <p className="relative text-[11px] text-slate-600 mb-3 leading-relaxed">
-          {d.description}
-        </p>
-      )}
+        {/* Tech stack badges */}
+        {d.tech_stack && d.tech_stack.length > 0 && (
+          <div className="relative flex flex-wrap gap-1">
+            {d.tech_stack.map((tech, i) => (
+              <span
+                key={i}
+                className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/70 border border-white/50 text-slate-700 shadow-sm"
+              >
+                {tech}
+              </span>
+            ))}
+          </div>
+        )}
 
-      {/* Tech stack badges */}
-      {d.tech_stack && d.tech_stack.length > 0 && (
-        <div className="relative flex flex-wrap gap-1">
-          {d.tech_stack.map((tech, i) => (
-            <span
-              key={i}
-              className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/70 border border-white/50 text-slate-700 shadow-sm"
-            >
-              {tech}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Handles — all 4 sides so nested layout works */}
-      <Handle type="target" position={Position.Top} className={HANDLE_STYLE.target} />
-      <Handle type="source" position={Position.Bottom} className={HANDLE_STYLE.source} />
-      <Handle type="target" position={Position.Left} className={HANDLE_STYLE.target} style={{ top: "50%" }} />
-      <Handle type="source" position={Position.Right} className={HANDLE_STYLE.source} style={{ top: "50%" }} />
+        {/* Handles — all 4 sides so nested layout works */}
+        <Handle
+          type="target"
+          position={Position.Top}
+          className={HANDLE_STYLE.target}
+        />
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          className={HANDLE_STYLE.source}
+        />
+        <Handle
+          type="target"
+          position={Position.Left}
+          className={HANDLE_STYLE.target}
+          style={{ top: "50%" }}
+        />
+        <Handle
+          type="source"
+          position={Position.Right}
+          className={HANDLE_STYLE.source}
+          style={{ top: "50%" }}
+        />
       </div>
     </>
   );
@@ -362,7 +422,9 @@ const UMLNodeComponent = ({ data, selected }: NodeProps) => {
       <div className="flex flex-col items-center gap-1 select-none">
         <div
           className={`p-3 rounded-full bg-white border-2 shadow-lg transition-all duration-300 ${
-            selected ? "border-blue-500 scale-110 shadow-blue-200" : "border-slate-700"
+            selected
+              ? "border-blue-500 scale-110 shadow-blue-200"
+              : "border-slate-700"
           }`}
         >
           <UserCircle className="w-8 h-8 text-slate-700" />
@@ -370,7 +432,11 @@ const UMLNodeComponent = ({ data, selected }: NodeProps) => {
         <span className="text-xs font-bold text-slate-800 text-center max-w-[100px] leading-tight">
           {d.label}
         </span>
-        <Handle type="source" position={Position.Bottom} className="opacity-0" />
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          className="opacity-0"
+        />
         <Handle type="target" position={Position.Top} className="opacity-0" />
       </div>
     );
@@ -381,7 +447,9 @@ const UMLNodeComponent = ({ data, selected }: NodeProps) => {
     return (
       <div
         className={`px-6 py-4 min-w-[160px] max-w-[220px] bg-white border-2 shadow-lg transition-all duration-300 ${
-          selected ? "border-blue-600 shadow-blue-200 scale-105" : "border-slate-800"
+          selected
+            ? "border-blue-600 shadow-blue-200 scale-105"
+            : "border-slate-800"
         }`}
         style={{ borderRadius: "50%" }}
       >
@@ -393,8 +461,18 @@ const UMLNodeComponent = ({ data, selected }: NodeProps) => {
             {d.description}
           </p>
         )}
-        <Handle type="target" position={Position.Top} className={HANDLE_STYLE.target} style={{ left: "50%" }} />
-        <Handle type="source" position={Position.Bottom} className={HANDLE_STYLE.source} style={{ left: "50%" }} />
+        <Handle
+          type="target"
+          position={Position.Top}
+          className={HANDLE_STYLE.target}
+          style={{ left: "50%" }}
+        />
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          className={HANDLE_STYLE.source}
+          style={{ left: "50%" }}
+        />
       </div>
     );
   }
@@ -417,12 +495,16 @@ const UMLNodeComponent = ({ data, selected }: NodeProps) => {
         }`}
       >
         {d.stereotype && (
-          <p className="text-[9px] text-slate-500 italic mb-0.5">«{d.stereotype}»</p>
+          <p className="text-[9px] text-slate-500 italic mb-0.5">
+            «{d.stereotype}»
+          </p>
         )}
         {isInterface && !d.stereotype && (
           <p className="text-[9px] text-blue-500 italic mb-0.5">«interface»</p>
         )}
-        <p className="text-sm font-bold text-slate-900 tracking-wide">{d.label}</p>
+        <p className="text-sm font-bold text-slate-900 tracking-wide">
+          {d.label}
+        </p>
       </div>
 
       {/* Attributes section */}
@@ -431,13 +513,17 @@ const UMLNodeComponent = ({ data, selected }: NodeProps) => {
           <div className="flex flex-col gap-0.5">
             {d.attributes.map((attr, i) => (
               <p key={i} className="text-[11px] text-slate-700 leading-snug">
-                <span className="text-blue-600 font-bold mr-1">{visSymbol}</span>
+                <span className="text-blue-600 font-bold mr-1">
+                  {visSymbol}
+                </span>
                 {attr}
               </p>
             ))}
           </div>
         ) : (
-          <p className="text-[11px] text-slate-300 italic">{visSymbol} attributes</p>
+          <p className="text-[11px] text-slate-300 italic">
+            {visSymbol} attributes
+          </p>
         )}
       </div>
 
@@ -447,20 +533,44 @@ const UMLNodeComponent = ({ data, selected }: NodeProps) => {
           <div className="flex flex-col gap-0.5">
             {d.methods.map((method, i) => (
               <p key={i} className="text-[11px] text-slate-700 leading-snug">
-                <span className="text-emerald-600 font-bold mr-1">{visSymbol}</span>
+                <span className="text-emerald-600 font-bold mr-1">
+                  {visSymbol}
+                </span>
                 {method}
               </p>
             ))}
           </div>
         ) : (
-          <p className="text-[11px] text-slate-300 italic">{visSymbol} methods()</p>
+          <p className="text-[11px] text-slate-300 italic">
+            {visSymbol} methods()
+          </p>
         )}
       </div>
 
-      <Handle type="target" position={Position.Top} className={HANDLE_STYLE.target} style={{ left: "50%" }} />
-      <Handle type="source" position={Position.Bottom} className={HANDLE_STYLE.source} style={{ left: "50%" }} />
-      <Handle type="target" position={Position.Left} className={HANDLE_STYLE.target} style={{ top: "50%" }} />
-      <Handle type="source" position={Position.Right} className={HANDLE_STYLE.source} style={{ top: "50%" }} />
+      <Handle
+        type="target"
+        position={Position.Top}
+        className={HANDLE_STYLE.target}
+        style={{ left: "50%" }}
+      />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        className={HANDLE_STYLE.source}
+        style={{ left: "50%" }}
+      />
+      <Handle
+        type="target"
+        position={Position.Left}
+        className={HANDLE_STYLE.target}
+        style={{ top: "50%" }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        className={HANDLE_STYLE.source}
+        style={{ top: "50%" }}
+      />
     </div>
   );
 };
@@ -539,14 +649,14 @@ const PROCESS_TYPE_STYLE: Record<
 const ProcessNodeComponent = ({ data, selected }: NodeProps) => {
   const d = data as unknown as ProcessNodeData;
   const pType = d.process_type ?? "step";
-  
+
   // Dynamic Theme Override
   const defaultStyle = PROCESS_TYPE_STYLE[pType] ?? PROCESS_TYPE_STYLE.step;
   const pStyle = {
     ...defaultStyle,
-    ...(d.themeConfig?.[pType] || d.themeConfig?.all || {})
+    ...(d.themeConfig?.[pType] || d.themeConfig?.all || {}),
   };
-  
+
   const statusCfg = d.status ? STATUS_CONFIG[d.status] : null;
 
   // START / END — rounded pill shape
@@ -564,10 +674,26 @@ const ProcessNodeComponent = ({ data, selected }: NodeProps) => {
         <p className="text-sm font-extrabold text-white tracking-wide drop-shadow-sm">
           {d.label}
         </p>
-        <Handle type="target" position={Position.Top} className="!w-3 !h-3 !bg-white !border-2 !border-slate-300" />
-        <Handle type="source" position={Position.Bottom} className="!w-3 !h-3 !bg-white !border-2 !border-slate-300" />
-        <Handle type="target" position={Position.Left} className="!w-3 !h-3 !bg-white !border-2 !border-slate-300" />
-        <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-white !border-2 !border-slate-300" />
+        <Handle
+          type="target"
+          position={Position.Top}
+          className="!w-3 !h-3 !bg-white !border-2 !border-slate-300"
+        />
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          className="!w-3 !h-3 !bg-white !border-2 !border-slate-300"
+        />
+        <Handle
+          type="target"
+          position={Position.Left}
+          className="!w-3 !h-3 !bg-white !border-2 !border-slate-300"
+        />
+        <Handle
+          type="source"
+          position={Position.Right}
+          className="!w-3 !h-3 !bg-white !border-2 !border-slate-300"
+        />
       </div>
     );
   }
@@ -575,7 +701,10 @@ const ProcessNodeComponent = ({ data, selected }: NodeProps) => {
   // DECISION — diamond shape via rotate
   if (pType === "decision") {
     return (
-      <div className="relative flex items-center justify-center" style={{ width: 160, height: 80 }}>
+      <div
+        className="relative flex items-center justify-center"
+        style={{ width: 160, height: 80 }}
+      >
         <div
           className={[
             "w-28 h-28 bg-gradient-to-br from-purple-500 to-violet-600 border-2 rotate-45 shadow-xl origin-center transition-all duration-300 absolute",
@@ -587,10 +716,30 @@ const ProcessNodeComponent = ({ data, selected }: NodeProps) => {
         <p className="relative text-[12px] font-extrabold text-white text-center leading-tight px-1 drop-shadow z-10">
           {d.label}
         </p>
-        <Handle type="target" position={Position.Top} className="!w-3 !h-3 !bg-white !border-2 !border-purple-400" style={{ top: "0%" }} />
-        <Handle type="source" position={Position.Bottom} className="!w-3 !h-3 !bg-purple-500 !border-2 !border-white" style={{ bottom: "0%" }} />
-        <Handle type="source" position={Position.Right} className="!w-3 !h-3 !bg-purple-500 !border-2 !border-white" style={{ right: "0%", top: "50%" }} />
-        <Handle type="source" position={Position.Left} className="!w-3 !h-3 !bg-purple-500 !border-2 !border-white" style={{ left: "0%", top: "50%" }} />
+        <Handle
+          type="target"
+          position={Position.Top}
+          className="!w-3 !h-3 !bg-white !border-2 !border-purple-400"
+          style={{ top: "0%" }}
+        />
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          className="!w-3 !h-3 !bg-purple-500 !border-2 !border-white"
+          style={{ bottom: "0%" }}
+        />
+        <Handle
+          type="source"
+          position={Position.Right}
+          className="!w-3 !h-3 !bg-purple-500 !border-2 !border-white"
+          style={{ right: "0%", top: "50%" }}
+        />
+        <Handle
+          type="source"
+          position={Position.Left}
+          className="!w-3 !h-3 !bg-purple-500 !border-2 !border-white"
+          style={{ left: "0%", top: "50%" }}
+        />
       </div>
     );
   }
@@ -621,7 +770,9 @@ const ProcessNodeComponent = ({ data, selected }: NodeProps) => {
                 {d.document_ref}
               </p>
             )}
-            <p className="text-sm font-extrabold text-slate-800 leading-tight">{d.label}</p>
+            <p className="text-sm font-extrabold text-slate-800 leading-tight">
+              {d.label}
+            </p>
           </div>
         </div>
 
@@ -642,7 +793,9 @@ const ProcessNodeComponent = ({ data, selected }: NodeProps) => {
               <User className="w-4 h-4 text-indigo-500" />
             </div>
             <div className="flex flex-col">
-              <span className="text-[9px] uppercase text-slate-400 font-bold tracking-wide">Người thực hiện</span>
+              <span className="text-[9px] uppercase text-slate-400 font-bold tracking-wide">
+                Người thực hiện
+              </span>
               <span className="text-[12px] text-slate-700 font-extrabold truncate max-w-[100px]">
                 {d.executor ?? "Chưa phân công"}
               </span>
@@ -652,7 +805,9 @@ const ProcessNodeComponent = ({ data, selected }: NodeProps) => {
           {/* Status badge */}
           {statusCfg && (
             <div className="flex flex-col items-end">
-              <span className="text-[9px] uppercase text-slate-400 font-bold tracking-wide mb-0.5">Trạng thái</span>
+              <span className="text-[9px] uppercase text-slate-400 font-bold tracking-wide mb-0.5">
+                Trạng thái
+              </span>
               <span
                 className={`inline-flex items-center gap-1.5 text-[11px] font-black px-2.5 py-1 rounded-full border shadow-sm ${statusCfg.variant}`}
               >
@@ -663,7 +818,9 @@ const ProcessNodeComponent = ({ data, selected }: NodeProps) => {
                   </span>
                 )}
                 {statusCfg.icon}
-                <span className="uppercase tracking-wide">{statusCfg.label}</span>
+                <span className="uppercase tracking-wide">
+                  {statusCfg.label}
+                </span>
               </span>
             </div>
           )}
@@ -681,7 +838,9 @@ const ProcessNodeComponent = ({ data, selected }: NodeProps) => {
             {d.deadline && (
               <div className="flex items-center gap-1">
                 <AlertTriangle className="w-3 h-3 text-orange-400" />
-                <span className="text-[10px] text-orange-500 font-medium">{d.deadline}</span>
+                <span className="text-[10px] text-orange-500 font-medium">
+                  {d.deadline}
+                </span>
               </div>
             )}
           </div>
@@ -696,10 +855,26 @@ const ProcessNodeComponent = ({ data, selected }: NodeProps) => {
         </span>
       </div>
 
-      <Handle type="target" position={Position.Top} className={HANDLE_STYLE.target} />
-      <Handle type="source" position={Position.Bottom} className={HANDLE_STYLE.source} />
-      <Handle type="target" position={Position.Left} className={HANDLE_STYLE.target} />
-      <Handle type="source" position={Position.Right} className={HANDLE_STYLE.source} />
+      <Handle
+        type="target"
+        position={Position.Top}
+        className={HANDLE_STYLE.target}
+      />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        className={HANDLE_STYLE.source}
+      />
+      <Handle
+        type="target"
+        position={Position.Left}
+        className={HANDLE_STYLE.target}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        className={HANDLE_STYLE.source}
+      />
     </div>
   );
 };
@@ -708,12 +883,35 @@ const ProcessNodeComponent = ({ data, selected }: NodeProps) => {
 // 3E. InfographicNode — SWOT, Mindmap, 5-Step Process
 // ─────────────────────────────────────────────────────────────────────────────
 
-const INFOGRAPHIC_CONFIG: Record<string, { gradient: string; text: string; icon: React.ReactNode }> = {
-  "swot-strength": { gradient: "from-emerald-500 to-teal-500", text: "text-emerald-700", icon: <CheckCircle2 className="w-5 h-5 text-white" /> },
-  "swot-weakness": { gradient: "from-rose-500 to-red-600", text: "text-rose-700", icon: <AlertTriangle className="w-5 h-5 text-white" /> },
-  "swot-opportunity": { gradient: "from-blue-500 to-indigo-500", text: "text-blue-700", icon: <Globe className="w-5 h-5 text-white" /> },
-  "swot-threat": { gradient: "from-amber-500 to-orange-500", text: "text-amber-700", icon: <AlertTriangle className="w-5 h-5 text-white" /> },
-  "step": { gradient: "from-purple-500 to-violet-500", text: "text-purple-700", icon: <Box className="w-5 h-5 text-white" /> },
+const INFOGRAPHIC_CONFIG: Record<
+  string,
+  { gradient: string; text: string; icon: React.ReactNode }
+> = {
+  "swot-strength": {
+    gradient: "from-emerald-500 to-teal-500",
+    text: "text-emerald-700",
+    icon: <CheckCircle2 className="w-5 h-5 text-white" />,
+  },
+  "swot-weakness": {
+    gradient: "from-rose-500 to-red-600",
+    text: "text-rose-700",
+    icon: <AlertTriangle className="w-5 h-5 text-white" />,
+  },
+  "swot-opportunity": {
+    gradient: "from-blue-500 to-indigo-500",
+    text: "text-blue-700",
+    icon: <Globe className="w-5 h-5 text-white" />,
+  },
+  "swot-threat": {
+    gradient: "from-amber-500 to-orange-500",
+    text: "text-amber-700",
+    icon: <AlertTriangle className="w-5 h-5 text-white" />,
+  },
+  step: {
+    gradient: "from-purple-500 to-violet-500",
+    text: "text-purple-700",
+    icon: <Box className="w-5 h-5 text-white" />,
+  },
 };
 
 const InfographicNodeComponent = ({ data, selected }: NodeProps) => {
@@ -725,31 +923,63 @@ const InfographicNodeComponent = ({ data, selected }: NodeProps) => {
     <div
       className={[
         "relative flex flex-col p-5 min-w-[240px] max-w-[280px] bg-white rounded-[24px] border-2 shadow-xl transition-all duration-300 overflow-hidden",
-        selected ? `border-indigo-400 scale-[1.02] shadow-indigo-200` : "border-slate-100 hover:shadow-2xl hover:border-slate-200"
+        selected
+          ? `border-indigo-400 scale-[1.02] shadow-indigo-200`
+          : "border-slate-100 hover:shadow-2xl hover:border-slate-200",
       ].join(" ")}
     >
-      <div className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${cfg.gradient} rounded-bl-[100px] opacity-10`} />
-      
+      <div
+        className={`absolute top-0 right-0 w-24 h-24 bg-gradient-to-br ${cfg.gradient} rounded-bl-[100px] opacity-10`}
+      />
+
       <div className="flex items-center gap-3 w-full mb-3 relative z-10">
-        <div className={`flex items-center justify-center w-12 h-12 rounded-[16px] shadow-lg bg-gradient-to-br ${cfg.gradient} transform -rotate-6`}>
+        <div
+          className={`flex items-center justify-center w-12 h-12 rounded-[16px] shadow-lg bg-gradient-to-br ${cfg.gradient} transform -rotate-6`}
+        >
           {cfg.icon}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-[10px] uppercase font-black tracking-widest text-slate-400 mb-0.5">{variant.split("-").pop()?.toUpperCase()}</p>
-          <p className={`text-base font-extrabold leading-tight truncate ${cfg.text}`}>{d.label}</p>
+          <p className="text-[10px] uppercase font-black tracking-widest text-slate-400 mb-0.5">
+            {variant.split("-").pop()?.toUpperCase()}
+          </p>
+          <p
+            className={`text-base font-extrabold leading-tight truncate ${cfg.text}`}
+          >
+            {d.label}
+          </p>
         </div>
       </div>
-      
+
       {d.description && (
         <p className="text-[12px] text-slate-500 font-medium leading-relaxed mt-1 relative z-10 line-clamp-3">
           {d.description}
         </p>
       )}
 
-      <Handle type="target" position={Position.Top} className={HANDLE_STYLE.target} style={{ left: "50%" }} />
-      <Handle type="source" position={Position.Bottom} className={HANDLE_STYLE.source} style={{ left: "50%" }} />
-      <Handle type="source" position={Position.Right} className={HANDLE_STYLE.source} style={{ top: "50%" }} />
-      <Handle type="target" position={Position.Left} className={HANDLE_STYLE.target} style={{ top: "50%" }} />
+      <Handle
+        type="target"
+        position={Position.Top}
+        className={HANDLE_STYLE.target}
+        style={{ left: "50%" }}
+      />
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        className={HANDLE_STYLE.source}
+        style={{ left: "50%" }}
+      />
+      <Handle
+        type="source"
+        position={Position.Right}
+        className={HANDLE_STYLE.source}
+        style={{ top: "50%" }}
+      />
+      <Handle
+        type="target"
+        position={Position.Left}
+        className={HANDLE_STYLE.target}
+        style={{ top: "50%" }}
+      />
     </div>
   );
 };
@@ -770,18 +1000,26 @@ export const InfographicNode = memo(InfographicNodeComponent);
  * Using a stable reference (module-level constant) prevents unnecessary re-renders.
  */
 export const NODE_REGISTRY = {
-  // New context-aware nodes
+  // 1. Tên mapping từ URL template (Dashboard truyền sang)
   "org-chart": OrgNode,
-  "layer": LayerNode,
-  "uml": UMLNode,
-  "process": ProcessNode,
-  "infographic": InfographicNode,
+  layer: LayerNode,
+  uml: UMLNode,
+  process: ProcessNode,
+  infographic: InfographicNode,
+  mindmap: InfographicNode, // Em có thể dùng tạm Infographic cho Mindmap hoặc viết component riêng
 
-  // Aliases for backward compat with the_loai values from DB
-  "org": OrgNode,
-  "layered": LayerNode,
+  // 2. THE MISSING LINK: Mapping CHÍNH XÁC các type mà AI Backend (Gemini/Claude) sinh ra!
+  orgNode: OrgNode,
+  layerNode: LayerNode,
+  umlNode: UMLNode,
+  processNode: ProcessNode,
+  mindmapNode: InfographicNode, // Tạm map vào InfographicNode
+
+  // 3. Aliases cho dữ liệu cũ (Backward compatibility)
+  org: OrgNode,
+  layered: LayerNode,
   "uml-class": UMLNode,
-  "ioffice": ProcessNode,
+  ioffice: ProcessNode,
 } as const;
 
 /**
@@ -789,7 +1027,10 @@ export const NODE_REGISTRY = {
  * Bootstrap sample data for each diagram type.
  * Used by templates (DrawDiagram.tsx) via the `template` URL query param.
  */
-export const DIAGRAM_DEFAULT_NODES: Record<string, { nodes: any[]; edges: any[] }> = {
+export const DIAGRAM_DEFAULT_NODES: Record<
+  string,
+  { nodes: any[]; edges: any[] }
+> = {
   "org-chart": {
     nodes: [
       {
@@ -831,7 +1072,7 @@ export const DIAGRAM_DEFAULT_NODES: Record<string, { nodes: any[]; edges: any[] 
       { id: "e2", source: "org_1", target: "org_3" },
     ],
   },
-  "layered": {
+  layered: {
     nodes: [
       {
         id: "layer_1",
@@ -872,7 +1113,7 @@ export const DIAGRAM_DEFAULT_NODES: Record<string, { nodes: any[]; edges: any[] 
       { id: "e2", source: "layer_2", target: "layer_3" },
     ],
   },
-  "uml": {
+  uml: {
     nodes: [
       {
         id: "uml_1",
@@ -886,10 +1127,7 @@ export const DIAGRAM_DEFAULT_NODES: Record<string, { nodes: any[]; edges: any[] 
             "ten_nguoi_dung: string",
             "email: string",
           ],
-          methods: [
-            "dangNhap(): boolean",
-            "capNhatThongTin(): void",
-          ],
+          methods: ["dangNhap(): boolean", "capNhatThongTin(): void"],
           visibility: "public",
         } satisfies UMLNodeData,
       },
@@ -917,7 +1155,7 @@ export const DIAGRAM_DEFAULT_NODES: Record<string, { nodes: any[]; edges: any[] 
       },
     ],
   },
-  "ioffice": {
+  ioffice: {
     nodes: [
       {
         id: "proc_1",
@@ -968,7 +1206,13 @@ export const DIAGRAM_DEFAULT_NODES: Record<string, { nodes: any[]; edges: any[] 
       { id: "e1", source: "proc_1", target: "proc_2" },
       { id: "e2", source: "proc_2", target: "proc_3" },
       { id: "e3", source: "proc_3", target: "proc_4", label: "Có" },
-      { id: "e4", source: "proc_3", target: "proc_2", label: "Không", type: "step" },
+      {
+        id: "e4",
+        source: "proc_3",
+        target: "proc_2",
+        label: "Không",
+        type: "step",
+      },
     ],
   },
 };

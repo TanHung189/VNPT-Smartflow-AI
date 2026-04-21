@@ -5,6 +5,8 @@ import re
 import logging
 import hashlib
 import httpx
+import time
+import asyncio
 from typing import Dict, Any, List, Optional
 
 from app.core.config import settings
@@ -149,9 +151,9 @@ _DEFAULT_CONFIG = {
 class AIService:
     def __init__(self):
         self.current_key_index = 0
-        self.model_name = 'gemini-3-flash-preview'
-        self.ollama_url = "http://localhost:11434/api/generate"
-        self.ollama_model = "qwen2.5-coder:3b"
+        self.model_name = 'gemini-2.0-flash'
+        self.ollama_url = "http://100.94.87.76:11434/api/generate"
+        self.ollama_model = "qwen2.5-coder:1.5b"
 
     def _get_current_client(self):
         api_key = settings.GEMINI_API_KEYS[self.current_key_index]
@@ -200,6 +202,11 @@ class AIService:
         the_loai: str = "process",
     ) -> Dict[str, Any]:
         logger.info(f"[AI] Loại sơ đồ: {the_loai} | Provider: {provider} | Text: {text[:60]}...")
+
+        if the_loai == "auto":
+            detected_type = await self._detect_diagram_intent(text, provider)
+            logger.info(f"💡 [Auto-Detect] Thay đổi the_loai='auto' thành '{detected_type}'")
+            the_loai = detected_type
 
         # Intent Classification: Fast text return for simple greetings
         text_clean = text.strip().lower()
@@ -257,7 +264,13 @@ class AIService:
         else:
             logger.info("☁️ [Cloud AI] Gemini processing...")
             try:
-                result = self._call_gemini_with_retry(text, the_loai)
+                start_time = time.time()
+                loop = asyncio.get_event_loop()
+                result = await loop.run_in_executor(
+                    None, lambda: self._call_gemini_with_retry(text, the_loai)
+                )
+                duration = time.time() - start_time
+                logger.info(f"✅ [Cloud AI] Gemini finished in {duration:.2f}s")
             except Exception as e:
                 logger.warning(f"Gemini failed ({e}). Falling back to Ollama...")
                 result = await self._call_ollama(text, the_loai)
@@ -270,6 +283,43 @@ class AIService:
 
         return result or {"nodes": [], "edges": []}
 
+    async def _detect_diagram_intent(self, text: str, provider: str) -> str:
+        """Sử dụng LLM để tự động phân loại yêu cầu của người dùng"""
+        prompt = (
+            "Dựa vào yêu cầu người dùng, hãy quyết định xem loại sơ đồ nào là phù hợp nhất.\n"
+            "Chỉ trả về 1 từ duy nhất trong danh sách sau: 'org-chart', 'mindmap', 'uml', 'ioffice', 'layered', 'infrastructure', 'process'.\n"
+            "Không giải thích thêm.\n"
+            f"Văn bản: {text}"
+        )
+        try:
+            if provider == "ollama":
+                async with httpx.AsyncClient() as client:
+                    payload = {
+                        "model": self.ollama_model,
+                        "prompt": prompt,
+                        "stream": False,
+                        "options": {"temperature": 0.0}
+                    }
+                    response = await client.post(self.ollama_url, json=payload, timeout=60.0)
+                    if response.status_code == 200:
+                        ans = response.json().get('response', '').strip().lower()
+                        for t in ["org-chart", "mindmap", "uml", "ioffice", "layered", "infrastructure", "process"]:
+                            if t in ans: return t
+            else:
+                current_client = self._get_current_client()
+                response = current_client.models.generate_content(
+                    model=self.model_name,
+                    contents=prompt,
+                    config=types.GenerateContentConfig(temperature=0.0)
+                )
+                ans = response.text.strip().lower()
+                for t in ["org-chart", "mindmap", "uml", "ioffice", "layered", "infrastructure", "process"]:
+                    if t in ans: return t
+        except Exception as e:
+            logger.warning(f"Auto-detect intent failed: {e}")
+            
+        return "process"
+
     async def _call_ollama(self, prompt: str, the_loai: str = "process") -> Dict[str, Any]:
         """Gọi AI nội bộ Ollama với Context-Aware prompt"""
         cfg = DIAGRAM_PROMPT_CONFIG.get(the_loai, _DEFAULT_CONFIG)
@@ -281,6 +331,7 @@ class AIService:
             f"Văn bản: {prompt}"
         )
 
+        start_time = time.time()
         async with httpx.AsyncClient() as client:
             payload = {
                 "model": self.ollama_model,
@@ -293,11 +344,12 @@ class AIService:
             }
             try:
                 response = await client.post(self.ollama_url, json=payload, timeout=300.0)
+                duration = time.time() - start_time
                 if response.status_code != 200:
                     raise Exception(f"Ollama HTTP error {response.status_code}")
                 result = response.json()
                 raw_response = result.get('response', '')
-                logger.info(f"Ollama response: {raw_response[:100]}...")
+                logger.info(f"✅ [Local AI] Ollama finished in {duration:.2f}s | Response: {raw_response[:100]}...")
                 return json.loads(raw_response)
             except httpx.ConnectError:
                 raise Exception("KHÔNG THỂ KẾT NỐI: Hãy đảm bảo Ollama đã được bật!")

@@ -48,6 +48,7 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
   const [messages, setMessages] = useState<Message[]>([]);
   const [showPrompts, setShowPrompts] = useState(true);
   const [activeModels, setActiveModels] = useState<AiModelDTO[]>([]);
+  const [isModelsLoading, setIsModelsLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const prevLoading = useRef(loading);
@@ -57,14 +58,20 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
 
   useEffect(() => {
     // Fetch live models
-    AdminApi.getAiModels().then((data) => {
-      const active = data.filter((m) => m.trang_thai_hoat_dong);
+    AdminApi.getAiModels().then((res) => {
+      // Handle potential backend wrapper `{ data: [...] }` vs direct array `[...]`
+      const dataArray = Array.isArray(res) ? res : ((res as any).data || (res as any).items || []);
+      const active = dataArray.filter((m: AiModelDTO) => m.trang_thai_hoat_dong);
       setActiveModels(active);
+      setIsModelsLoading(false);
       // Auto select the first one if current provider is obsolete or standard
       if (active.length > 0 && provider === "gemini") {
         setProvider(active[0].ten_mo_hinh);
       }
-    }).catch(e => console.error(e));
+    }).catch(e => {
+       console.error("Failed to load AI Models:", e);
+       setIsModelsLoading(false);
+    });
   }, []);
 
   // Build welcome message based on diagram type
@@ -161,12 +168,14 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
 
           {/* ─── DYNAMIC PROVIDER TOGGLE ─── */}
           <div className="px-3 py-2 bg-slate-50/70 border-b border-slate-100 flex items-center gap-2 overflow-x-auto">
-            {activeModels.length === 0 ? (
+            {isModelsLoading ? (
               <span className="text-xs text-slate-400">Loading models...</span>
+            ) : activeModels.length === 0 ? (
+              <span className="text-xs text-slate-400">Không có model nào</span>
             ) : (
               activeModels.map((m) => (
                 <button
-                  key={m.id_mo_hinh}
+                  key={m.id_mo_hinh || m.ten_mo_hinh}
                   onClick={() => setProvider(m.ten_mo_hinh)}
                   className={`flex-none inline-flex items-center justify-center gap-1.5 px-3 py-1.5 text-[11px] font-bold rounded-lg transition-all ${
                     provider === m.ten_mo_hinh
@@ -320,7 +329,7 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
                   e.target.style.height = `${Math.min(e.target.scrollHeight, 120)}px`;
                 }}
                 onKeyDown={handleKeyDown}
-                placeholder={`Mô tả ${cfg.label.toLowerCase()}...`}
+                placeholder={cfg.placeholderInfo || `Mô tả ${cfg.label.toLowerCase()}...`}
                 className="flex-1 max-h-[120px] min-h-[40px] px-2 py-2.5 bg-transparent outline-none resize-none text-sm text-slate-700 placeholder:text-slate-300"
                 rows={1}
                 disabled={loading}

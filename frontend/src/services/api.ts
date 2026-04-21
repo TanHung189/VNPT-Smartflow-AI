@@ -10,7 +10,7 @@ const api = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
-  timeout: 30000,
+  timeout: 300000,
 });
 
 // REQUEST INTERCEPTOR: Tự động đính kèm Bearer Token
@@ -24,7 +24,7 @@ api.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 // RESPONSE INTERCEPTOR: Xử lý lỗi toàn cục
@@ -36,9 +36,10 @@ api.interceptors.response.use(
     if (error.response) {
       const { status, data } = error.response;
       // Trích xuất message từ FastAPI backend (thường là trong detail)
-      const detailMessage = typeof data?.detail === "string" 
-        ? data.detail 
-        : data?.detail?.[0]?.msg || "Đã xảy ra lỗi trên server";
+      const detailMessage =
+        typeof data?.detail === "string"
+          ? data.detail
+          : data?.detail?.[0]?.msg || "Đã xảy ra lỗi trên server";
 
       if (status === 401) {
         toast.error("Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại!");
@@ -61,7 +62,7 @@ api.interceptors.response.use(
       toast.error("Đã xảy ra lỗi trong quá trình gửi yêu cầu!");
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 export default api;

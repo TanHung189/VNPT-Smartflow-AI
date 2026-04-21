@@ -25,6 +25,7 @@ export interface DiagramTypeConfig {
   borderColor: string;  // Tailwind border class
   description: string;
   aiRole: string;       // Vai trò AI hiển thị cho user
+  placeholderInfo: string;
   samplePrompts: SamplePrompt[];
 }
 
@@ -37,6 +38,7 @@ export const DIAGRAM_CONFIGS: Record<string, DiagramTypeConfig> = {
     borderColor: "border-blue-200",
     description: "Cơ cấu tổ chức, phân cấp nhân sự",
     aiRole: "Chuyên gia Nhân sự VNPT",
+    placeholderInfo: "Vd: Tạo sơ đồ phòng IT gồm 1 trưởng phòng, 3 dev...",
     samplePrompts: [
       {
         title: "Sơ đồ phòng CNTT",
@@ -69,6 +71,7 @@ export const DIAGRAM_CONFIGS: Record<string, DiagramTypeConfig> = {
     borderColor: "border-violet-200",
     description: "Layered Architecture, Kiến trúc hệ thống",
     aiRole: "Kiến trúc sư Hệ thống VNPT",
+    placeholderInfo: "Vd: Thiết kế kiến trúc phân tầng 3-tier cho hệ thống...",
     samplePrompts: [
       {
         title: "Kiến trúc SmartFlow AI",
@@ -101,6 +104,7 @@ export const DIAGRAM_CONFIGS: Record<string, DiagramTypeConfig> = {
     borderColor: "border-sky-200",
     description: "Class Diagram, Use Case, Sequence Diagram",
     aiRole: "Kiến trúc sư Phần mềm UML",
+    placeholderInfo: "Vd: Vẽ UML Diagram cho class Animal, Dog kế thừa...",
     samplePrompts: [
       {
         title: "Class Diagram hệ thống SmartFlow",
@@ -133,6 +137,7 @@ export const DIAGRAM_CONFIGS: Record<string, DiagramTypeConfig> = {
     borderColor: "border-emerald-200",
     description: "Quy trình hành chính điện tử e-Gov",
     aiRole: "Chuyên gia Hành chính iOffice",
+    placeholderInfo: "Vd: Tạo quy trình xin nghỉ việc gồm 3 bước: nộp đơn, duyệt...",
     samplePrompts: [
       {
         title: "Quy trình xử lý công văn đến",
@@ -165,6 +170,7 @@ export const DIAGRAM_CONFIGS: Record<string, DiagramTypeConfig> = {
     borderColor: "border-slate-200",
     description: "Flowchart, BPM, Business Process",
     aiRole: "Chuyên gia Phân tích Nghiệp vụ",
+    placeholderInfo: "Vd: Tạo quy trình thanh toán qua thẻ tín dụng có rẽ nhánh...",
     samplePrompts: [
       {
         title: "Quy trình triển khai phần mềm",
@@ -197,6 +203,7 @@ export const DIAGRAM_CONFIGS: Record<string, DiagramTypeConfig> = {
     borderColor: "border-amber-200",
     description: "Mindmap, Hệ thống ý tưởng, Brainstorming",
     aiRole: "Chuyên gia Tư duy Sáng tạo",
+    placeholderInfo: "Vd: Vẽ mindmap cho kế hoạch tổ chức sự kiện Year End Party...",
     samplePrompts: [
       {
         title: "Kế hoạch ra mắt sản phẩm",
@@ -229,6 +236,7 @@ export const DIAGRAM_CONFIGS: Record<string, DiagramTypeConfig> = {
     borderColor: "border-orange-200",
     description: "Network Topology, Data Center, Viễn thông",
     aiRole: "Kỹ sư Hạ tầng Mạng VNPT",
+    placeholderInfo: "Vd: Thiết kế sơ đồ mạng VLAN nội bộ...",
     samplePrompts: [
       {
         title: "Topology mạng nội bộ VNPT",
@@ -249,6 +257,31 @@ export const DIAGRAM_CONFIGS: Record<string, DiagramTypeConfig> = {
         title: "Mạng phân phối nội dung CDN",
         prompt:
           "Vẽ sơ đồ CDN (Content Delivery Network) của VNPT với: Origin Server tại Hà Nội, Edge Nodes tại HCM/Đà Nẵng/Cần Thơ, DNS Load Balancing, Cache Layer, SSL/TLS Termination, DDoS Protection.",
+      },
+    ],
+  },
+
+  "auto": {
+    label: "Smart AI Playground",
+    icon: "✨",
+    color: "text-fuchsia-700",
+    bgColor: "bg-fuchsia-50",
+    borderColor: "border-fuchsia-200",
+    description: "Trang trắng thông minh - Tự động nhận diện cấu trúc",
+    aiRole: "Giám đốc Kiến trúc AI",
+    placeholderInfo: "Vẽ cho tôi quan hệ kế thừa của class Animal...",
+    samplePrompts: [
+      {
+        title: "Tự nhận diện sơ đồ công ty (Org-chart)",
+        prompt: "Vẽ công ty ABC gồm giám đốc, 2 phó giám đốc, mỗi phó có 2 nhân viên.",
+      },
+      {
+        title: "Tự nhận diện sơ đồ ý tưởng (Mindmap)",
+        prompt: "Tạo sơ đồ tư duy phân tích nguyên nhân tại sao dự án bị chậm tiến độ.",
+      },
+      {
+        title: "Tự nhận diện quy trình (Process)",
+        prompt: "Vẽ quy trình xin nghỉ phép thông thường nghỉ 1 ngày thì trưởng nhóm duyệt, nghỉ > 3 ngày giám đốc duyệt.",
       },
     ],
   },

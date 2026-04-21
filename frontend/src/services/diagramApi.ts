@@ -73,7 +73,7 @@ export const diagramApi = {
    */
   getAll: async (token?: string | null): Promise<DiagramListItem[]> => {
     const response = await api.get("/diagrams/list");
-    return response.data;
+    return response.data?.data || response.data?.items || response.data;
   },
 
   /**

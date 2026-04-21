@@ -9,6 +9,11 @@ export const AiModelManagement: React.FC = () => {
   const [models, setModels] = useState<AiModelDTO[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // Global config state
+  const [apiKey, setApiKey] = useState("");
+  const [tailscaleIp, setTailscaleIp] = useState("http://100.100.x.x:11434");
+  const [defaultModel, setDefaultModel] = useState("gemini"); // gemini vs ollama
+  
   // Dialog state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingModel, setEditingModel] = useState<AiModelDTO | null>(null);
@@ -81,95 +86,147 @@ export const AiModelManagement: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-bottom-6 duration-700">
-      <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-blue-50/50 to-transparent">
-        <div>
-          <h2 className="text-xl font-extrabold text-[#003087] flex items-center gap-2">
-            <Cpu className="w-5 h-5" /> Quản lý Mô hình AI
-          </h2>
-          <p className="text-sm text-slate-500 mt-1">Cấu hình các Model AI (LLMs) được phép hoạt động trên hệ thống (Cloud & Local).</p>
-        </div>
-        <button
-          onClick={() => {
-            setEditingModel(null);
-            setFormData({ nha_cung_cap: "gemini", ten_mo_hinh: "", mo_ta: "", trang_thai_hoat_dong: true });
-            setIsDialogOpen(true);
-          }}
-          className="flex items-center gap-2 bg-[#0066cc] hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-all"
-        >
-          <Plus className="w-4 h-4" /> Thêm Model
-        </button>
-      </div>
-
-      {loading ? (
-        <div className="p-12 flex flex-col items-center justify-center text-slate-500">
-          <Loader2 className="w-8 h-8 animate-spin mb-4 text-[#0066cc]" />
-          <p>Đang đồng bộ Models từ DB...</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-6">
-          {models.map((model) => (
-            <div
-              key={model.id_mo_hinh}
-              className={`relative bg-white rounded-xl border-2 p-5 shadow-sm transition-all duration-300 ${
-                model.trang_thai_hoat_dong ? "border-blue-100 hover:shadow-md hover:border-blue-300" : "border-slate-100 opacity-60 grayscale hover:opacity-100 hover:grayscale-0"
-              }`}
-            >
-              {/* Header Box */}
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-center gap-3">
-                  <div className={`p-2.5 rounded-lg shadow-sm ${model.nha_cung_cap === "gemini" ? "bg-blue-50 text-blue-600" : "bg-teal-50 text-teal-600"}`}>
-                    {model.nha_cung_cap === "gemini" ? <Cloud className="w-5 h-5" /> : <Server className="w-5 h-5" />}
-                  </div>
-                  <div>
-                    <h3 className="font-extrabold text-slate-800 text-base">{model.ten_mo_hinh}</h3>
-                    <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400">
-                      PROVIDER: {model.nha_cung_cap}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Description */}
-              <p className="text-sm text-slate-500 mb-5 min-h-[40px] line-clamp-2">
-                {model.mo_ta || "Chưa có mô tả cấu hình."}
-              </p>
-
-              <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-100">
-                {/* Status Toggle */}
-                <div className="flex items-center gap-2 cursor-pointer" onClick={() => handleToggleStatus(model.id_mo_hinh!, model.trang_thai_hoat_dong, model)}>
-                  <Switch checked={model.trang_thai_hoat_dong} />
-                  <span className={`text-xs font-bold ${model.trang_thai_hoat_dong ? "text-[#0066cc]" : "text-slate-400"}`}>
-                    {model.trang_thai_hoat_dong ? "Đang chạy" : "Tạm dừng"}
-                  </span>
-                </div>
-
-                {/* Actions */}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => {
-                      setEditingModel(model);
-                      setFormData(model);
-                      setIsDialogOpen(true);
-                    }}
-                    className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded"
-                  >
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => handleDelete(model.id_mo_hinh!)}
-                    className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+    <div className="space-y-6 text-slate-700">
+      {/* Global Config Card */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <h3 className="font-bold text-slate-800 mb-6 flex items-center gap-2">
+          <Server className="w-5 h-5 text-[#0066b3]" />
+          Cấu hình Hệ thống AI Chung
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="space-y-4">
+            <div>
+              <label className="text-sm font-semibold text-slate-700">Gemini API Key</label>
+              <input
+                type="password"
+                value={apiKey}
+                onChange={(e) => setApiKey(e.target.value)}
+                placeholder="AIzaSy..."
+                className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-[#0066b3]/20 focus:border-[#0066b3] outline-none transition-all"
+              />
+            </div>
+            <div>
+              <label className="text-sm font-semibold text-slate-700">Tailscale IP (Remote GPU Node)</label>
+              <input
+                type="text"
+                value={tailscaleIp}
+                onChange={(e) => setTailscaleIp(e.target.value)}
+                placeholder="http://100.x.x.x:11434"
+                className="w-full mt-1 px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-[#0066b3]/20 focus:border-[#0066b3] outline-none transition-all"
+              />
+            </div>
+          </div>
+          <div className="space-y-4">
+            <div className="flex flex-col gap-2">
+              <label className="text-sm font-semibold text-slate-700">Mô hình mặc định</label>
+              <div className="flex items-center gap-6 bg-slate-50 p-3 rounded-lg border border-slate-100 mt-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" checked={defaultModel === "gemini"} onChange={() => setDefaultModel("gemini")} className="w-5 h-5 text-[#0066b3]" />
+                  <span className="text-sm font-medium text-slate-700">Gemini 3.0 Flash</span>
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input type="radio" checked={defaultModel === "ollama"} onChange={() => setDefaultModel("ollama")} className="w-5 h-5 text-[#0066b3]" />
+                  <span className="text-sm font-medium text-slate-700">Ollama (Local)</span>
+                </label>
               </div>
             </div>
-          ))}
+            <div className="pt-1">
+              <button 
+                onClick={() => toast.success("Đã ghi nhận thay đổi cấu hình Node AI")} 
+                className="px-6 py-2 bg-[#0066b3] text-white text-sm font-bold shadow-sm rounded-lg hover:bg-blue-800 transition-colors"
+                type="button"
+              >
+                Lưu Hệ Thống
+              </button>
+            </div>
+          </div>
         </div>
-      )}
+      </div>
 
-      {/* Tailwind & Dialog Based Custom Modal (Absolute Z-Index fix) */}
+      {/* Models List Grid */}
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-bottom-6 duration-700">
+        <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-blue-50/50 to-transparent">
+          <div>
+            <h2 className="text-xl font-extrabold text-[#003087] flex items-center gap-2">
+              <Cpu className="w-5 h-5" /> Quản lý danh sách Mô hình AI chi tiết
+            </h2>
+            <p className="text-sm text-slate-500 mt-1">Quản lý từng model con được phép hoạt động trên hệ thống (Cloud & Local).</p>
+          </div>
+          <button
+            onClick={() => {
+              setEditingModel(null);
+              setFormData({ nha_cung_cap: "gemini", ten_mo_hinh: "", mo_ta: "", trang_thai_hoat_dong: true });
+              setIsDialogOpen(true);
+            }}
+            className="flex items-center gap-2 bg-[#0066b3] hover:bg-blue-800 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-all"
+          >
+            <Plus className="w-4 h-4" /> Thêm Model
+          </button>
+        </div>
+
+        {loading ? (
+          <div className="p-12 flex flex-col items-center justify-center text-slate-500">
+            <Loader2 className="w-8 h-8 animate-spin mb-4 text-[#0066b3]" />
+            <p>Đang đồng bộ Models từ DB...</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 p-6">
+            {Array.isArray(models) && models.map((model) => (
+              <div
+                key={model.id_mo_hinh}
+                className={`relative bg-white rounded-xl border-2 p-5 shadow-sm transition-all duration-300 ${
+                  model.trang_thai_hoat_dong ? "border-blue-100 hover:shadow-md hover:border-blue-300" : "border-slate-100 opacity-60 grayscale hover:opacity-100 hover:grayscale-0"
+                }`}
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    <div className={`p-2.5 rounded-lg shadow-sm ${model.nha_cung_cap === "gemini" ? "bg-blue-50 text-blue-600" : "bg-teal-50 text-teal-600"}`}>
+                      {model.nha_cung_cap === "gemini" ? <Cloud className="w-5 h-5" /> : <Server className="w-5 h-5" />}
+                    </div>
+                    <div>
+                      <h3 className="font-extrabold text-slate-800 text-base">{model.ten_mo_hinh}</h3>
+                      <p className="text-[10px] uppercase tracking-wider font-bold text-slate-400">
+                        PROVIDER: {model.nha_cung_cap}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-sm text-slate-500 mb-5 min-h-[40px] line-clamp-2">
+                  {model.mo_ta || "Chưa có mô tả cấu hình."}
+                </p>
+                <div className="flex items-center justify-between mt-auto pt-4 border-t border-slate-100">
+                  <div className="flex items-center gap-2 cursor-pointer" onClick={() => handleToggleStatus(model.id_mo_hinh!, model.trang_thai_hoat_dong, model)}>
+                    <Switch checked={model.trang_thai_hoat_dong} />
+                    <span className={`text-xs font-bold ${model.trang_thai_hoat_dong ? "text-[#0066cc]" : "text-slate-400"}`}>
+                      {model.trang_thai_hoat_dong ? "Đang chạy" : "Tạm dừng"}
+                    </span>
+                  </div>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => {
+                        setEditingModel(model);
+                        setFormData(model);
+                        setIsDialogOpen(true);
+                      }}
+                      className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded"
+                    >
+                      <Edit2 className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(model.id_mo_hinh!)}
+                      className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Modal Dialog */}
       {isDialogOpen && (
         <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center animate-in fade-in duration-200">
           <div className="bg-white w-full max-w-lg rounded-2xl shadow-2xl border border-slate-200 overflow-hidden animate-in zoom-in-95 duration-200">

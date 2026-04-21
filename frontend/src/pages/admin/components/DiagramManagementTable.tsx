@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { AdminApi, AdminDiagramDTO } from "../../../services/adminApi";
 import { Switch } from "../../../components/ui/switch";
-import { FileImage, Loader2, Search, CheckCircle2, Palette, Save } from "lucide-react";
+import { FileImage, Loader2, Search, CheckCircle2, Palette, Save, Link } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "../../../components/ui/badge";
 import {
@@ -148,7 +148,7 @@ export const DiagramManagementTable: React.FC = () => {
                 </td>
               </tr>
             ) : (
-              diagrams.map((diagram) => (
+              Array.isArray(diagrams) && diagrams.map((diagram) => (
                 <tr key={diagram.id_so_do} className="border-b border-slate-50 hover:bg-slate-50/50 transition-colors">
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-4">
@@ -189,6 +189,13 @@ export const DiagramManagementTable: React.FC = () => {
                           <CheckCircle2 className="w-4 h-4 text-[#0066cc] animate-pulse" />
                         )}
                       </div>
+                      <button 
+                        onClick={() => window.open(`/DrawDiagram?id_so_do=${diagram.id_so_do}`, '_blank')}
+                        className="p-1.5 text-slate-400 hover:text-green-600 hover:bg-green-50 rounded-md transition-all"
+                        title="Xem chi tiết Canvas"
+                      >
+                        <Link className="w-4 h-4" />
+                      </button>
                       <button 
                         onClick={() => handleOpenThemeEditor(diagram)}
                         className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-all"
