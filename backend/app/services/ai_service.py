@@ -151,7 +151,7 @@ _DEFAULT_CONFIG = {
 class AIService:
     def __init__(self):
         self.current_key_index = 0
-        self.model_name = 'gemini-2.0-flash'
+        self.model_name = 'gemini-3.0-flash-preview'
         self.ollama_url = "http://100.94.87.76:11434/api/generate"
         self.ollama_model = "qwen2.5-coder:1.5b"
 
@@ -255,6 +255,8 @@ class AIService:
                     # Gán model name dynamic để override .env if supported
                     if nha_cung_cap == "ollama":
                         self.ollama_model = db_model.ten_mo_hinh
+                    elif nha_cung_cap == "gemini":
+                        self.model_name = db_model.ten_mo_hinh
         except Exception as e:
             logger.error(f"[AI] Lỗi query DB model: {e}")
 

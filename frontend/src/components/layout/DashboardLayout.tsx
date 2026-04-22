@@ -1,24 +1,21 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuthContext } from "../../context/AuthContext";
-import {
-  Search,
-  Home,
-  Clock,
-  Star,
-  Plus,
-  Bell,
-  Trash2,
-} from "lucide-react";
+import { Search, Home, Clock, Star, Plus, Bell, Trash2 } from "lucide-react";
+import { UserProfileModal } from "../profile/UserProfileModal";
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
   activeTab: "Home" | "Recent" | "Starred" | "Trash";
 }
 
-const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, activeTab }) => {
+const DashboardLayout: React.FC<DashboardLayoutProps> = ({
+  children,
+  activeTab,
+}) => {
   const { user, logout } = useAuthContext();
   const navigate = useNavigate();
+  const [isProfileOpen, setIsProfileOpen] = React.useState(false);
 
   if (!user) {
     return (
@@ -34,7 +31,10 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, activeTab }
       <aside className="hidden lg:flex w-64 border-r border-[#e5e5e5] bg-white flex-col z-10 transition-all shadow-[1px_0_4px_rgba(0,0,0,0.02)]">
         {/* Workspace selector / User Profile */}
         <div className="p-4 py-5 shrink-0 border-b border-[#e5e5e5]">
-          <div className="flex items-center justify-between p-2 hover:bg-slate-50 cursor-pointer rounded-lg transition-colors group">
+          <div 
+            className="flex items-center justify-between p-2 hover:bg-slate-50 cursor-pointer rounded-lg transition-colors group"
+            onClick={() => setIsProfileOpen(true)}
+          >
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 bg-[#0066cc]/10 text-[#0066cc] font-bold rounded-md flex items-center justify-center text-sm border border-[#0066cc]/20">
                 VN
@@ -48,9 +48,6 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, activeTab }
                 </p>
               </div>
             </div>
-            <button className="text-slate-400 group-hover:text-slate-600 transition-colors bg-white rounded shadow-sm border border-slate-200">
-              <Plus className="w-4 h-4 m-1" />
-            </button>
           </div>
         </div>
 
@@ -76,7 +73,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, activeTab }
                 : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
             }`}
           >
-            <Home className="w-[18px] h-[18px]" strokeWidth={activeTab === "Home" ? 2.5 : 2} /> Bảng điều khiển
+            <Home
+              className="w-[18px] h-[18px]"
+              strokeWidth={activeTab === "Home" ? 2.5 : 2}
+            />{" "}
+            Bảng điều khiển
           </button>
           <button
             onClick={() => navigate("/recent")}
@@ -86,7 +87,11 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, activeTab }
                 : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
             }`}
           >
-            <Clock className="w-[18px] h-[18px]" strokeWidth={activeTab === "Recent" ? 2.5 : 2} /> Gần đây
+            <Clock
+              className="w-[18px] h-[18px]"
+              strokeWidth={activeTab === "Recent" ? 2.5 : 2}
+            />{" "}
+            Gần đây
           </button>
           <button
             onClick={() => navigate("/starred")}
@@ -96,28 +101,36 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, activeTab }
                 : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
             }`}
           >
-            <Star className="w-[18px] h-[18px]" strokeWidth={activeTab === "Starred" ? 2.5 : 2} /> Đã gắn sao
+            <Star
+              className="w-[18px] h-[18px]"
+              strokeWidth={activeTab === "Starred" ? 2.5 : 2}
+            />{" "}
+            Đã gắn sao
           </button>
           <button
-             onClick={() => navigate("/trash")}
+            onClick={() => navigate("/trash")}
             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg font-bold text-[14px] transition-all duration-200 ${
               activeTab === "Trash"
                 ? "bg-[#ebf3fb] text-[#0066cc]"
                 : "text-slate-600 hover:bg-slate-50 hover:text-slate-900"
             }`}
           >
-            <Trash2 className="w-[18px] h-[18px]" strokeWidth={activeTab === "Trash" ? 2.5 : 2} /> Thùng rác
+            <Trash2
+              className="w-[18px] h-[18px]"
+              strokeWidth={activeTab === "Trash" ? 2.5 : 2}
+            />{" "}
+            Thùng rác
           </button>
         </nav>
 
         {/* Spaces & Logout */}
         <div className="p-4 shrink-0 transition-opacity">
-           <button
-             onClick={() => navigate("/DrawDiagram")}
-               className="w-full mb-3 flex items-center justify-center gap-2 bg-[#0066cc] hover:bg-[#0055aa] text-white font-bold py-2.5 rounded-lg transition-colors text-sm shadow-sm"
-            >
-              <Plus className="w-4 h-4" /> Tạo sơ đồ mới
-            </button>
+          <button
+            onClick={() => navigate("/DrawDiagram")}
+            className="w-full mb-3 flex items-center justify-center gap-2 bg-[#0066cc] hover:bg-[#0055aa] text-white font-bold py-2.5 rounded-lg transition-colors text-sm shadow-sm"
+          >
+            <Plus className="w-4 h-4" /> Tạo sơ đồ mới
+          </button>
           <button
             onClick={logout}
             className="w-full text-left px-3 py-2 text-[14px] text-red-600 hover:bg-red-50 rounded-lg font-bold transition-colors"
@@ -132,34 +145,33 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({ children, activeTab }
         {/* Top Navbar */}
         <header className="h-[60px] border-b border-[#e5e5e5] bg-white flex items-center justify-between px-6 shrink-0 shadow-[0_1px_4px_rgba(0,0,0,0.02)] z-10 w-full">
           <div className="flex items-center gap-4">
-             <span className="font-black text-[22px] tracking-tight text-[#0066cc]">
-              MiroFlow
+            <span className="font-black text-[22px] tracking-tight text-[#0066cc]">
+              SmartFlow
             </span>
-             <span className="px-1.5 py-0.5 text-[9px] font-bold text-white bg-amber-500 rounded uppercase tracking-wider hidden sm:inline-block">
-               Beta
+            <span className="px-1.5 py-0.5 text-[9px] font-bold text-white bg-amber-500 rounded uppercase tracking-wider hidden sm:inline-block">
+              Beta
             </span>
           </div>
           <div className="flex items-center gap-3">
-             <div className="w-[1px] h-6 bg-slate-200 mx-1" />
-            <button className="p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-800 rounded-full transition-colors relative">
-              <Bell className="w-[18px] h-[18px]" strokeWidth={2.5} />
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-white"></span>
-            </button>
-            <button className="h-[34px] w-[34px] ml-2 rounded-full overflow-hidden flex items-center justify-center bg-[#ebf3fb] border border-[#0066cc]/20 transition-transform hover:scale-105 active:scale-95">
-                 <span className="text-[#0066cc] font-black text-sm uppercase">
-                     {user?.name ? user.name.charAt(0) : "U"}
-                 </span>
+            <div className="w-[1px] h-6 bg-slate-200 mx-1" />
+            <button 
+              onClick={() => setIsProfileOpen(true)}
+              className="h-[34px] w-[34px] ml-2 rounded-full overflow-hidden flex items-center justify-center bg-[#ebf3fb] border border-[#0066cc]/20 transition-transform hover:scale-105 active:scale-95"
+            >
+              <span className="text-[#0066cc] font-black text-sm uppercase">
+                {user?.name ? user.name.charAt(0) : (user?.ten_nguoi_dung ? user.ten_nguoi_dung.charAt(0) : "U")}
+              </span>
             </button>
           </div>
         </header>
 
         {/* Render child content */}
         <div className="flex-1 overflow-auto bg-[#f9f9fa]">
-           <div className="w-full h-full">
-             {children}
-           </div>
+          <div className="w-full h-full">{children}</div>
         </div>
       </main>
+      
+      <UserProfileModal isOpen={isProfileOpen} onClose={() => setIsProfileOpen(false)} />
     </div>
   );
 };

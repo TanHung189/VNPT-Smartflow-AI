@@ -302,14 +302,17 @@ const DrawDiagramContent = () => {
       setLastActionReason(`AI Generated - ${modelName}`);
 
       // Truyền nodes/edges hiện tại (Chat-to-Edit) + diagramType để AI inject đúng system prompt
-      await generateFlow(
+      const success = await generateFlow(
         text,
         currentProvider,
         nodes.length > 0 ? nodes : undefined,
         edges.length > 0 ? edges : undefined,
         diagramTypeParam, // ← Context-Aware: the_loai được inject vào prompt AI
       );
-      setTimeout(() => fitView({ duration: 800, padding: 0.2 }), 200);
+      if (success) {
+        setTimeout(() => fitView({ duration: 800, padding: 0.2 }), 200);
+      }
+      return !!success;
     },
     [generateFlow, nodes, edges, diagramTypeParam, fitView],
   );

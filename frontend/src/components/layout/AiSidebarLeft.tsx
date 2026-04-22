@@ -19,8 +19,8 @@ import { AdminApi, AiModelDTO } from "../../services/adminApi";
 interface AiSidebarLeftProps {
   isOpen: boolean;
   onClose: () => void;
-  onGenerate: (text: string, provider: string) => void;
-  onUpload: (file: File, provider: string) => void;
+  onGenerate: (text: string, provider: string) => Promise<boolean>;
+  onUpload: (file: File, provider: string) => Promise<boolean>;
   loading: boolean;
   provider: string;
   setProvider: (provider: string) => void;
@@ -51,7 +51,6 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
   const [isModelsLoading, setIsModelsLoading] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const prevLoading = useRef(loading);
 
   // Get context-aware config for current diagram type
   const cfg = useMemo(() => getDiagramConfig(diagramType), [diagramType]);
@@ -90,8 +89,21 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  useEffect(() => {
-    if (prevLoading.current === true && loading === false) {
+
+
+  const handleSend = async () => {
+    if (!text.trim() || loading) return;
+    const currentText = text;
+    setMessages((prev) => [
+      ...prev,
+      { id: Date.now().toString(), role: "user", content: currentText },
+    ]);
+    setShowPrompts(false);
+    setText("");
+    if (textareaRef.current) textareaRef.current.style.height = "auto";
+    
+    const success = await onGenerate(currentText, provider);
+    if (success) {
       setMessages((prev) => [
         ...prev,
         {
@@ -101,19 +113,6 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
         },
       ]);
     }
-    prevLoading.current = loading;
-  }, [loading]);
-
-  const handleSend = () => {
-    if (!text.trim() || loading) return;
-    setMessages((prev) => [
-      ...prev,
-      { id: Date.now().toString(), role: "user", content: text },
-    ]);
-    setShowPrompts(false);
-    onGenerate(text, provider);
-    setText("");
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -123,14 +122,24 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
     }
   };
 
-  const handleSampleClick = (sample: SamplePrompt) => {
+  const handleSampleClick = async (sample: SamplePrompt) => {
     if (loading) return;
     setMessages((prev) => [
       ...prev,
       { id: Date.now().toString(), role: "user", content: sample.title },
     ]);
     setShowPrompts(false);
-    onGenerate(sample.prompt, provider);
+    const success = await onGenerate(sample.prompt, provider);
+    if (success) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: "ai",
+          content: "✅ Đã tạo sơ đồ thành công! Bạn có thể chỉnh sửa hoặc tiếp tục mô tả.",
+        },
+      ]);
+    }
   };
 
   return (
@@ -306,7 +315,7 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
                 <input
                   type="file"
                   accept=".pdf,.docx,.txt"
-                  onChange={(e) => {
+                  onChange={async (e) => {
                     const file = e.target.files?.[0];
                     if (file) {
                       setMessages((prev) => [
@@ -314,7 +323,13 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
                         { id: Date.now().toString(), role: "user", content: `📎 ${file.name}` },
                       ]);
                       setShowPrompts(false);
-                      onUpload(file, provider);
+                      const success = await onUpload(file, provider);
+                      if (success) {
+                        setMessages((prev) => [
+                          ...prev,
+                          { id: Date.now().toString(), role: "ai", content: "✅ Đã phân tích file và tạo sơ đồ thành công!" },
+                        ]);
+                      }
                     }
                   }}
                   className="hidden"

@@ -328,9 +328,9 @@ const Recent: React.FC = () => {
         <AlertDialog open={!!deleteId} onOpenChange={(val) => { if (!val) setDeleteId(null) }}>
           <AlertDialogContent>
             <AlertDialogHeader>
-               <AlertDialogTitle>Bạn có chắc chắn?</AlertDialogTitle>
+               <AlertDialogTitle>Chuyển vào thùng rác?</AlertDialogTitle>
                <AlertDialogDescription>
-                   Thao tác này sẽ xóa vĩnh viễn sơ đồ và không thể hoàn tác. Xin lưu ý.
+                   Sơ đồ sẽ được chuyển vào thùng rác. Bạn có thể khôi phục lại hoặc xóa vĩnh viễn từ đó.
                </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -340,7 +340,7 @@ const Recent: React.FC = () => {
                     className="bg-red-600 hover:bg-red-700 text-white"
                     disabled={isSaving}
                 >
-                    {isSaving ? "Đang xóa..." : "Xóa vĩnh viễn"}
+                    {isSaving ? "Đang xử lý..." : "Chuyển vào thùng rác"}
                 </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

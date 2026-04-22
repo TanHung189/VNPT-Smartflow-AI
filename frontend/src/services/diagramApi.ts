@@ -141,4 +141,28 @@ export const diagramApi = {
     });
     return response.data;
   },
+
+  // ============================================================
+  // TRASH BIN API (THÙNG RÁC)
+  // ============================================================
+  
+  getTrash: async (token?: string | null): Promise<DiagramListItem[]> => {
+    const response = await api.get("/diagrams/trash/list");
+    return response.data?.data || response.data?.items || response.data;
+  },
+
+  restore: async (idSoDo: string, token?: string | null): Promise<{ result: string; message: string }> => {
+    const response = await api.put(`/diagrams/trash/${idSoDo}/restore`);
+    return response.data;
+  },
+
+  hardDelete: async (idSoDo: string, token?: string | null): Promise<{ result: string; message: string }> => {
+    const response = await api.delete(`/diagrams/trash/${idSoDo}`);
+    return response.data;
+  },
+
+  emptyTrash: async (token?: string | null): Promise<{ result: string; message: string }> => {
+    const response = await api.delete("/diagrams/trash/empty");
+    return response.data;
+  },
 };

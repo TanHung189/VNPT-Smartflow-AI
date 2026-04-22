@@ -440,7 +440,7 @@ export const useFlowLogic = () => {
             toast.warning(
               "AI trả về dữ liệu trống. Vui lòng thử lại với prompt chi tiết hơn.",
             );
-            return;
+            return false;
           }
 
           // ─ Auto-layout direction based on diagram type ─
@@ -453,12 +453,15 @@ export const useFlowLogic = () => {
           setEdges(lEdges as Edge[]);
           setTimeout(() => fitView({ padding: 0.2, duration: 800 }), 50);
           setTimeout(takeSnapshot, 100);
+          return true;
         } else {
           toast.error(resData.message ?? "AI không thể xử lý yêu cầu này.");
+          return false;
         }
       } catch (error) {
         console.error(error);
         toast.error("Lỗi kết nối tới AI backend. Kiểm tra lại server.");
+        return false;
       } finally {
         setIsGenerating(false);
       }
@@ -487,11 +490,14 @@ export const useFlowLogic = () => {
           setEdges(lEdges as Edge[]);
           setTimeout(() => fitView({ padding: 0.2, duration: 800 }), 50);
           setTimeout(takeSnapshot, 100);
+          return true;
         } else {
           toast.error(resData.message ?? "Không thể phân tích file. Vui lòng thử lại.");
+          return false;
         }
       } catch (error) {
         toast.error("Lỗi kết nối tới server khi xử lý file!");
+        return false;
       } finally {
         setIsGenerating(false);
       }

@@ -21,6 +21,7 @@ import DashBoard from "./pages/DashBoard";
 import { GOOGLE_CLIENT_ID } from "./env";
 import AdminDashboard from "./pages/admin/AdminDashboard";
 import Recent from "./pages/Recent";
+import Trash from "./pages/Trash";
 
 export default function App() {
   return (
@@ -40,6 +41,7 @@ export default function App() {
                   {/* Trang Dashboard chung cho người dùng (Miro Grid clone) */}
                   <Route path="/dashboard" element={<DashBoard />} />
                   <Route path="/recent" element={<Recent />} />
+                  <Route path="/trash" element={<Trash />} />
 
                   {/* Vẽ sơ đồ - Full màn hình, không Navbar ngoài */}
                   <Route path="/DrawDiagram" element={<DrawDiagram />} />

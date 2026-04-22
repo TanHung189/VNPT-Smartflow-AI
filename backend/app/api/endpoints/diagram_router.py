@@ -285,3 +285,89 @@ async def delete_diagram(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Lỗi khi xóa sơ đồ.",
         )
+
+# ==============================================================
+# QUẢN LÝ THÙNG RÁC (TRASH)
+# ==============================================================
+
+@router.get(
+    "/trash/list",
+    response_model=List[DiagramListResponse],
+    summary="Lấy danh sách sơ đồ trong thùng rác",
+    description="Trả về các sơ đồ đã bị xóa mềm của người dùng.",
+)
+async def list_trashed_diagrams(
+    current_user: NguoiDung = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+) -> List[DiagramListResponse]:
+    user_id_str = str(current_user.id_nguoi_dung)
+    logger.info(f"[DiagramRouter] GET /diagrams/trash/list — user_id={user_id_str}")
+    try:
+        return await diagram_service.get_trashed_diagrams(session, current_user)
+    except Exception as e:
+        logger.error(f"[DiagramRouter] Lỗi GET trash/list: {e}", exc_info=True)
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Không thể lấy danh sách thùng rác.")
+
+@router.put(
+    "/trash/{diagram_id}/restore",
+    status_code=status.HTTP_200_OK,
+    summary="Khôi phục sơ đồ từ thùng rác",
+)
+async def restore_diagram(
+    diagram_id: uuid.UUID,
+    current_user: NguoiDung = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    user_id_str = str(current_user.id_nguoi_dung)
+    logger.info(f"[DiagramRouter] PUT /diagrams/trash/{diagram_id}/restore — user_id={user_id_str}")
+    try:
+        success = await diagram_service.restore_diagram(session, user_id_str, diagram_id)
+        if not success:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy sơ đồ trong thùng rác.")
+        return {"result": "SUCCESS", "message": "Đã khôi phục sơ đồ."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[DiagramRouter] Lỗi restore: {e}", exc_info=True)
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Lỗi khi khôi phục sơ đồ.")
+
+@router.delete(
+    "/trash/empty",
+    status_code=status.HTTP_200_OK,
+    summary="Dọn dẹp toàn bộ thùng rác",
+)
+async def empty_trash(
+    current_user: NguoiDung = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    user_id_str = str(current_user.id_nguoi_dung)
+    logger.info(f"[DiagramRouter] DELETE /diagrams/trash/empty — user_id={user_id_str}")
+    try:
+        await diagram_service.empty_trash(session, user_id_str)
+        return {"result": "SUCCESS", "message": "Đã dọn sạch thùng rác."}
+    except Exception as e:
+        logger.error(f"[DiagramRouter] Lỗi empty trash: {e}", exc_info=True)
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Lỗi khi dọn thùng rác.")
+
+@router.delete(
+    "/trash/{diagram_id}",
+    status_code=status.HTTP_200_OK,
+    summary="Xóa vĩnh viễn sơ đồ",
+)
+async def hard_delete_diagram(
+    diagram_id: uuid.UUID,
+    current_user: NguoiDung = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    user_id_str = str(current_user.id_nguoi_dung)
+    logger.info(f"[DiagramRouter] DELETE /diagrams/trash/{diagram_id} — user_id={user_id_str}")
+    try:
+        success = await diagram_service.hard_delete_diagram(session, user_id_str, diagram_id)
+        if not success:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Không tìm thấy sơ đồ.")
+        return {"result": "SUCCESS", "message": "Đã xóa vĩnh viễn."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"[DiagramRouter] Lỗi hard_delete: {e}", exc_info=True)
+        raise HTTPException(status.HTTP_500_INTERNAL_SERVER_ERROR, "Lỗi khi xóa vĩnh viễn.")
