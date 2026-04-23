@@ -1,17 +1,17 @@
 import React, { useState, useRef } from "react";
 import { Clock, Save, ChevronLeft, Download } from "lucide-react";
-import { HistoryDrawer } from "../../features/chat/HistoryDrawer";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface TopHeaderProps {
   lastSavedTime: string;
   isGenerating: boolean;
+  isExporting?: boolean;
   handleSave: () => void;
-  handleExportPNG: () => void;
-  handleExportPDF?: () => void;
-  handleExportSVG?: () => void;
+  handleDownloadPNG?: () => void;
+  handleCopyPNG?: () => void;
   diagramTitle?: string;
+  diagramType?: string;
   onRename?: (newTitle: string) => void;
   onLoadDiagram?: (id: string, flowData?: any) => void;
 }
@@ -19,11 +19,12 @@ interface TopHeaderProps {
 export const TopHeader: React.FC<TopHeaderProps> = ({
   lastSavedTime,
   isGenerating,
+  isExporting = false,
   handleSave,
-  handleExportPNG,
-  handleExportPDF,
-  handleExportSVG,
+  handleDownloadPNG,
+  handleCopyPNG,
   diagramTitle = "VNPT SmartFlow Workspace",
+  diagramType = "process",
   onRename,
   onLoadDiagram,
 }) => {
@@ -46,8 +47,6 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
     <header className="fixed top-0 left-0 w-full h-14 bg-white/80 dark:bg-slate-950/80 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 z-[60] flex items-center justify-between px-4 transition-colors">
       {/* ─── LEFT: Back, History & Title ─── */}
       <div className="flex items-center gap-3">
-        <HistoryDrawer onLoadDiagram={onLoadDiagram || ((id) => console.log("Tải diagram", id))} />
-
         <button
           onClick={() => navigate("/dashboard")}
           className="p-1.5 hover:bg-slate-100 rounded-lg text-slate-500 hover:text-[#0066cc] transition-colors"
@@ -62,8 +61,47 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           value={diagramTitle}
           onChange={(e) => onRename?.(e.target.value)}
           className="font-bold text-slate-800 dark:text-slate-100 text-base md:text-lg tracking-tight bg-transparent border-2 border-transparent hover:border-slate-200 focus:border-[#0066cc] focus:bg-white rounded-lg px-3 py-1 outline-none transition-all w-48 sm:w-64 md:w-80 truncate"
-          placeholder="Nhập tên sơ đồ..."
         />
+
+        {/* Template Badge Indicator */}
+        <div className="flex items-center gap-2">
+          {(() => {
+            const config: Record<string, { label: string; color: string }> = {
+              "org-chart": {
+                label: "Sơ đồ Tổ chức",
+                color: "bg-orange-100 text-orange-700 border-orange-200",
+              },
+              ioffice: {
+                label: "Quy trình iOffice",
+                color: "bg-emerald-100 text-emerald-700 border-emerald-200",
+              },
+              layered: {
+                label: "Kiến trúc Phân tầng",
+                color: "bg-blue-100 text-blue-700 border-blue-200",
+              },
+              mindmap: {
+                label: "Sơ đồ Tư duy",
+                color: "bg-amber-100 text-amber-700 border-amber-200",
+              },
+              uml: {
+                label: "Thiết kế UML",
+                color: "bg-purple-100 text-purple-700 border-purple-200",
+              },
+              process: {
+                label: "Luồng Quy trình",
+                color: "bg-slate-100 text-slate-600 border-slate-200",
+              },
+            };
+            const current = config[diagramType] || config["process"];
+            return (
+              <span
+                className={`px-2 py-0.5 text-[10px] font-bold border rounded-md uppercase tracking-wide whitespace-nowrap shadow-sm ${current.color}`}
+              >
+                {current.label}
+              </span>
+            );
+          })()}
+        </div>
       </div>
 
       {/* ─── RIGHT: Status & Actions ─── */}
@@ -71,14 +109,18 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
         {/* Sync time */}
         <div className="hidden sm:flex items-center gap-1.5 text-slate-400">
           <Clock className="w-3.5 h-3.5" />
-          <span className="text-xs font-medium tracking-wide">{lastSavedTime}</span>
+          <span className="text-xs font-medium tracking-wide">
+            {lastSavedTime}
+          </span>
         </div>
 
         {/* AI status indicator */}
         <div className="flex items-center gap-2">
           <div
             className={`w-2 h-2 rounded-full ${
-              isGenerating ? "bg-amber-500 animate-spin" : "bg-emerald-500 animate-pulse"
+              isGenerating
+                ? "bg-amber-500 animate-spin"
+                : "bg-emerald-500 animate-pulse"
             }`}
           />
           <span className="hidden sm:inline-block text-xs font-bold text-slate-600 uppercase tracking-tighter">
@@ -104,11 +146,12 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           <div ref={exportRef} className="relative">
             <button
               onClick={() => setExportOpen((v) => !v)}
+              disabled={isExporting}
               title="Xuất sơ đồ"
-              className="border border-slate-200 hover:border-slate-300 active:scale-95 bg-white text-slate-700 hover:text-slate-900 px-3 py-1.5 rounded-lg text-sm font-bold transition-all shadow-sm flex items-center gap-2"
+              className="border border-slate-200 hover:border-slate-300 active:scale-95 bg-white text-slate-700 hover:text-slate-900 px-3 py-1.5 rounded-lg text-sm font-bold transition-all shadow-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Download className="w-4 h-4 text-[#0066cc]" />
-              <span className="hidden sm:inline">Xuất</span>
+              <Download className={`w-4 h-4 text-[#0066cc] ${isExporting ? 'animate-bounce' : ''}`} />
+              <span className="hidden sm:inline">{isExporting ? "Đang xử lý..." : "Xuất File"}</span>
               <span className="text-slate-400 text-xs">▾</span>
             </button>
 
@@ -124,22 +167,22 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                 >
                   {[
                     {
-                      label: "Xuất JPEG",
-                      hint: "Ảnh nén nhẹ",
-                      action: () => { handleExportPNG(); setExportOpen(false); },
+                      label: "Tải ảnh (PNG)",
+                      hint: "Lưu ảnh về máy",
+                      action: () => {
+                        handleDownloadPNG?.();
+                        setExportOpen(false);
+                      },
                       color: "text-slate-700",
                     },
                     {
-                      label: "Xuất PDF",
-                      hint: "In & chia sẻ",
-                      action: () => { handleExportPDF?.(); setExportOpen(false); },
-                      color: "text-red-600",
-                    },
-                    {
-                      label: "Xuất SVG",
-                      hint: "Vector sắc nét",
-                      action: () => { handleExportSVG?.(); setExportOpen(false); },
-                      color: "text-emerald-600",
+                      label: "Copy ảnh vào Clipboard",
+                      hint: "Dán trực tiếp nơi khác",
+                      action: () => {
+                        handleCopyPNG?.();
+                        setExportOpen(false);
+                      },
+                      color: "text-[#0066cc]",
                     },
                   ].map((item) => (
                     <button
@@ -148,7 +191,9 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                       className={`w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 transition-colors ${item.color}`}
                     >
                       <span className="text-sm font-bold">{item.label}</span>
-                      <span className="text-[10px] text-slate-400">{item.hint}</span>
+                      <span className="text-[10px] text-slate-400">
+                        {item.hint}
+                      </span>
                     </button>
                   ))}
                 </motion.div>

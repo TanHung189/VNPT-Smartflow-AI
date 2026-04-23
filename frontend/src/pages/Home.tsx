@@ -9,6 +9,8 @@ import {
   Video,
   Image as ImageIcon,
 } from "lucide-react";
+import Footer from "../components/Footer";
+
 
 // Tạo các hạt 3D (business steps/strokes)
 const generateParticles = (count: number) => {
@@ -127,13 +129,13 @@ const Home = () => {
           ))}
         </div>
 
-        <div className="max-w-7xl mx-auto w-full grid grid-cols-1 lg:grid-cols-2 gap-12 items-center relative z-10">
+        <div className="max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center relative z-10">
           {/* Hero Content */}
           <div className="flex flex-col items-start text-left pointer-events-auto">
-            <h1 className="text-5xl lg:text-7xl font-bold tracking-tight text-slate-900 mb-6 leading-tight drop-shadow-sm">
-              Số hóa Quy trình <span className="text-[#0054a6]">VNPT</span> với
-              Sức mạnh AI.
+            <h1 className="text-4xl lg:text-5xl font-bold tracking-tight text-slate-900 mb-6 leading-tight drop-shadow-sm">
+              Chào mừng đến với SmartFlow AI
             </h1>
+
             <p className="text-xl text-slate-600 mb-10 max-w-xl font-light leading-relaxed">
               Chuyển đổi hình ảnh vẽ tay, văn bản phức tạp thành sơ đồ luồng
               chuyên nghiệp trong vài giây. Giải pháp tối ưu hóa hiệu suất cho
@@ -156,13 +158,14 @@ const Home = () => {
           </div>
 
           {/* Hero Visual Mockup */}
-          <div className="relative w-full h-[500px] pointer-events-none rounded-2xl hidden lg:block">
+          <div className="relative w-full h-[400px] lg:h-[500px] pointer-events-none rounded-2xl hidden md:block">
             {/* Main Floating Mockup */}
-            <div className="absolute inset-0 bg-white/80 backdrop-blur-sm rounded-2xl border-2 border-slate-100 shadow-2xl overflow-hidden animate-[float_6s_ease-in-out_infinite] z-20 flex flex-col">
+            <div className="absolute inset-0 bg-white/80 backdrop-blur-sm rounded-xl border border-slate-200 shadow-md overflow-hidden animate-[float_6s_ease-in-out_infinite] z-20 flex flex-col">
               <div className="h-10 bg-slate-50 border-b border-slate-100 flex items-center px-4 gap-2">
                 <div className="w-3 h-3 rounded-full bg-red-400"></div>
                 <div className="w-3 h-3 rounded-full bg-amber-400"></div>
                 <div className="w-3 h-3 rounded-full bg-green-400"></div>
+
                 <div className="ml-4 text-xs font-semibold text-slate-400">
                   VNPT SmartFlow Editor
                 </div>
@@ -205,12 +208,12 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Section 2: The Magic - Trình diễn tính năng Video Gen */}
       <section
         id="features"
-        className="py-24 bg-slate-50 relative overflow-hidden"
+        className="py-16 md:py-24 bg-slate-50 relative overflow-hidden"
       >
-        <div className="max-w-7xl mx-auto px-6 relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+
           <div className="mb-16 text-center">
             <h2 className="text-4xl lg:text-5xl font-extrabold text-slate-900 mb-4 tracking-tight">
               AI nhận diện Quy trình từ mọi Nguồn.
@@ -271,18 +274,19 @@ const Home = () => {
         </div>
       </section>
 
-      {/* Section 3: Use Cases - Ứng dụng thực tiễn */}
-      <section className="py-24 bg-white">
-        <div className="max-w-7xl mx-auto px-6">
+      {/* Section 3: Use Cases - Tính năng nổi bật */}
+      <section className="py-16 md:py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-4xl lg:text-5xl font-extrabold text-slate-900 mb-4 tracking-tight">
-              Ứng dụng thực tiễn trong Hệ sinh thái VNPT.
+            <h2 className="text-3xl lg:text-4xl font-extrabold text-slate-900 mb-4 tracking-tight">
+              Tính năng nổi bật trong Hệ sinh thái VNPT.
             </h2>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
             {/* Card 1 */}
-            <div className="group bg-white p-10 rounded-3xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.08)] hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 border border-slate-100 flex flex-col">
+            <div className="group bg-white p-8 rounded-xl shadow-sm hover:shadow-md border border-slate-200 transition-all duration-300 flex flex-col">
+
               <div className="w-16 h-16 bg-blue-50 text-[#0054a6] rounded-2xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform duration-300">
                 <Zap className="w-8 h-8" />
               </div>
@@ -296,7 +300,8 @@ const Home = () => {
             </div>
 
             {/* Card 2 */}
-            <div className="group bg-white p-10 rounded-3xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.08)] hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 border border-slate-100 flex flex-col">
+            <div className="group bg-white p-8 rounded-xl shadow-sm hover:shadow-md border border-slate-200 transition-all duration-300 flex flex-col">
+
               <div className="w-16 h-16 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform duration-300">
                 <Users className="w-8 h-8" />
               </div>
@@ -310,7 +315,8 @@ const Home = () => {
             </div>
 
             {/* Card 3 */}
-            <div className="group bg-white p-10 rounded-3xl shadow-[0_10px_40px_-10px_rgba(0,0,0,0.08)] hover:shadow-2xl hover:-translate-y-2 transition-all duration-300 border border-slate-100 flex flex-col">
+            <div className="group bg-white p-8 rounded-xl shadow-sm hover:shadow-md border border-slate-200 transition-all duration-300 flex flex-col">
+
               <div className="w-16 h-16 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform duration-300">
                 <Bot className="w-8 h-8" />
               </div>
@@ -327,9 +333,10 @@ const Home = () => {
       </section>
 
       {/* Section 4: Call to Action cuối trang */}
-      <section className="py-24 bg-white">
-        <div className="max-w-6xl mx-auto px-6">
-          <div className="bg-[#0054a6] rounded-[3rem] p-12 md:p-20 text-center relative overflow-hidden shadow-[0_20px_50px_-10px_rgba(0,84,166,0.5)]">
+      <section className="py-16 md:py-24 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-[#0054a6] rounded-xl p-10 md:p-16 text-center relative overflow-hidden shadow-md">
+
             {/* Background Decorations */}
             <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
             <div className="absolute bottom-0 left-0 w-80 h-80 bg-blue-400/20 rounded-full blur-3xl translate-y-1/2 -translate-x-1/2"></div>
@@ -363,8 +370,10 @@ const Home = () => {
           to { opacity: 1; transform: translateY(0); }
         }
       `}</style>
+      <Footer />
     </div>
   );
 };
+
 
 export default Home;

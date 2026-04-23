@@ -1,6 +1,10 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { History, LayoutDashboard, X, Search, Trash2 } from "lucide-react";
+import { History, LayoutDashboard, X, Search, Trash2, Loader2 } from "lucide-react";
+import { diagramApi, DiagramListItem } from "../../services/diagramApi";
+import { format } from "date-fns";
+import { toast } from "sonner";
+
 // Fake Badge component to match Shadcn
 const Badge = ({
   children,
@@ -20,34 +24,6 @@ const Badge = ({
   </span>
 );
 
-interface HistoryItem {
-  id: string;
-  title: string;
-  date: string;
-  status: "Mới" | "Đã lưu";
-}
-
-const MOCK_HISTORY: HistoryItem[] = [
-  {
-    id: "1",
-    title: "Quy trình cước viễn thông",
-    date: "Hôm qua 15:30",
-    status: "Mới",
-  },
-  {
-    id: "2",
-    title: "Lắp đặt thiết bị KH",
-    date: "12/04/2026",
-    status: "Đã lưu",
-  },
-  {
-    id: "3",
-    title: "Đăng ký thuê bao cáp quang",
-    date: "10/04/2026",
-    status: "Đã lưu",
-  },
-];
-
 interface HistoryDrawerProps {
   onLoadDiagram: (id: string) => void;
 }
@@ -57,16 +33,48 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-  const [history, setHistory] = useState<HistoryItem[]>(MOCK_HISTORY);
+  const [history, setHistory] = useState<DiagramListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      const fetchHistory = async () => {
+        setIsLoading(true);
+        try {
+          const token = localStorage.getItem("token");
+          const data = await diagramApi.getAll(token);
+          if (Array.isArray(data)) {
+            // Sắp xếp mới nhất lên đầu
+            const sorted = data.sort((a, b) => new Date(b.ngay_cap_nhat).getTime() - new Date(a.ngay_cap_nhat).getTime());
+            setHistory(sorted);
+          } else {
+            setHistory([]);
+          }
+        } catch (e) {
+          toast.error("Lỗi khi tải lịch sử sơ đồ");
+        } finally {
+          setIsLoading(false);
+        }
+      };
+      fetchHistory();
+    }
+  }, [isOpen]);
 
   const filteredHistory = history.filter((item) =>
-    item.title.toLowerCase().includes(searchQuery.toLowerCase()),
+    item.tieu_de.toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
-  const handleDelete = (e: React.MouseEvent, id: string) => {
+  const handleDelete = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    // Simulate API soft delete
-    setHistory((prev) => prev.filter((item) => item.id !== id));
+    if (!window.confirm("Bạn có chắc muốn xóa sơ đồ này không?")) return;
+    try {
+      const token = localStorage.getItem("token");
+      await diagramApi.delete(id, token);
+      setHistory((prev) => prev.filter((item) => item.id_so_do !== id));
+      toast.success("Xóa sơ đồ thành công");
+    } catch (e) {
+      toast.error("Không thể xóa sơ đồ");
+    }
   };
 
   return (
@@ -131,39 +139,46 @@ export const HistoryDrawer: React.FC<HistoryDrawerProps> = ({
 
               {/* LIST / SCROLL AREA */}
               <div className="flex-1 overflow-y-auto p-4 pt-0 flex flex-col gap-2 custom-scrollbar">
-                {filteredHistory.length === 0 ? (
+                {isLoading ? (
+                  <div className="flex flex-col items-center justify-center p-8 h-full text-slate-400">
+                    <Loader2 className="w-8 h-8 animate-spin mb-4 text-[#0066cc]" />
+                    <span className="text-sm font-medium font-geist">Đang tải lịch sử...</span>
+                  </div>
+                ) : filteredHistory.length === 0 ? (
                   <div className="text-center p-6 text-slate-400 text-sm italic font-geist">
                     Không tìm thấy sơ đồ nào.
                   </div>
                 ) : (
                   filteredHistory.map((item) => (
                     <button
-                      key={item.id}
-                      onClick={() => onLoadDiagram(item.id)}
+                      key={item.id_so_do}
+                      onClick={() => {
+                        onLoadDiagram(item.id_so_do);
+                        setIsOpen(false);
+                      }}
                       className="relative w-full text-left p-3 rounded-xl border border-transparent hover:border-[#0066cc]/20 hover:bg-[#0066cc]/5 flex flex-col gap-2 transition-all group font-geist"
                     >
                       <div className="flex items-start justify-between w-full">
-                        <span className="font-bold text-slate-700 group-hover:text-[#0066cc] text-sm break-words pr-6">
-                          {item.title}
+                        <span className="font-bold text-slate-700 group-hover:text-[#0066cc] text-sm break-words pr-6 line-clamp-1">
+                          {item.tieu_de}
                         </span>
-                        <Badge
-                          variant={
-                            item.status === "Mới" ? "default" : "outline"
-                          }
-                        >
-                          {item.status}
+                        <Badge variant={item.la_mau_chuan ? "default" : "outline"}>
+                          {item.la_mau_chuan ? "TEMPLATE" : "LOCAL"}
                         </Badge>
                       </div>
 
                       <div className="flex items-center justify-between w-full">
                         <span className="text-[11px] text-slate-400 font-medium">
-                          {item.date}
+                          {format(new Date(item.ngay_cap_nhat), "dd/MM/yyyy HH:mm")}
+                        </span>
+                        <span className="text-[10px] text-slate-300 font-medium px-1 bg-slate-50 rounded">
+                          {item.the_loai || "process"}
                         </span>
                       </div>
 
                       {/* Trash Button */}
                       <div
-                        onClick={(e) => handleDelete(e, item.id)}
+                        onClick={(e) => handleDelete(e, item.id_so_do)}
                         className="absolute right-3 bottom-2.5 p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-md transition-colors opacity-0 group-hover:opacity-100"
                         title="Xóa sơ đồ"
                       >

@@ -1,4 +1,4 @@
-version: "3.8"
+
 
 services:
   postgres:
@@ -51,7 +51,7 @@ services:
       dockerfile: Dockerfile
     container_name: vnpt_frontend
     ports:
-      - "5173:80"
+      - "3000:80"
     depends_on:
       - backend
     restart: unless-stopped

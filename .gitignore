@@ -1,3 +1,7 @@
+# ============================================================
+# VNPT SmartFlow AI — .gitignore
+# ============================================================
+
 # --- PYTHON / BACKEND ---
 # Môi trường ảo
 .venv/
@@ -11,22 +15,30 @@ __pycache__/
 *.pyo
 *.pyd
 .pytest_cache/
+*.egg-info/
 
 # --- NODE / FRONTEND ---
 node_modules/
 .pnp
 .pnp.js
 
-# Các thư mục build 
+# Các thư mục build  
 dist/
 build/
 out/
 .next/
 
 # --- CẤU HÌNH CÁ NHÂN & BẢO MẬT ---
+# ⚠️  QUAN TRỌNG: Không bao giờ commit file .env có chứa secret keys!
 .env
 .env.local
 .env.*.local
+backend/.env
+frontend/.env
+
+# Docker volumes data
+postgres_data/
+redis_data/
 
 # Cấu hình của trình soạn thảo
 .vscode/
@@ -37,3 +49,6 @@ out/
 # Hệ điều hành
 .DS_Store
 Thumbs.db
+
+# Alembic (__pycache__ trong migrations)
+backend/migrations/__pycache__/

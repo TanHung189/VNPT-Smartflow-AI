@@ -19,6 +19,7 @@ from sqlmodel import select                           # ✅ SQLModel select — 
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.user import NguoiDung
 from app.models.diagram import SoDo
+from app.models.diagram_history import PhienBanSoDo
 from app.schemas.diagram import (
     DiagramCreate,
     DiagramUpdate,
@@ -86,6 +87,14 @@ async def create_diagram(
         session.add(so_do_moi)
         await session.commit()
         await session.refresh(so_do_moi)
+
+        phien_ban_moi = PhienBanSoDo(
+            id_so_do=so_do_moi.id_so_do,
+            du_lieu_so_do=so_do_moi.du_lieu_so_do,
+            ly_do_thay_doi=getattr(data, "ly_do_thay_doi", "Tạo mới sơ đồ")
+        )
+        session.add(phien_ban_moi)
+        await session.commit()
 
         _invalidate_user_cache(user_id_str)
         logger.info(f"[DiagramService] Thành công: id_so_do={so_do_moi.id_so_do}")
@@ -234,6 +243,13 @@ async def update_diagram(
         if getattr(data, "anh_thu_nho", None) is not None:
              so_do.anh_thu_nho = data.anh_thu_nho
 
+        phien_ban_moi = PhienBanSoDo(
+            id_so_do=so_do.id_so_do,
+            du_lieu_so_do=so_do.du_lieu_so_do,
+            ly_do_thay_doi=getattr(data, "ly_do_thay_doi", "Cập nhật qua biên tập")
+        )
+        session.add(phien_ban_moi)
+
         await session.commit()
         await session.refresh(so_do)
         _invalidate_user_cache(user_id, str(so_do_id))
@@ -287,3 +303,105 @@ async def delete_diagram(
         await session.rollback()
         logger.error(f"[DiagramService] Lỗi xóa mềm: {e}", exc_info=True)
         raise
+
+# =============================================================
+# 6. THÙNG RÁC (Trash Bin)
+# =============================================================
+
+async def get_trashed_diagrams(
+    session: AsyncSession,
+    user: NguoiDung,
+) -> List[DiagramListResponse]:
+    """Lấy danh sách sơ đồ đã bị xóa mềm của người dùng."""
+    try:
+        stmt = (
+            select(SoDo)
+            .where(
+                SoDo.id_chu_so_huu == user.id_nguoi_dung,
+                SoDo.ngay_xoa != None,  # noqa: E711
+            )
+            .order_by(SoDo.ngay_cap_nhat.desc())
+        )
+        result = await session.exec(stmt)
+        so_dos = result.all()
+        return [DiagramListResponse.model_validate(d) for d in so_dos]
+    except Exception as e:
+        logger.error(f"[DiagramService] Lỗi lấy danh sách thùng rác: {e}", exc_info=True)
+        raise
+
+async def restore_diagram(
+    session: AsyncSession,
+    user_id: str,
+    so_do_id: uuid.UUID,
+) -> bool:
+    """Khôi phục sơ đồ từ thùng rác (đặt ngay_xoa = NULL)."""
+    try:
+        stmt = select(SoDo).where(
+            SoDo.id_so_do == so_do_id,
+            SoDo.id_chu_so_huu == uuid.UUID(user_id),
+            SoDo.ngay_xoa != None,  # noqa: E711
+        )
+        result = await session.exec(stmt)
+        so_do = result.first()
+        if not so_do:
+            return False
+            
+        so_do.ngay_xoa = None
+        so_do.ngay_cap_nhat = datetime.now(timezone.utc).replace(tzinfo=None)
+        await session.commit()
+        _invalidate_user_cache(user_id, str(so_do_id))
+        return True
+    except Exception as e:
+        await session.rollback()
+        logger.error(f"[DiagramService] Lỗi khôi phục sơ đồ: {e}", exc_info=True)
+        raise
+
+async def hard_delete_diagram(
+    session: AsyncSession,
+    user_id: str,
+    so_do_id: uuid.UUID,
+) -> bool:
+    """Xóa vĩnh viễn sơ đồ khỏi DB."""
+    try:
+        stmt = select(SoDo).where(
+            SoDo.id_so_do == so_do_id,
+            SoDo.id_chu_so_huu == uuid.UUID(user_id)
+        )
+        result = await session.exec(stmt)
+        so_do = result.first()
+        if not so_do:
+            return False
+            
+        await session.delete(so_do)
+        await session.commit()
+        _invalidate_user_cache(user_id, str(so_do_id))
+        return True
+    except Exception as e:
+        await session.rollback()
+        logger.error(f"[DiagramService] Lỗi xóa vĩnh viễn sơ đồ: {e}", exc_info=True)
+        raise
+
+async def empty_trash(
+    session: AsyncSession,
+    user_id: str,
+) -> bool:
+    """Xóa vĩnh viễn tất cả sơ đồ trong thùng rác."""
+    try:
+        stmt = select(SoDo).where(
+            SoDo.id_chu_so_huu == uuid.UUID(user_id),
+            SoDo.ngay_xoa != None,  # noqa: E711
+        )
+        result = await session.exec(stmt)
+        so_dos = result.all()
+        
+        for so_do in so_dos:
+            await session.delete(so_do)
+            
+        await session.commit()
+        _invalidate_user_cache(user_id)
+        return True
+    except Exception as e:
+        await session.rollback()
+        logger.error(f"[DiagramService] Lỗi dọn sạch thùng rác: {e}", exc_info=True)
+        raise
+

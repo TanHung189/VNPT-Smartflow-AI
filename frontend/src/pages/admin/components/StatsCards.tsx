@@ -6,7 +6,7 @@ export interface StatData {
   value: string | number;
   change?: string;
   trend?: 'up' | 'down' | 'neutral';
-  iconType: 'users' | 'workflows' | 'time';
+  iconType: 'users' | 'workflows' | 'time' | 'success';
 }
 
 interface StatsCardsProps {
@@ -17,13 +17,15 @@ export const StatsCards: React.FC<StatsCardsProps> = ({ stats }) => {
   const getIcon = (type: string) => {
     switch (type) {
       case 'users':
-        return <Users className="w-6 h-6 text-[#005A9C]" />;
+        return <Users className="w-6 h-6 text-[#0066b3]" />;
       case 'workflows':
-        return <FileText className="w-6 h-6 text-[#005A9C]" />;
+        return <FileText className="w-6 h-6 text-[#0066b3]" />;
       case 'time':
-        return <Clock className="w-6 h-6 text-[#005A9C]" />;
+        return <Clock className="w-6 h-6 text-[#0066b3]" />;
+      case 'success':
+        return <TrendingUp className="w-6 h-6 text-[#0066b3]" />;
       default:
-        return <FileText className="w-6 h-6 text-[#005A9C]" />;
+        return <FileText className="w-6 h-6 text-[#0066b3]" />;
     }
   };
 

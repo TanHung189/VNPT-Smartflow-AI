@@ -9,8 +9,29 @@ import {
   ReactFlowProvider,
   getNodesBounds,
   getViewportForBounds,
+  Panel,
 } from "@xyflow/react";
-import { Save, Trash2 } from "lucide-react";
+import {
+  Save,
+  Trash2,
+  Settings,
+  LayoutTemplate,
+  Droplet,
+  Monitor,
+  ChevronDown,
+} from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../../components/ui/dropdown-menu";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "../../components/ui/popover";
+import { BottomToolbar } from "../../components/layout/BottomToolbar";
 import SmartNode from "../../components/SmartNode";
 import DrawingCanvas from "../../components/DrawingCanvas";
 import FlowSkeleton from "../../components/FlowSkeleton";
@@ -25,12 +46,123 @@ import CloudNode from "./nodes/CloudNode";
 import IotNode from "./nodes/IotNode";
 import UmlNode from "./nodes/UmlNode";
 import StickyNode from "./nodes/StickyNode";
+import { NODE_REGISTRY } from "./nodes/NodeRegistry";
 import { useTheme } from "next-themes";
+
+const MindMapIcon = () => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="text-slate-600 dark:text-slate-300"
+  >
+    <rect x="10" y="10" width="4" height="4" rx="1" />
+    <path d="M14 12h5" />
+    <path d="M5 12h5" />
+    <rect x="19" y="10" width="4" height="4" rx="1" />
+    <rect x="1" y="10" width="4" height="4" rx="1" />
+  </svg>
+);
+
+const LogicChartIcon = () => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="text-slate-600 dark:text-slate-300"
+  >
+    <rect x="2" y="10" width="6" height="4" rx="1" />
+    <path d="M8 12h4v-5h4" />
+    <path d="M8 12h4v5h4" />
+    <rect x="16" y="5" width="6" height="4" rx="1" />
+    <rect x="16" y="15" width="6" height="4" rx="1" />
+  </svg>
+);
+
+const OrgChartIcon = () => (
+  <svg
+    width="14"
+    height="14"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    className="text-slate-600 dark:text-slate-300"
+  >
+    <rect x="10" y="2" width="4" height="6" rx="1" />
+    <path d="M12 8v4" />
+    <path d="M6 12h12" />
+    <path d="M6 12v4" />
+    <path d="M18 12v4" />
+    <rect x="4" y="16" width="4" height="4" rx="1" />
+    <rect x="16" y="16" width="4" height="4" rx="1" />
+  </svg>
+);
+
+const PRESET_COLORS = [
+  "#ffffff",
+  "#fafafa",
+  "#f5f5f5",
+  "#e5e5e5",
+  "#d4d4d4",
+  "#a3a3a3",
+  "#525252",
+  "#000000",
+  "#fee2e2",
+  "#ffedd5",
+  "#fef3c7",
+  "#dcfce7",
+  "#ccfbf1",
+  "#e0f2fe",
+  "#e0e7ff",
+  "#f3e8ff",
+  "#fca5a5",
+  "#fdba74",
+  "#fcd34d",
+  "#86efac",
+  "#5eead4",
+  "#7dd3fc",
+  "#93c5fd",
+  "#d8b4fe",
+  "#ef4444",
+  "#f97316",
+  "#eab308",
+  "#22c55e",
+  "#14b8a6",
+  "#0ea5e9",
+  "#3b82f6",
+  "#a855f7",
+  "#7f1d1d",
+  "#7c2d12",
+  "#713f12",
+  "#14532d",
+  "#134e4a",
+  "#0c4a6e",
+  "#1e3a8a",
+  "#581c87",
+];
 
 // ─── NODE TYPE REGISTRY ──────────────────────────────────────────────────────
 // Đăng ký tất cả custom node types — thêm type mới vào đây để ReactFlow nhận diện
+// NODE_REGISTRY chứa các Context-Aware nodes mới (OrgNode, LayerNode, UMLNode, ProcessNode)
+// được spread đầu tiên, các legacy nodes bên dưới sẽ ghi đè nếu trùng key.
 const nodeTypes = {
-  // Legacy / generic
+  // ── Context-Aware Template Nodes (NodeRegistry.tsx) ──
+  ...NODE_REGISTRY,
+
+  // ── Legacy / generic (SmartNode fallback) ──
   taskNode: SmartNode,
   conditionNode: SmartNode,
   customNode: SmartNode,
@@ -39,12 +171,13 @@ const nodeTypes = {
   step: SmartNode,
   decision: SmartNode,
   infographic: SmartNode,
-  // Enterprise node types
+
+  // ── Enterprise node types (cũ) ──
   networkNode: NetworkNode, // Hạ tầng mạng VNPT
-  iofficeNode: IofficeNode, // Quy trình iOffice
+  iofficeNode: IofficeNode, // Quy trình iOffice (legacy key)
   cloudNode: CloudNode, // Kiến trúc VNPT Cloud (glassmorphism)
   iotNode: IotNode, // Smart City / IoT
-  umlNode: UmlNode, // UML / UseCase diagrams
+  umlNode: UmlNode, // UML / UseCase diagrams (legacy key)
   stickyNode: StickyNode, // Sticky notes
 };
 
@@ -87,13 +220,26 @@ const FlowContent = ({
   isGenerating,
   onOpenAI,
   aiMode,
+  onDragStart,
 }: any) => {
   const { theme, setTheme } = useTheme();
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null);
   const [showMiniMap, setShowMiniMap] = useState(false);
+  const [structure, setStructure] = useState<
+    "org-chart" | "process" | "mindmap"
+  >("org-chart");
+  const [bgStyle, setBgStyle] = useState<"dots" | "cross" | "lines">("dots");
+  const [currentBgColor, setCurrentBgColor] = useState<string>("");
   const { screenToFlowPosition, getNodes, fitView } = useReactFlow();
+
+  const handleStructureChange = (
+    newStructure: "org-chart" | "process" | "mindmap",
+  ) => {
+    setStructure(newStructure);
+    if (autoLayout) autoLayout(newStructure);
+  };
 
   // Smooth fitView transition after generation completes
   useEffect(() => {
@@ -200,10 +346,21 @@ const FlowContent = ({
     <div
       ref={containerRef}
       onContextMenu={onContextMenu}
-      className="w-full h-full relative overflow-hidden"
-      style={{ width: "100%", height: "100%" }}
+      className="absolute inset-0 overflow-hidden"
     >
       {isGenerating && <FlowSkeleton />}
+
+      <style>{`
+        /* Smooth Layout Transitions cho mặt UI - di chuyển các nodes */
+        .react-flow__node {
+          transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.4s ease;
+        }
+        /* Ngăn lag khi user chủ động nắm kéo vào các objects */
+        .react-flow__node.dragging {
+          transition: none !important;
+          z-index: 1000 !important;
+        }
+      `}</style>
 
       {/*<div className="absolute left-6 top-6 z-40">
         <button
@@ -214,33 +371,6 @@ const FlowContent = ({
           Sắp xếp tự động
         </button>
       </div>*/}
-
-      {/* ─── THEME TOGGLE COMBOBOX (z-50) ─── */}
-      <div className="absolute top-6 right-6 z-[60] bg-white dark:bg-slate-800 rounded-lg shadow-md border border-slate-200 dark:border-slate-700 flex items-center gap-2 p-1 transition-colors">
-        <select
-          value={theme}
-          onChange={(e) => setTheme(e.target.value)}
-          className="bg-transparent border-none text-sm font-medium text-slate-700 dark:text-slate-200 focus:ring-0 cursor-pointer px-2 py-1 outline-none appearance-none pr-6 relative"
-        >
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-          <option value="system">System</option>
-        </select>
-        <div className="absolute right-3 pointer-events-none text-slate-400 dark:text-slate-500">
-          <svg
-            width="12"
-            height="12"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="m6 9 6 6 6-6" />
-          </svg>
-        </div>
-      </div>
 
       <ReactFlow
         colorMode={(theme as "light" | "dark" | "system") || "system"}
@@ -266,7 +396,6 @@ const FlowContent = ({
         nodeTypes={nodeTypes}
         onNodesChange={(changes) => {
           onNodesChange(changes);
-          // Chụp ảnh khi di chuyển node xong
           if (
             changes[0]?.type === "position" &&
             !changes[0].dragging &&
@@ -289,9 +418,190 @@ const FlowContent = ({
         onSelectionChange={onSelectionChange}
         fitView
       >
-        <Background variant={BackgroundVariant.Dots} gap={20} color="#334155" />
+        <Background
+          variant={
+            bgStyle === "cross"
+              ? BackgroundVariant.Cross
+              : bgStyle === "lines"
+                ? BackgroundVariant.Lines
+                : BackgroundVariant.Dots
+          }
+          gap={bgStyle === "lines" ? 40 : 20}
+          color={currentBgColor || (theme === "dark" ? "#475569" : "#cbd5e1")}
+          lineWidth={bgStyle === "lines" ? 1 : undefined}
+          size={bgStyle === "lines" ? undefined : 2}
+        />
+
+        {/* ─── EXACT UI DESIGN DRAGGABLE OR FLOATING PANEL ─── */}
+        <Panel
+          position="top-right"
+          className="!top-14 !right-2 z-[100] w-[280px]"
+        >
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden text-slate-800 dark:text-slate-200">
+            <div className="px-3 py-2.5 border-b border-slate-100 dark:border-slate-700 flex items-center justify-between">
+              <div className="flex items-center gap-1.5 cursor-pointer">
+                <span className="text-[10px]">▼</span>
+                <span className="font-semibold text-[13px]">Structure</span>
+              </div>
+            </div>
+
+            <div className="p-3 space-y-4 top-14 right-2">
+              {/* Structure Dropdown */}
+              <div className="flex items-center justify-between">
+                <span className="text-[12px]">Chart</span>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex items-center gap-2 justify-between border border-slate-200 dark:border-slate-600 rounded-md px-2.5 py-1 w-[130px] bg-white dark:bg-slate-800 hover:bg-slate-50 dark:hover:bg-slate-700 outline-none transition-colors">
+                      <div className="flex items-center gap-2 text-[12px] font-medium text-slate-700 dark:text-slate-200">
+                        {structure === "mindmap" ? (
+                          <MindMapIcon />
+                        ) : structure === "process" ? (
+                          <LogicChartIcon />
+                        ) : (
+                          <OrgChartIcon />
+                        )}
+                        <span>
+                          {structure === "mindmap"
+                            ? "Mind Map"
+                            : structure === "process"
+                              ? "Logic Chart"
+                              : "Org Chart"}
+                        </span>
+                      </div>
+                      <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent
+                    align="end"
+                    className="w-[160px] p-1 rounded-lg"
+                  >
+                    <DropdownMenuItem
+                      onClick={() => handleStructureChange("mindmap")}
+                      className="gap-2.5 cursor-pointer py-2 px-3 text-[13px] hover:bg-yellow-50 dark:hover:bg-slate-800"
+                    >
+                      <div
+                        className={`p-1 rounded-full ${structure === "mindmap" ? "bg-yellow-100 dark:bg-yellow-900/50" : ""}`}
+                      >
+                        <MindMapIcon />
+                      </div>{" "}
+                      <span>Mind Map</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleStructureChange("process")}
+                      className="gap-2.5 cursor-pointer py-2 px-3 text-[13px] hover:bg-yellow-50 dark:hover:bg-slate-800"
+                    >
+                      <div
+                        className={`p-1 rounded-full ${structure === "process" ? "bg-yellow-100 dark:bg-yellow-900/50" : ""}`}
+                      >
+                        <LogicChartIcon />
+                      </div>{" "}
+                      <span>Logic Chart</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => handleStructureChange("org-chart")}
+                      className="gap-2.5 cursor-pointer py-2 px-3 text-[13px] hover:bg-yellow-50 dark:hover:bg-slate-800"
+                    >
+                      <div
+                        className={`p-1 rounded-full ${structure === "org-chart" ? "bg-yellow-100 dark:bg-yellow-900/50" : ""}`}
+                      >
+                        <OrgChartIcon />
+                      </div>{" "}
+                      <span>Org Chart</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+
+              {/* Background Color Picker */}
+              <div className="flex items-center justify-between">
+                <span className="text-[12px]">Background</span>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      className="w-[130px] h-6 rounded-md border border-slate-300 dark:border-slate-600 shadow-sm transition-transform hover:scale-[1.02]"
+                      style={{
+                        backgroundColor:
+                          currentBgColor ||
+                          (theme === "dark" ? "#475569" : "#cbd5e1"),
+                      }}
+                    />
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="end"
+                    sideOffset={8}
+                    className="w-[280px] p-3 shadow-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 rounded-xl"
+                  >
+                    <div className="grid grid-cols-8 gap-y-1.5 gap-x-1.5 mb-3">
+                      {PRESET_COLORS.map((color) => (
+                        <button
+                          key={color}
+                          onClick={() => setCurrentBgColor(color)}
+                          className={`w-full aspect-square rounded-[4px] border hover:scale-110 transition-transform ${currentBgColor === color ? "border-blue-500 ring-2 ring-blue-500/20 shadow-md" : "border-black/5 dark:border-white/10"}`}
+                          style={{ backgroundColor: color }}
+                          title={color}
+                        />
+                      ))}
+                    </div>
+
+                    <div className="flex items-center gap-2 mb-4">
+                      <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md p-1.5 flex-1">
+                        <div
+                          className="w-4 h-4 rounded-[3px] border border-black/10 dark:border-white/10 mx-1 flex-shrink-0"
+                          style={{
+                            backgroundColor:
+                              currentBgColor ||
+                              (theme === "dark" ? "#475569" : "#cbd5e1"),
+                          }}
+                        />
+                        <input
+                          value={
+                            currentBgColor?.replace("#", "").toUpperCase() ||
+                            (theme === "dark" ? "475569" : "CBD5E1")
+                          }
+                          onChange={(e) =>
+                            setCurrentBgColor(`#${e.target.value}`)
+                          }
+                          className="bg-transparent border-none outline-none text-[13px] w-full text-slate-700 dark:text-slate-300 font-medium"
+                          maxLength={6}
+                        />
+                      </div>
+                      <div className="flex items-center gap-1 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-md p-1.5 w-[60px]">
+                        <input
+                          value="100"
+                          readOnly
+                          className="bg-transparent border-none outline-none text-[13px] w-full text-center text-slate-700 dark:text-slate-300 font-medium"
+                        />
+                        <span className="text-[13px] text-slate-400 mr-1">
+                          %
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setCurrentBgColor("")}
+                        className="p-1.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    <div className="text-[12px] text-slate-600 dark:text-slate-400 mb-2 font-medium">
+                      Current Theme
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setCurrentBgColor("")}
+                        className="w-7 h-7 rounded-[4px] border border-slate-200 dark:border-slate-600 shadow-sm hover:scale-110 transition-transform bg-white dark:bg-[#1e293b]"
+                        title="Default Theme Color"
+                      />
+                    </div>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+          </div>
+        </Panel>
 
         <Controls
+          orientation="horizontal"
           position="bottom-right"
           className="bg-slate-800 border-slate-700 fill-white shadow-2xl"
           style={{
@@ -309,6 +619,16 @@ const FlowContent = ({
             zoomable
             pannable
             nodeColor={(node) => {
+              // ── Context-Aware Nodes (NodeRegistry) ──
+              if (node.type === "org-chart" || node.type === "org")
+                return "#003087";
+              if (node.type === "layer" || node.type === "layered")
+                return "#8b5cf6";
+              if (node.type === "uml" || node.type === "uml-class")
+                return "#0ea5e9";
+              if (node.type === "process" || node.type === "ioffice")
+                return "#10b981";
+              // ── Legacy nodes ──
               if (node.type === "networkNode") return "#0066cc";
               if (node.type === "iofficeNode") return "#10b981";
               if (node.type === "cloudNode") return "#6366f1";
@@ -405,7 +725,7 @@ const FlowContent = ({
 
       {/* Preview controls */}
       {previewNodes && previewNodes.length > 0 && (
-        <div className="absolute left-6 top-6 z-50 flex items-center gap-2">
+        <div className="absolute left-6 top-20 z-50 flex items-center gap-2">
           <button
             onClick={() => confirmAddToCanvas && confirmAddToCanvas()}
             className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-full shadow-md"
@@ -421,44 +741,30 @@ const FlowContent = ({
         </div>
       )}
 
-      {/* 4. THANH CÔNG CỤ NGỮ CẢNH (KHI CHỌN NODE) */}
-      {selectedNode && (
-        <div
-          className="absolute z-[110] flex gap-2 bg-slate-900 text-white p-2 rounded-xl shadow-2xl animate-in fade-in zoom-in duration-200"
-          style={{
-            left: selectedNode.position.x + 100,
-            top: Math.max(0, selectedNode.position.y - 60),
-          }}
-        >
-          <button
-            onClick={() => updateNodeData("type", "start")}
-            className="w-5 h-5 rounded-full bg-emerald-500 border border-white"
-            title="Chuyển thành Bắt đầu"
-          />
-          <button
-            onClick={() => updateNodeData("type", "decision")}
-            className="w-5 h-5 rounded-full bg-amber-500 border border-white"
-            title="Chuyển thành Điều kiện"
-          />
-          <div className="w-[1px] bg-slate-700 mx-1" />
-          <button
-            onClick={() => {
-              setNodes((nds: any) =>
-                nds.filter((n: any) => n.id !== selectedNode.id),
-              );
-              setSelectedNode(null);
-              if (takeSnapshot) takeSnapshot();
-            }}
-            className="text-red-400 hover:text-red-300"
-          >
-            <Trash2 size={16} />
-          </button>
-        </div>
-      )}
+      {/* 4. THANH CÔNG CỤ BOTTOM BAR (MOVED TO PANEL) */}
+      <Panel position="bottom-center" className="z-50 mb-6">
+        <BottomToolbar
+          activeMode={drawMode?.type || "select"}
+          onModeChange={(m: any) => setDrawMode(m)}
+          onAddNote={addNoteAtCenter}
+          onDeleteSelected={deleteSelected}
+          onUndo={undo}
+          onRedo={redo}
+          canUndo={canUndo}
+          canRedo={canRedo}
+          onSetPenColor={(c: string) =>
+            setDrawMode((d: any) => ({ ...d, color: c, type: "pen" }))
+          }
+          onSetPenSize={(s: number) =>
+            setDrawMode((d: any) => ({ ...d, size: s, type: "pen" }))
+          }
+          onDragStart={onDragStart}
+        />
+      </Panel>
 
-      {/* 5. SIDEBAR CHI TIẾT (GIỮ LẠI CỦA HƯNG) */}
+      {/* 5. SIDEBAR CHI TIẾ */}
       {selectedNode && (
-        <div className="absolute right-6 top-6 bottom-6 w-80 bg-white/95 backdrop-blur-md border border-slate-200 rounded-[30px] shadow-2xl p-6 z-[120] flex flex-col">
+        <div className="absolute right-6 top-20 bottom-6 w-80 bg-white/95 backdrop-blur-md border border-slate-200 rounded-[30px] shadow-2xl p-6 z-[120] flex flex-col">
           <div className="flex justify-between items-center mb-6 border-b pb-4">
             <h3 className="font-bold text-slate-800 flex items-center gap-2 italic">
               VNPT SmartFlow Editor

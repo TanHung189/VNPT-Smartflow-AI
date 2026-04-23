@@ -1,4 +1,5 @@
 import { API_URL } from "../env";
+import api from "./api";
 
 // ============================================================
 // KIỂU DỮ LIỆU — Khớp 100% với bảng `so_do` (vnpt_smartflow_v1)
@@ -54,26 +55,16 @@ export interface DiagramListItem {
 // API SERVICE — Gọi backend endpoints quản lý sơ đồ
 // ============================================================
 export const diagramApi = {
-
   /**
    * Lưu sơ đồ mới vào bảng so_do.
    * POST /diagrams/save
    */
   save: async (
     data: DiagramPayload,
-    token: string | null,
+    token?: string | null,
   ): Promise<DiagramApiResponse> => {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-
-    const response = await fetch(`${API_URL}/diagrams/save`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(data),
-    });
-    return response.json();
+    const response = await api.post("/diagrams/save", data);
+    return response.data;
   },
 
   /**
@@ -81,11 +72,8 @@ export const diagramApi = {
    * GET /diagrams/list
    */
   getAll: async (token?: string | null): Promise<DiagramListItem[]> => {
-    const headers: Record<string, string> = {};
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-
-    const response = await fetch(`${API_URL}/diagrams/list`, { headers });
-    return response.json();
+    const response = await api.get("/diagrams/list");
+    return response.data?.data || response.data?.items || response.data;
   },
 
   /**
@@ -93,11 +81,8 @@ export const diagramApi = {
    * GET /diagrams/{id_so_do}
    */
   getById: async (idSoDo: string, token?: string | null): Promise<DiagramApiResponse> => {
-    const headers: Record<string, string> = {};
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-
-    const response = await fetch(`${API_URL}/diagrams/${idSoDo}`, { headers });
-    return response.json();
+    const response = await api.get(`/diagrams/${idSoDo}`);
+    return response.data;
   },
 
   /**
@@ -107,59 +92,40 @@ export const diagramApi = {
   update: async (
     idSoDo: string,
     data: DiagramPayload,
-    token: string | null,
+    token?: string | null,
   ): Promise<DiagramApiResponse> => {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-    };
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-
-    const response = await fetch(`${API_URL}/diagrams/${idSoDo}`, {
-      method: "PUT",
-      headers,
-      body: JSON.stringify(data),
-    });
-    return response.json();
+    const response = await api.put(`/diagrams/${idSoDo}`, data);
+    return response.data;
   },
 
   /**
    * Xóa mềm sơ đồ (đặt ngay_xoa = NOW() ở backend).
    * DELETE /diagrams/{id_so_do}
    */
-  delete: async (idSoDo: string, token: string | null): Promise<{ result: string; message: string }> => {
-    const headers: Record<string, string> = {};
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-
-    const response = await fetch(`${API_URL}/diagrams/${idSoDo}`, {
-      method: "DELETE",
-      headers,
-    });
-    return response.json();
+  delete: async (idSoDo: string, token?: string | null): Promise<{ result: string; message: string }> => {
+    const response = await api.delete(`/diagrams/${idSoDo}`);
+    return response.data;
   },
 
   /**
    * Tạo sơ đồ từ văn bản bằng mô hình AI.
    * POST /api/ai/generate/text
-   * @param currentNodes  Nodes hiện tại (Chat-to-Edit context)
-   * @param currentEdges  Edges hiện tại (Chat-to-Edit context)
    */
   generateFlowText: async (
     text: string,
     provider: string,
     currentNodes?: any[],
     currentEdges?: any[],
+    theLoai?: string,
   ) => {
-    return fetch("http://127.0.0.1:8000/api/ai/generate/text", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        text,
-        provider,
-        // Trưyền cấu trúc dữ liệu hiện tại cho AI nhận biết context (Chat-to-Edit)
-        current_nodes: currentNodes && currentNodes.length > 0 ? currentNodes : undefined,
-        current_edges: currentEdges && currentEdges.length > 0 ? currentEdges : undefined,
-      }),
+    const response = await api.post("/ai/generate/text", {
+      text,
+      provider,
+      the_loai: theLoai || "process",
+      current_nodes: currentNodes && currentNodes.length > 0 ? currentNodes : undefined,
+      current_edges: currentEdges && currentEdges.length > 0 ? currentEdges : undefined,
     });
+    return response.data;
   },
 
   /**
@@ -167,9 +133,36 @@ export const diagramApi = {
    * POST /api/ai/upload-process
    */
   uploadProcessImage: async (formData: FormData) => {
-    return await fetch("http://127.0.0.1:8000/api/ai/upload-process", {
-      method: "POST",
-      body: formData,
+    // Axios requires specific headers for FormData if not set automatically
+    const response = await api.post("/ai/upload-process", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
     });
+    return response.data;
+  },
+
+  // ============================================================
+  // TRASH BIN API (THÙNG RÁC)
+  // ============================================================
+  
+  getTrash: async (token?: string | null): Promise<DiagramListItem[]> => {
+    const response = await api.get("/diagrams/trash/list");
+    return response.data?.data || response.data?.items || response.data;
+  },
+
+  restore: async (idSoDo: string, token?: string | null): Promise<{ result: string; message: string }> => {
+    const response = await api.put(`/diagrams/trash/${idSoDo}/restore`);
+    return response.data;
+  },
+
+  hardDelete: async (idSoDo: string, token?: string | null): Promise<{ result: string; message: string }> => {
+    const response = await api.delete(`/diagrams/trash/${idSoDo}`);
+    return response.data;
+  },
+
+  emptyTrash: async (token?: string | null): Promise<{ result: string; message: string }> => {
+    const response = await api.delete("/diagrams/trash/empty");
+    return response.data;
   },
 };
