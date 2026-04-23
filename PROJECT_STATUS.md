@@ -436,7 +436,7 @@ INSERT INTO vai_tro (ten_vai_tro, mo_ta) VALUES
 ON CONFLICT (ten_vai_tro) DO NOTHING;
 
 INSERT INTO mo_hinh_ai (nha_cung_cap, ten_mo_hinh, mo_ta) VALUES
-('gemini', 'gemini-1.5-flash', 'AI xử lý nhanh trên Cloud'),
+('gemini', 'gemini-3-flash', 'AI xử lý nhanh trên Cloud'),
 ('ollama', 'qwen2.5-coder:3b', 'AI nội bộ bảo mật cao')
 ON CONFLICT (ten_mo_hinh) DO NOTHING;
 $$
