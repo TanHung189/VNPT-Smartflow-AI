@@ -1,4 +1,4 @@
-# 🚀 VNPT SmartFlow AI — Hệ Thống Tạo Sơ Đồ Thông Minh
+# 🚀 Hệ Thống Tạo Sơ Đồ Thông Minh
 
 > **Dự án thực tập tốt nghiệp** — Được đóng gói hoàn toàn bằng Docker, sẵn sàng chạy chỉ với một lệnh duy nhất.
 
