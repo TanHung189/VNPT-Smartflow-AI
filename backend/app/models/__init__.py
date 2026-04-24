@@ -1,7 +1,7 @@
 # =============================================================
 # MODELS PACKAGE — VNPT Smartflow AI
 # Xuất toàn bộ Model SQLAlchemy/SQLModel tương ứng với schema
-# vnpt_smartflow_v1 (tên bảng và cột đầy đủ bằng Tiếng Việt).
+# vnpt_smartflow_v1 
 # =============================================================
 
 from app.models.role import VaiTro
