@@ -235,7 +235,7 @@ class AIService:
         cache_key = f"vnpt:flow:{the_loai}:{prompt_hash}"
 
         try:
-            cached_data = redis_client.get(cache_key)
+            cached_data = await redis_client.get(cache_key)
             if cached_data:
                 logger.info("⚡ [Redis] Cache hit.")
                 return json.loads(cached_data)
@@ -279,7 +279,7 @@ class AIService:
 
         if result:
             try:
-                redis_client.setex(cache_key, 86400, json.dumps(result))
+                await redis_client.setex(cache_key, 86400, json.dumps(result))
             except Exception as e:
                 logger.warning(f"⚠️ Redis write error: {e}")
 

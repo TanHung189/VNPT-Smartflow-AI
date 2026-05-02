@@ -55,7 +55,7 @@ async def init_db():
             print("🌱 Seeding default AI models...")
             gemini = MoHinhAI(
                 nha_cung_cap="gemini",
-                ten_mo_hinh="gemini-1.5-flash",
+                ten_mo_hinh="gemini-3-flash",
                 mo_ta="Google Gemini 1.5 Flash (Cloud)"
             )
             ollama = MoHinhAI(

@@ -31,4 +31,8 @@ class Settings:
     # DATABASE_URL được docker-compose truyền, DB_URL được local .env dùng
     DB_URL: str = os.getenv("DATABASE_URL") or os.getenv("DB_URL", "")
 
+    # OAuth2 Google
+    GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
+    GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
+
 settings = Settings()
