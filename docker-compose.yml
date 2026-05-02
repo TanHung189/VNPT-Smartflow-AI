@@ -1,12 +1,10 @@
-
-
 services:
   postgres:
     image: postgres:15-alpine
     container_name: vnpt_postgres
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-admin}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin@123}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-admin123}
       POSTGRES_DB: ${POSTGRES_DB:-smartflow}
     ports:
       - "5432:5432"
@@ -31,7 +29,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin@123}@postgres:5432/${POSTGRES_DB:-smartflow}
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin123}@postgres:5432/${POSTGRES_DB:-smartflow}
       - REDIS_URL=redis://redis:6379/0
       - OLLAMA_HOST=host.docker.internal:11434
       - SECRET_KEY=${SECRET_KEY:-your-super-secret-key}

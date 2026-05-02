@@ -46,13 +46,13 @@ def _list_cache_key(user_id: str) -> str:
 def _one_cache_key(user_id: str, so_do_id: str) -> str:
     return f"{CACHE_PREFIX_ONE}:{user_id}:{so_do_id}"
 
-def _invalidate_user_cache(user_id: str, so_do_id: Optional[str] = None):
+async def _invalidate_user_cache(user_id: str, so_do_id: Optional[str] = None):
     """Xóa cache Redis sau mỗi thao tác ghi. Lỗi Redis không làm gián đoạn luồng chính."""
     keys = [_list_cache_key(user_id)]
     if so_do_id:
         keys.append(_one_cache_key(user_id, so_do_id))
     try:
-        redis_client.delete(*keys)
+        await redis_client.delete(*keys)
         logger.info(f"[Redis] Đã xóa cache: {keys}")
     except Exception as e:
         logger.warning(f"[Redis] Không thể xóa cache (tiếp tục): {e}")
@@ -96,7 +96,7 @@ async def create_diagram(
         session.add(phien_ban_moi)
         await session.commit()
 
-        _invalidate_user_cache(user_id_str)
+        await _invalidate_user_cache(user_id_str)
         logger.info(f"[DiagramService] Thành công: id_so_do={so_do_moi.id_so_do}")
         return DiagramResponse.model_validate(so_do_moi)
 
@@ -123,7 +123,7 @@ async def get_diagrams_by_user(
 
     # ── Cache HIT ──
     try:
-        cached = redis_client.get(cache_key)
+        cached = await redis_client.get(cache_key)
         if cached:
             logger.info(f"[Redis] Cache HIT: {cache_key}")
             return [DiagramListResponse(**item) for item in json.loads(cached)]
@@ -147,7 +147,7 @@ async def get_diagrams_by_user(
 
         try:
             serializable = [item.model_dump(mode="json") for item in response_list]
-            redis_client.setex(cache_key, CACHE_TTL_SECONDS, json.dumps(serializable))
+            await redis_client.setex(cache_key, CACHE_TTL_SECONDS, json.dumps(serializable))
         except Exception as e:
             logger.warning(f"[Redis] Không lưu cache: {e}")
 
@@ -175,7 +175,7 @@ async def get_diagram_by_id(
 
     # ── Cache HIT ──
     try:
-        cached = redis_client.get(cache_key)
+        cached = await redis_client.get(cache_key)
         if cached:
             logger.info(f"[Redis] Cache HIT: {cache_key}")
             return DiagramResponse(**json.loads(cached))
@@ -198,7 +198,7 @@ async def get_diagram_by_id(
 
         response = DiagramResponse.model_validate(so_do)
         try:
-            redis_client.setex(cache_key, CACHE_TTL_SECONDS, response.model_dump_json())
+            await redis_client.setex(cache_key, CACHE_TTL_SECONDS, response.model_dump_json())
         except Exception as e:
             logger.warning(f"[Redis] Không lưu cache: {e}")
 
@@ -252,7 +252,7 @@ async def update_diagram(
 
         await session.commit()
         await session.refresh(so_do)
-        _invalidate_user_cache(user_id, str(so_do_id))
+        await _invalidate_user_cache(user_id, str(so_do_id))
 
         logger.info(f"[DiagramService] Cập nhật thành công: id_so_do={so_do_id}")
         return DiagramResponse.model_validate(so_do)
@@ -294,7 +294,7 @@ async def delete_diagram(
         # ⭐ Soft Delete — ghi dấu thời gian xóa
         so_do.ngay_xoa = datetime.now(timezone.utc).replace(tzinfo=None)
         await session.commit()
-        _invalidate_user_cache(user_id, str(so_do_id))
+        await _invalidate_user_cache(user_id, str(so_do_id))
 
         logger.info(f"[DiagramService] Đã xóa mềm thành công: id_so_do={so_do_id}")
         return True
@@ -349,7 +349,7 @@ async def restore_diagram(
         so_do.ngay_xoa = None
         so_do.ngay_cap_nhat = datetime.now(timezone.utc).replace(tzinfo=None)
         await session.commit()
-        _invalidate_user_cache(user_id, str(so_do_id))
+        await _invalidate_user_cache(user_id, str(so_do_id))
         return True
     except Exception as e:
         await session.rollback()
@@ -374,7 +374,7 @@ async def hard_delete_diagram(
             
         await session.delete(so_do)
         await session.commit()
-        _invalidate_user_cache(user_id, str(so_do_id))
+        await _invalidate_user_cache(user_id, str(so_do_id))
         return True
     except Exception as e:
         await session.rollback()
@@ -398,7 +398,7 @@ async def empty_trash(
             await session.delete(so_do)
             
         await session.commit()
-        _invalidate_user_cache(user_id)
+        await _invalidate_user_cache(user_id)
         return True
     except Exception as e:
         await session.rollback()
