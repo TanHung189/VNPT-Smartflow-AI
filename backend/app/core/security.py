@@ -16,7 +16,7 @@ if not hasattr(bcrypt, "__about__"):
     bcrypt.__about__ = _About()
 
 from passlib.context import CryptContext            # Thư viện chuyên dụng để mã hóa mật khẩu
-from app.core.config import Settings
+from app.core.config import settings
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
@@ -36,18 +36,18 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 def create_access_token(subject: Union[str, Any]) -> str:
 
     # Tính toán thời điểm Token này sẽ hết hạn
-    expire = datetime.utcnow() + timedelta(minutes=Settings.ACCESS_TOKEN_EXPIRE_MINUTES)
- 
+    expire = datetime.utcnow() + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+
     # Payload: Dữ liệu nằm bên trong Token (chứa ID user và thời hạn)
     to_encode = {
-        "exp": expire,             
-        "sub": str(subject)        
+        "exp": expire,
+        "sub": str(subject)
     }
     # Tiến hành đóng gói và ký tên bằng chìa khóa SECRET_KEY
     encoded_jwt = jwt.encode(
-        to_encode, 
-        Settings.JWT_SECRET_KEY,        
-        algorithm=Settings.ALGORITHM 
+        to_encode,
+        settings.JWT_SECRET_KEY,
+        algorithm=settings.ALGORITHM
     )
-    
+
     return encoded_jwt

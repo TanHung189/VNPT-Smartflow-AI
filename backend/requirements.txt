@@ -1,4 +1,4 @@
-﻿# ── SERVER ──
+# ── SERVER ──
 fastapi==0.133.1
 uvicorn==0.41.0
 starlette==0.52.1
@@ -31,7 +31,7 @@ python-dotenv==1.2.1
 pydantic-settings           # Bắt buộc cho Pydantic v2 BaseSettings
 
 # ── GOOGLE API (OAuth2) ──
-google-auth==2.49.0.dev0
+google-auth==2.38.0
 google-auth-httplib2==0.3.0
 google-api-python-client==2.190.0
 

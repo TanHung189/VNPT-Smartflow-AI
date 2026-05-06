@@ -6,7 +6,7 @@ from sqlmodel import select
 from app.database.session import get_db
 from app.models import NguoiDung
 from app.models.role import VaiTro
-from app.core.config import Settings
+from app.core.config import settings
 import uuid
 
 # Khai báo endpoint để FastAPI lấy Bearer Token từ Header Authorization
@@ -29,7 +29,7 @@ async def get_current_user(
 
     try:
         # Giải mã token bằng SECRET_KEY đã cấu hình
-        payload = jwt.decode(token, Settings.JWT_SECRET_KEY, algorithms=[Settings.ALGORITHM])
+        payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.ALGORITHM])
 
         # Lấy id_nguoi_dung từ trường 'sub' trong payload
         user_id_str: str = payload.get("sub")

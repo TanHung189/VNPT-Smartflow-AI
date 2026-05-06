@@ -45,9 +45,8 @@ app.add_middleware(
 )
 
 @app.middleware("http")
-async def add_coop_header(request: Request, call_next):
+async def add_security_headers(request: Request, call_next):
     response = await call_next(request)
-    # Thêm header này để trình duyệt cho phép popup của Google giao tiếp với web của em
     response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
     return response
 app.include_router(api_router, prefix="/api")
@@ -55,7 +54,7 @@ app.include_router(api_router, prefix="/api")
 if __name__ == "__main__":
     uvicorn.run(
         "main:app",
-        host="127.0.0.1",
+        host="0.0.0.0",
         port=settings.PORT,
         reload=True,
     )
