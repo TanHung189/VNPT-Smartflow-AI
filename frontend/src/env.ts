@@ -1,15 +1,20 @@
 // frontend/src/env.ts
 
-const getEnv = (craKey: string, viteKey: string, fallback: string) => {
-  // Dành cho Create React App (npm start / craco)
+const getEnv = (craKey: string, viteKey: string, fallback: string): string => {
+  // 1. Dành cho Vite (VITE_ prefix, injected at build time via import.meta.env)
+  try {
+    const viteVal = (import.meta as any).env?.[viteKey];
+    if (viteVal) return viteVal as string;
+  } catch (e) {}
+
+  // 2. Dành cho Create React App (REACT_APP_ prefix, via process.env)
   try {
     if (typeof process !== "undefined" && process.env && process.env[craKey]) {
       return process.env[craKey] as string;
     }
   } catch (e) {}
 
-
-  // Fallback mặc định
+  // 3. Fallback mặc định (local dev)
   return fallback;
 };
 
@@ -18,7 +23,7 @@ export const env = {
   API_BASE_URL: getEnv(
     "REACT_APP_API_BASE_URL",
     "VITE_API_BASE_URL",
-    "http://127.0.0.1:8000/api", // ✅ Đã thêm /api vào fallback
+    "http://localhost:8000/api",
   ),
 
   // Google Client ID (an toàn để hardcode ở frontend, không phải secret)

@@ -9,7 +9,7 @@
 **VNPT SmartFlow AI** là nền tảng tạo và quản lý sơ đồ thông minh (flowchart, ERD, sequence diagram, v.v.) được hỗ trợ bởi trí tuệ nhân tạo (Gemini AI & Ollama). Hệ thống bao gồm:
 
 - **Backend**: FastAPI + PostgreSQL + Redis + Alembic (migrations)
-- **Frontend**: React (TypeScript) + React Flow + Vite — được serve bởi Nginx
+- **Frontend**: React (TypeScript) + React Flow + CRACO — được serve bởi Nginx
 - **AI Engine**: Tích hợp Google Gemini API và Ollama (LLM cục bộ)
 
 Toàn bộ hệ thống **được đóng gói hoàn chỉnh bằng Docker Compose**, bao gồm cả việc tự động hoá migration cơ sở dữ liệu.
@@ -18,10 +18,10 @@ Toàn bộ hệ thống **được đóng gói hoàn chỉnh bằng Docker Compo
 
 ## ✅ Yêu Cầu Hệ Thống
 
-| Công cụ | Phiên bản tối thiểu |
-|---|---|
-| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | ≥ 4.x |
-| [Ollama](https://ollama.com/) | Bất kỳ (cần chạy trên máy host) |
+| Công cụ                                                           | Phiên bản tối thiểu             |
+| ----------------------------------------------------------------- | ------------------------------- |
+| [Docker Desktop](https://www.docker.com/products/docker-desktop/) | ≥ 4.x                           |
+| [Ollama](https://ollama.com/)                                     | Bất kỳ (cần chạy trên máy host) |
 
 ---
 
@@ -93,12 +93,12 @@ uvicorn app.main:app   ← Khởi động FastAPI server
 
 Sau khi `docker-compose up --build` hoàn tất, truy cập các địa chỉ sau trên trình duyệt:
 
-| Dịch vụ | URL | Mô tả |
-|---|---|---|
-| 🖥️ **Frontend (Giao diện)** | http://localhost:5173 | Ứng dụng React chính |
-| ⚙️ **Backend API** | http://localhost:8000 | FastAPI REST API |
-| 📖 **API Docs (Swagger)** | http://localhost:8000/docs | Tài liệu API tương tác |
-| 📖 **API Docs (ReDoc)** | http://localhost:8000/redoc | Tài liệu API thay thế |
+| Dịch vụ                     | URL                         | Mô tả                  |
+| --------------------------- | --------------------------- | ---------------------- |
+| 🖥️ **Frontend (Giao diện)** | http://localhost:5173       | Ứng dụng React chính   |
+| ⚙️ **Backend API**          | http://localhost:8000       | FastAPI REST API       |
+| 📖 **API Docs (Swagger)**   | http://localhost:8000/docs  | Tài liệu API tương tác |
+| 📖 **API Docs (ReDoc)**     | http://localhost:8000/redoc | Tài liệu API thay thế  |
 
 ---
 
@@ -136,13 +136,12 @@ VNPT-Smartflow-AI/
 
 ## 🔑 Biến Môi Trường Quan Trọng (`.env`)
 
-| Biến | Mô tả |
-|---|---|
-| `POSTGRES_USER` | Tên đăng nhập PostgreSQL |
-| `POSTGRES_PASSWORD` | Mật khẩu PostgreSQL |
-| `POSTGRES_DB` | Tên database |
-| `SECRET_KEY` | Khoá bí mật JWT |
-| `GEMINI_API_KEYS` | Google Gemini API Key(s) |
+| Biến                | Mô tả                    |
+| ------------------- | ------------------------ |
+| `POSTGRES_USER`     | Tên đăng nhập PostgreSQL |
+| `POSTGRES_PASSWORD` | Mật khẩu PostgreSQL      |
+| `POSTGRES_DB`       | Tên database             |
+| `SECRET_KEY`        | Khoá bí mật JWT          |
+| `GEMINI_API_KEYS`   | Google Gemini API Key(s) |
 
 ---
-

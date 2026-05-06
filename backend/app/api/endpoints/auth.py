@@ -7,7 +7,7 @@ from app.schemas import UserCreate, Token, GoogleLoginRequest
 from app.core.security import get_password_hash, create_access_token, verify_password
 from fastapi.security import OAuth2PasswordRequestForm
 from typing import Optional
-import uuid
+import secrets
 from google.oauth2 import id_token
 from google.auth.transport import requests as google_requests
 from app.core.config import settings
@@ -169,10 +169,15 @@ async def dang_nhap_google(request: GoogleLoginRequest, session: AsyncSession = 
         if not nguoi_dung:
             # 3. Lần đầu đăng nhập bằng Google → Tự động tạo tài khoản nhân viên
             id_vai_tro_nv = await _lay_id_vai_tro(session, "nhan_vien")
+            # FIX: Dùng secrets.token_urlsafe(32) thay uuid4() để đảm bảo
+            # mật khẩu dummy luôn < 72 byte (giới hạn bcrypt).
+            # uuid4() an toàn (36 chars) nhưng token_urlsafe(32) = 43 chars,
+            # semantically rõ ràng hơn và không bao giờ có thể vượt giới hạn.
+            dummy_password = secrets.token_urlsafe(32)
             nguoi_dung = NguoiDung(
                 ten_nguoi_dung=ten or "Người dùng Google",
                 email=email,
-                mat_khau_ma_hoa=get_password_hash(str(uuid.uuid4())),  # Mật khẩu ngẫu nhiên
+                mat_khau_ma_hoa=get_password_hash(dummy_password),
                 id_vai_tro=id_vai_tro_nv,
                 trang_thai_hoat_dong=True,
                 anh_dai_dien=anh,

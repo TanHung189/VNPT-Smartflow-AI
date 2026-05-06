@@ -14,4 +14,12 @@ module.exports = {
       return webpackConfig;
     },
   },
+  // FIX: Thêm headers COOP/COEP để cho phép Google Login popup giao tiếp
+  // qua window.postMessage mà không bị trình duyệt chặn.
+  devServer: {
+    headers: {
+      "Cross-Origin-Opener-Policy": "unsafe-none",
+      "Cross-Origin-Embedder-Policy": "unsafe-none",
+    },
+  },
 };
