@@ -34,6 +34,9 @@ class NguoiDung(Base, table=True):
     # Mật khẩu đã được băm (hash) — None nếu đăng nhập bằng OAuth2
     mat_khau_ma_hoa: Optional[str] = Field(default=None)
 
+    # Mã nhân viên trong hệ thống VNPT (duy nhất)
+    ma_nhan_vien: Optional[str] = Field(default=None, max_length=50, unique=True)
+
     # Khóa ngoại trỏ tới bảng vai_tro
     id_vai_tro: Optional[int] = Field(default=None, foreign_key="vai_tro.id_vai_tro")
 

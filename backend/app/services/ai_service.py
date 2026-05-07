@@ -255,8 +255,13 @@ class AIService:
                     # Gán model name dynamic để override .env if supported
                     if nha_cung_cap == "ollama":
                         self.ollama_model = db_model.ten_mo_hinh
+                        if db_model.endpoint_url:
+                            self.ollama_url = db_model.endpoint_url
                     elif nha_cung_cap == "gemini":
                         self.model_name = db_model.ten_mo_hinh
+                        
+                    # Lưu tham số cấu hình vào instance nếu cần thiết ở hàm gọi
+                    self._current_config = db_model.tham_so_cau_hinh or {}
         except Exception as e:
             logger.error(f"[AI] Lỗi query DB model: {e}")
 
@@ -340,7 +345,7 @@ class AIService:
                 "prompt": strict_prompt,
                 "stream": False,
                 "format": "json",
-                "options": {
+                "options": self._current_config if hasattr(self, "_current_config") and self._current_config else {
                     "temperature": 0.2
                 }
             }

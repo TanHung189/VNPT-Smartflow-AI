@@ -81,6 +81,7 @@ async def create_diagram(
             the_loai=getattr(data, "the_loai", "flowchart"),
             du_lieu_so_do=data.du_lieu_so_do,
             la_noi_bo=data.la_noi_bo,
+            mo_ta_ngan=getattr(data, "mo_ta_ngan", None),
             van_ban_dau_vao=getattr(data, "van_ban_dau_vao", None),
             anh_thu_nho=getattr(data, "anh_thu_nho", None),
         )
@@ -238,6 +239,7 @@ async def update_diagram(
         so_do.tieu_de       = data.tieu_de
         so_do.du_lieu_so_do = data.du_lieu_so_do
         so_do.la_noi_bo     = data.la_noi_bo
+        so_do.mo_ta_ngan    = getattr(data, "mo_ta_ngan", so_do.mo_ta_ngan)
         so_do.ngay_cap_nhat = datetime.now(timezone.utc).replace(tzinfo=None)
         
         if getattr(data, "anh_thu_nho", None) is not None:

@@ -45,6 +45,15 @@ class NhatKySuDungAI(Base, table=True):
     # Trạng thái kết quả: 'success', 'error', 'timeout', v.v.
     trang_thai: Optional[str] = Field(default=None, max_length=20)
 
+    # Câu lệnh prompt người dùng gửi (TEXT)
+    cau_lenh_prompt: Optional[str] = None
+
+    # Mã sơ đồ tương ứng
+    id_so_do: Optional[uuid.UUID] = Field(
+        default=None,
+        sa_column=Column(UUID(as_uuid=True), nullable=True)
+    )
+
     # Thời điểm ghi nhật ký
     ngay_tao: datetime = Field(default_factory=datetime.utcnow)
 

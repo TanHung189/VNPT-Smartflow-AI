@@ -18,6 +18,7 @@ import {
   NodeProps,
   useReactFlow,
   NodeResizer,
+  NodeToolbar,
 } from "@xyflow/react";
 import { Badge } from "../../../components/ui/badge";
 import { Separator } from "../../../components/ui/separator";
@@ -40,6 +41,8 @@ import {
   Briefcase,
   Network,
   Box,
+  Edit2,
+  Trash2,
 } from "lucide-react";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -158,7 +161,10 @@ const LEVEL_CONFIG: Record<
   },
 };
 
-const OrgNodeComponent = ({ data, selected }: NodeProps) => {
+const OrgNodeComponent = ({ id, data, selected }: NodeProps) => {
+  const { setNodes } = useReactFlow();
+  const [isEditing, setIsEditing] = React.useState(false);
+
   const d = data as unknown as OrgNodeData;
   const level = d.level ?? "staff";
 
@@ -193,9 +199,23 @@ const OrgNodeComponent = ({ data, selected }: NodeProps) => {
           </div>
 
           <div className="min-w-0 flex-1">
-            <p className="text-sm font-extrabold text-slate-800 leading-tight truncate font-['Inter']">
-              {d.label}
-            </p>
+            {isEditing ? (
+              <textarea
+                className="w-full text-sm font-extrabold text-slate-800 bg-white/60 border border-slate-300 rounded outline-none resize-none nodrag nowheel p-1"
+                value={d.label}
+                autoFocus
+                onChange={(e) => setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, label: e.target.value } } : n))}
+                onBlur={() => setIsEditing(false)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); setIsEditing(false); }
+                }}
+                rows={2}
+              />
+            ) : (
+              <p onDoubleClick={() => setIsEditing(true)} className="text-sm font-extrabold text-slate-800 leading-tight truncate font-['Inter'] cursor-pointer hover:text-blue-600 transition-colors">
+                {d.label}
+              </p>
+            )}
             {d.position_title && (
               <p className="text-[11px] text-slate-500 mt-0.5 truncate">
                 {d.position_title}
@@ -240,6 +260,13 @@ const OrgNodeComponent = ({ data, selected }: NodeProps) => {
           </span>
         </div>
       </div>
+
+      <NodeToolbar isVisible={selected} position={Position.Top}>
+        <div className="flex bg-white rounded-lg shadow-lg border border-slate-200 p-1 gap-1 mb-1">
+          <button onClick={() => setIsEditing(!isEditing)} className="p-1.5 hover:bg-slate-100 rounded text-blue-600"><Edit2 size={14}/></button>
+          <button onClick={() => setNodes((nds) => nds.filter((n) => n.id !== id))} className="p-1.5 hover:bg-red-50 rounded text-red-600"><Trash2 size={14}/></button>
+        </div>
+      </NodeToolbar>
 
       {/* Handles */}
       <Handle
@@ -306,7 +333,10 @@ const LAYER_CONFIG: Record<
   },
 };
 
-const LayerNodeComponent = ({ data, selected }: NodeProps) => {
+const LayerNodeComponent = ({ id, data, selected }: NodeProps) => {
+  const { setNodes } = useReactFlow();
+  const [isEditing, setIsEditing] = React.useState(false);
+
   const d = data as unknown as LayerNodeData;
   const type = d.layer_type ?? "generic";
 
@@ -346,9 +376,23 @@ const LayerNodeComponent = ({ data, selected }: NodeProps) => {
             <p className="text-[9px] font-black uppercase tracking-widest text-slate-500">
               {cfg.label_vn}
             </p>
-            <p className="text-sm font-extrabold text-slate-800 leading-tight">
-              {d.label}
-            </p>
+            {isEditing ? (
+              <textarea
+                className="w-full text-sm font-extrabold text-slate-800 bg-white/60 border border-slate-300 rounded outline-none resize-none nodrag nowheel p-1"
+                value={d.label}
+                autoFocus
+                onChange={(e) => setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, label: e.target.value } } : n))}
+                onBlur={() => setIsEditing(false)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); setIsEditing(false); }
+                }}
+                rows={2}
+              />
+            ) : (
+              <p onDoubleClick={() => setIsEditing(true)} className="text-sm font-extrabold text-slate-800 leading-tight cursor-pointer hover:text-blue-600 transition-colors">
+                {d.label}
+              </p>
+            )}
           </div>
         </div>
 
@@ -397,6 +441,13 @@ const LayerNodeComponent = ({ data, selected }: NodeProps) => {
           style={{ top: "50%" }}
         />
       </div>
+
+      <NodeToolbar isVisible={selected} position={Position.Top}>
+        <div className="flex bg-white rounded-lg shadow-lg border border-slate-200 p-1 gap-1 mb-1">
+          <button onClick={() => setIsEditing(!isEditing)} className="p-1.5 hover:bg-slate-100 rounded text-blue-600"><Edit2 size={14}/></button>
+          <button onClick={() => setNodes((nds) => nds.filter((n) => n.id !== id))} className="p-1.5 hover:bg-red-50 rounded text-red-600"><Trash2 size={14}/></button>
+        </div>
+      </NodeToolbar>
     </>
   );
 };
@@ -646,7 +697,10 @@ const PROCESS_TYPE_STYLE: Record<
   },
 };
 
-const ProcessNodeComponent = ({ data, selected }: NodeProps) => {
+const ProcessNodeComponent = ({ id, data, selected }: NodeProps) => {
+  const { setNodes } = useReactFlow();
+  const [isEditing, setIsEditing] = React.useState(false);
+
   const d = data as unknown as ProcessNodeData;
   const pType = d.process_type ?? "step";
 
@@ -770,9 +824,23 @@ const ProcessNodeComponent = ({ data, selected }: NodeProps) => {
                 {d.document_ref}
               </p>
             )}
-            <p className="text-sm font-extrabold text-slate-800 leading-tight">
-              {d.label}
-            </p>
+            {isEditing ? (
+              <textarea
+                className="w-full text-sm font-extrabold text-slate-800 bg-white/60 border border-slate-300 rounded outline-none resize-none nodrag nowheel p-1"
+                value={d.label}
+                autoFocus
+                onChange={(e) => setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, label: e.target.value } } : n))}
+                onBlur={() => setIsEditing(false)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); setIsEditing(false); }
+                }}
+                rows={2}
+              />
+            ) : (
+              <p onDoubleClick={() => setIsEditing(true)} className="text-sm font-extrabold text-slate-800 leading-tight cursor-pointer hover:text-blue-600 transition-colors">
+                {d.label}
+              </p>
+            )}
           </div>
         </div>
 

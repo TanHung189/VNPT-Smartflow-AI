@@ -21,6 +21,8 @@ export interface AiModelDTO {
   ten_mo_hinh: string;
   mo_ta?: string;
   trang_thai_hoat_dong: boolean;
+  endpoint_url?: string;
+  tham_so_cau_hinh?: string | Record<string, any>;
   ngay_tao?: string;
 }
 
@@ -42,6 +44,7 @@ export interface UserAdminDTO {
   ten_nguoi_dung: string;
   email: string;
   ten_phong_ban?: string;
+  ma_nhan_vien?: string;
   trang_thai_hoat_dong: boolean;
   ngay_tao: string;
   id_vai_tro?: number;

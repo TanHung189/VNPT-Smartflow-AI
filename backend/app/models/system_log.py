@@ -38,11 +38,8 @@ class NhatKyHeThong(Base, table=True):
     # Tên bảng bị ảnh hưởng (ví dụ: 'so_do', 'nguoi_dung')
     bang_bi_anh_huong: Optional[str] = Field(default=None, max_length=50)
 
-    # ID bản ghi bị ảnh hưởng (UUID dạng text để linh hoạt)
-    id_ban_ghi: Optional[uuid.UUID] = Field(
-        default=None,
-        sa_column=Column(UUID(as_uuid=True), nullable=True)
-    )
+    # ID bản ghi bị ảnh hưởng (dạng string để linh hoạt)
+    id_ban_ghi: Optional[str] = Field(default=None, max_length=50)
 
     # Chi tiết bổ sung dạng JSON (trước/sau thay đổi, v.v.)
     chi_tiet: Optional[Dict] = Field(

@@ -16,10 +16,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { getDiagramConfig, DIAGRAM_CONFIGS, type SamplePrompt } from "../../features/flow/diagramConfig";
 import { AdminApi, AiModelDTO } from "../../services/adminApi";
 
+interface ReactFlowAIPayload {
+  success: boolean;
+  errorMsg?: string;
+}
+
 interface AiSidebarLeftProps {
   isOpen: boolean;
   onClose: () => void;
-  onGenerate: (text: string, provider: string) => Promise<boolean>;
+  onGenerate: (text: string, provider: string) => Promise<ReactFlowAIPayload>;
   onUpload: (file: File, provider: string) => Promise<boolean>;
   loading: boolean;
   provider: string;
@@ -49,8 +54,19 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
   const [showPrompts, setShowPrompts] = useState(true);
   const [activeModels, setActiveModels] = useState<AiModelDTO[]>([]);
   const [isModelsLoading, setIsModelsLoading] = useState(true);
+  const [isDark, setIsDark] = useState(false); // Global Theme state for Chatbot
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Dynamic Theme Mapping
+  const theme = {
+    bg: isDark ? "bg-slate-900" : "bg-white/95",
+    textObj: isDark ? "text-slate-100" : "text-slate-800",
+    border: isDark ? "border-slate-800" : "border-slate-200/50",
+    bubbleAI: isDark ? "bg-slate-800 text-slate-100 border-slate-700" : "bg-slate-100/80 text-slate-800 border-slate-200/70",
+    inputBox: isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-200",
+    textInput: isDark ? "text-white placeholder:text-slate-500" : "text-slate-700 placeholder:text-slate-300",
+  };
 
   // Get context-aware config for current diagram type
   const cfg = useMemo(() => getDiagramConfig(diagramType), [diagramType]);
@@ -102,16 +118,26 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
     setText("");
     if (textareaRef.current) textareaRef.current.style.height = "auto";
     
-    const success = await onGenerate(currentText, provider);
-    if (success) {
+    const result = await onGenerate(currentText, provider);
+    if (result.success) {
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now().toString(),
           role: "ai",
-          content: "✅ Đã tạo sơ đồ thành công! Bạn có thể chỉnh sửa hoặc tiếp tục mô tả.",
+          content: "✅ Đã phân tích JSON và tự động vẽ sơ đồ lên Canvas! Bạn có thể chỉnh sửa trực tiếp hoặc yêu cầu tôi điều chỉnh.",
         },
       ]);
+    } else {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: "ai",
+          content: `❌ ${result.errorMsg || "Lỗi tạo sơ đồ."}`,
+        },
+      ]);
+      setShowPrompts(true); // Bring back samples for recovery
     }
   };
 
@@ -129,14 +155,23 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
       { id: Date.now().toString(), role: "user", content: sample.title },
     ]);
     setShowPrompts(false);
-    const success = await onGenerate(sample.prompt, provider);
-    if (success) {
+    const result = await onGenerate(sample.prompt, provider);
+    if (result.success) {
       setMessages((prev) => [
         ...prev,
         {
           id: Date.now().toString(),
           role: "ai",
-          content: "✅ Đã tạo sơ đồ thành công! Bạn có thể chỉnh sửa hoặc tiếp tục mô tả.",
+          content: "✅ Sơ đồ từ mẫu đang được tự động render lên Canvas!",
+        },
+      ]);
+    } else {
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: "ai",
+          content: `❌ Không thể thiết lập mẫu: ${result.errorMsg}`,
         },
       ]);
     }
@@ -150,16 +185,16 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
           animate={{ x: 0 }}
           exit={{ x: "-100%" }}
           transition={{ type: "spring", stiffness: 260, damping: 25 }}
-          className="fixed left-0 top-0 h-screen w-80 lg:w-[360px] bg-white/95 backdrop-blur-xl border-r border-slate-200/50 shadow-2xl flex flex-col z-[50]"
+          className={`fixed left-0 top-0 h-screen w-80 lg:w-[360px] ${theme.bg} backdrop-blur-xl border-r ${theme.border} shadow-2xl flex flex-col z-[50] transition-colors duration-300`}
         >
           {/* ─── HEADER ─── */}
-          <div className="h-14 border-b border-slate-100 flex justify-between items-center px-4 bg-white/60">
+          <div className="h-14 border-b border-slate-100 flex justify-between items-center px-4 bg-transparent">
             <div className="flex items-center gap-3">
               <div className="p-1.5 bg-gradient-to-tr from-[#003087] to-[#0066cc] rounded-lg shadow-sm">
                 <Bot className="text-white w-4 h-4" />
               </div>
               <div>
-                <h3 className="font-extrabold tracking-tight text-slate-800 text-sm leading-none">
+                <h3 className={`font-extrabold tracking-tight text-sm leading-none ${theme.textObj}`}>
                   SmartFlow AI
                 </h3>
                 <p className={`text-[10px] font-semibold mt-0.5 ${cfg.color}`}>
@@ -167,12 +202,20 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
                 </p>
               </div>
             </div>
-            <button
-              onClick={onClose}
-              className="p-1.5 hover:bg-slate-100 text-slate-400 rounded-lg transition-colors"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => setIsDark(!isDark)}
+                className={`p-1.5 rounded-lg transition-colors text-xs font-bold ${isDark ? "bg-slate-800 text-yellow-400" : "bg-slate-100 text-slate-500"}`}
+              >
+                {isDark ? "🌙" : "☀️"}
+              </button>
+              <button
+                onClick={onClose}
+                className="p-1.5 hover:bg-slate-200/50 text-slate-400 rounded-lg transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
 
           {/* ─── DYNAMIC PROVIDER TOGGLE ─── */}
@@ -219,7 +262,7 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
                   className={`px-3 py-2.5 rounded-2xl text-sm leading-relaxed ${
                     msg.role === "user"
                       ? "bg-gradient-to-br from-[#003087] to-[#0066cc] text-white rounded-br-sm shadow-md"
-                      : "bg-slate-100/80 text-slate-800 rounded-bl-sm border border-slate-200/70"
+                      : `${theme.bubbleAI} rounded-bl-sm border`
                   }`}
                 >
                   <p className="whitespace-pre-wrap">{msg.content}</p>
@@ -289,16 +332,20 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
 
             {/* AI Thinking indicator */}
             {loading && (
-              <div className="flex flex-col self-start items-start max-w-[85%] mt-2">
+              <div className="flex flex-col self-start items-start mt-2">
                 <span className="text-[10px] font-bold text-slate-400 mb-1 ml-1">
                   SmartFlow
                 </span>
                 <div
-                  className={`px-3 py-2.5 rounded-2xl rounded-bl-sm ${cfg.bgColor} border ${cfg.borderColor} flex items-center gap-2`}
+                  className={`px-3 py-2 rounded-2xl rounded-bl-sm ${theme.bubbleAI} border flex items-center h-[34px]`}
                 >
-                  <Loader2 className={`w-4 h-4 animate-spin ${cfg.color}`} />
-                  <span className="text-slate-600 font-medium text-xs">
-                    {cfg.aiRole} đang phân tích...
+                  <div className="flex gap-1 items-center">
+                    <span className="w-1.5 h-1.5 bg-[#0066cc] rounded-full animate-bounce [animation-delay:-0.3s]"></span>
+                    <span className="w-1.5 h-1.5 bg-[#0066cc] rounded-full animate-bounce [animation-delay:-0.15s]"></span>
+                    <span className="w-1.5 h-1.5 bg-[#0066cc] rounded-full animate-bounce"></span>
+                  </div>
+                  <span className="text-[11px] ml-3 text-[#0066cc] font-semibold italic">
+                    AI đang trích xuất JSON...
                   </span>
                 </div>
               </div>
@@ -308,9 +355,9 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
           </div>
 
           {/* ─── CHAT INPUT ─── */}
-          <div className="p-3 pt-2 bg-white/60 border-t border-slate-200/50">
-            <div className="relative flex items-end gap-2 bg-white border border-slate-200 rounded-xl p-1.5 shadow-sm focus-within:ring-2 focus-within:ring-[#0066cc]/20 transition-all">
-              <label className="p-2 hover:bg-slate-100 rounded-lg text-slate-400 hover:text-[#0066cc] cursor-pointer transition-colors">
+          <div className={`p-3 pt-2 bg-transparent border-t ${theme.border}`}>
+            <div className={`relative flex items-end gap-2 ${theme.inputBox} border rounded-xl p-1.5 shadow-sm focus-within:ring-2 focus-within:ring-[#0066cc]/30 transition-all`}>
+              <label className="p-2 hover:bg-slate-400/20 rounded-lg text-slate-400 hover:text-[#0066cc] cursor-pointer transition-colors">
                 <FileUp size={15} />
                 <input
                   type="file"
@@ -327,7 +374,7 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
                       if (success) {
                         setMessages((prev) => [
                           ...prev,
-                          { id: Date.now().toString(), role: "ai", content: "✅ Đã phân tích file và tạo sơ đồ thành công!" },
+                          { id: Date.now().toString(), role: "ai", content: "✅ Đã phân tích nội dung file, tự động layout sơ đồ hoàn tất!" },
                         ]);
                       }
                     }
@@ -345,7 +392,7 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
                 }}
                 onKeyDown={handleKeyDown}
                 placeholder={cfg.placeholderInfo || `Mô tả ${cfg.label.toLowerCase()}...`}
-                className="flex-1 max-h-[120px] min-h-[40px] px-2 py-2.5 bg-transparent outline-none resize-none text-sm text-slate-700 placeholder:text-slate-300"
+                className={`flex-1 max-h-[120px] min-h-[40px] px-2 py-2.5 bg-transparent outline-none resize-none text-sm ${theme.textInput}`}
                 rows={1}
                 disabled={loading}
               />

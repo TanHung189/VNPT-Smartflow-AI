@@ -22,6 +22,8 @@ export const AiModelManagement: React.FC = () => {
     ten_mo_hinh: "",
     mo_ta: "",
     trang_thai_hoat_dong: true,
+    endpoint_url: "",
+    tham_so_cau_hinh: "",
   });
 
   const fetchModels = async () => {
@@ -155,7 +157,7 @@ export const AiModelManagement: React.FC = () => {
           <button
             onClick={() => {
               setEditingModel(null);
-              setFormData({ nha_cung_cap: "gemini", ten_mo_hinh: "", mo_ta: "", trang_thai_hoat_dong: true });
+              setFormData({ nha_cung_cap: "gemini", ten_mo_hinh: "", mo_ta: "", trang_thai_hoat_dong: true, endpoint_url: "", tham_so_cau_hinh: "" });
               setIsDialogOpen(true);
             }}
             className="flex items-center gap-2 bg-[#0066b3] hover:bg-blue-800 text-white px-4 py-2 rounded-lg font-bold shadow-sm transition-all"
@@ -269,6 +271,28 @@ export const AiModelManagement: React.FC = () => {
                   value={formData.mo_ta || ""}
                   onChange={(e) => setFormData({ ...formData, mo_ta: e.target.value })}
                   className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm resize-none focus:ring-2 focus:ring-blue-500/20 outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Endpoint URL (Bỏ trống dùng mặc định)</label>
+                <input
+                  type="text"
+                  placeholder="VD: http://100.100.x.x:11434/api/generate"
+                  value={formData.endpoint_url || ""}
+                  onChange={(e) => setFormData({ ...formData, endpoint_url: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:ring-2 focus:ring-blue-500/20 outline-none"
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Tham số cấu hình (JSON optional)</label>
+                <textarea
+                  rows={2}
+                  placeholder='VD: {"temperature": 0.2}'
+                  value={typeof formData.tham_so_cau_hinh === "object" ? JSON.stringify(formData.tham_so_cau_hinh) : formData.tham_so_cau_hinh || ""}
+                  onChange={(e) => setFormData({ ...formData, tham_so_cau_hinh: e.target.value })}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm resize-none focus:ring-2 focus:ring-blue-500/20 outline-none font-mono"
                 />
               </div>
 
