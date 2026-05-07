@@ -418,8 +418,8 @@ export const useFlowLogic = () => {
       currentNodes?: Node[],
       currentEdges?: Edge[],
       diagramType?: string,
-    ) => {
-      if (!text) return;
+    ): Promise<{ success: boolean; errorMsg?: string }> => {
+      if (!text) return { success: false, errorMsg: "Prompt rỗng." };
       setIsGenerating(true);
       try {
         const response = await diagramApi.generateFlowText(
@@ -427,7 +427,7 @@ export const useFlowLogic = () => {
           provider,
           currentNodes,
           currentEdges,
-          diagramType,   // ← pass the_loai to backend for Context-Aware prompt
+          diagramType,
         );
 
         const resData = response;
@@ -437,10 +437,7 @@ export const useFlowLogic = () => {
           console.log("[useFlowLogic] Normalized:", normalized);
 
           if (!normalized.nodes || normalized.nodes.length === 0) {
-            toast.warning(
-              "AI trả về dữ liệu trống. Vui lòng thử lại với prompt chi tiết hơn.",
-            );
-            return false;
+            return { success: false, errorMsg: "AI trả về dữ liệu trống. Vui lòng thử lại với prompt chi tiết hơn." };
           }
 
           // ─ Auto-layout direction based on diagram type ─
@@ -449,24 +446,23 @@ export const useFlowLogic = () => {
             normalized.edges,
             diagramType || "logic",
           );
+          // TRỰC TIẾP RENDER SƠ ĐỒ LÊN CANVAS THÔNG QUA THAO TÁC STATE
           setNodes(lNodes as Node[]);
           setEdges(lEdges as Edge[]);
           setTimeout(() => fitView({ padding: 0.2, duration: 800 }), 50);
           setTimeout(takeSnapshot, 100);
-          return true;
+          return { success: true };
         } else {
-          toast.error(resData.message ?? "AI không thể xử lý yêu cầu này.");
-          return false;
+          return { success: false, errorMsg: resData.message ?? "AI không thể xử lý yêu cầu định dạng lược đồ, vui lòng cung cấp phân rã chi tiết hơn." };
         }
       } catch (error) {
-        console.error(error);
-        toast.error("Lỗi kết nối tới AI backend. Kiểm tra lại server.");
-        return false;
+        console.error("AI Generate Error Pipeline:", error);
+        return { success: false, errorMsg: "Lỗi phân tích JSON hoặc mất kết nối tới AI backend. Xin hãy thử lại với một prompt cô đọng hơn." };
       } finally {
         setIsGenerating(false);
       }
     },
-    [setNodes, setEdges, takeSnapshot],
+    [setNodes, setEdges, takeSnapshot, fitView],
   );
 
   const uploadFileAndGenerate = useCallback(

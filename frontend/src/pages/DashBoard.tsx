@@ -64,8 +64,9 @@ export const DashBoard: React.FC = () => {
 
   // States cho modal
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [renameData, setRenameData] = useState<{ id: string; title: string } | null>(null);
+  const [renameData, setRenameData] = useState<{ id: string; title: string; mo_ta_ngan?: string } | null>(null);
   const [newTitle, setNewTitle] = useState("");
+  const [newDesc, setNewDesc] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   // ─────────────────── AUTO-POLLING API ───────────────────
   useEffect(() => {
@@ -145,9 +146,10 @@ export const DashBoard: React.FC = () => {
           tieu_de: newTitle.trim(),
           du_lieu_so_do: currentDiagram.du_lieu_so_do as any,
           the_loai: originalInfo?.the_loai,
-          la_noi_bo: currentDiagram.la_noi_bo
+          la_noi_bo: currentDiagram.la_noi_bo,
+          mo_ta_ngan: newDesc.trim() || undefined
       }, token);
-      toast.success("Đổi tên thành công!");
+      toast.success("Cập nhật thông tin thành công!");
       const data = await diagramApi.getAll(token);
       setDiagrams(Array.isArray(data) ? data : ((data as any).data || (data as any).items || []));
     } catch (error) {
@@ -156,6 +158,7 @@ export const DashBoard: React.FC = () => {
       setIsSaving(false);
       setRenameData(null);
       setNewTitle("");
+      setNewDesc("");
     }
   };
 
@@ -217,8 +220,9 @@ export const DashBoard: React.FC = () => {
                           <DropdownMenuItem 
                               onClick={(e) => {
                                   e.stopPropagation();
-                                  setRenameData({ id: d.id_so_do, title: d.tieu_de });
+                                  setRenameData({ id: d.id_so_do, title: d.tieu_de, mo_ta_ngan: d.mo_ta_ngan });
                                   setNewTitle(d.tieu_de);
+                                  setNewDesc(d.mo_ta_ngan || "");
                               }}
                               className="text-[13px] text-slate-700 py-2 px-3 hover:bg-slate-50 cursor-pointer flex items-center focus:bg-slate-50"
                           >
@@ -311,8 +315,9 @@ export const DashBoard: React.FC = () => {
                           <DropdownMenuItem 
                               onClick={(e) => {
                                   e.stopPropagation();
-                                  setRenameData({ id: d.id_so_do, title: d.tieu_de });
+                                  setRenameData({ id: d.id_so_do, title: d.tieu_de, mo_ta_ngan: d.mo_ta_ngan });
                                   setNewTitle(d.tieu_de);
+                                  setNewDesc(d.mo_ta_ngan || "");
                               }}
                               className="text-[13px] text-slate-700 py-2 px-3 hover:bg-slate-50 cursor-pointer flex items-center focus:bg-slate-50"
                           >
@@ -442,20 +447,33 @@ export const DashBoard: React.FC = () => {
         <Dialog open={!!renameData} onOpenChange={(val) => { if (!val) setRenameData(null) }}>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
-              <DialogTitle>Đổi tên sơ đồ</DialogTitle>
+              <DialogTitle>Thông tin sơ đồ</DialogTitle>
             </DialogHeader>
-            <div className="py-4">
-               <input 
-                  type="text" 
-                  autoFocus
-                  className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
-                  placeholder="Nhập tên mới..."
-                  value={newTitle}
-                  onChange={(e) => setNewTitle(e.target.value)}
-                  onKeyDown={(e) => {
-                     if (e.key === "Enter") executeRename();
-                  }}
-               />
+            <div className="py-4 space-y-4">
+               <div>
+                 <label className="text-sm font-semibold text-slate-700 block mb-1">Tiêu đề</label>
+                 <input 
+                    type="text" 
+                    autoFocus
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
+                    placeholder="Nhập tên mới..."
+                    value={newTitle}
+                    onChange={(e) => setNewTitle(e.target.value)}
+                    onKeyDown={(e) => {
+                       if (e.key === "Enter") executeRename();
+                    }}
+                 />
+               </div>
+               <div>
+                 <label className="text-sm font-semibold text-slate-700 block mb-1">Mô tả ngắn</label>
+                 <textarea 
+                    rows={3}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-[#0066cc] resize-none"
+                    placeholder="Nhập mô tả ngắn cho sơ đồ..."
+                    value={newDesc}
+                    onChange={(e) => setNewDesc(e.target.value)}
+                 />
+               </div>
             </div>
             <DialogFooter>
               <button 
@@ -467,7 +485,7 @@ export const DashBoard: React.FC = () => {
               </button>
               <button 
                   onClick={executeRename}
-                  disabled={isSaving || !newTitle.trim() || newTitle === renameData?.title}
+                  disabled={isSaving || !newTitle.trim()}
                   className="ml-2 px-4 py-2 bg-[#0066cc] text-white rounded-lg hover:bg-blue-700 text-sm font-medium transition-colors disabled:opacity-50"
               >
                   {isSaving ? "Đang lưu..." : "Lưu thay đổi"}

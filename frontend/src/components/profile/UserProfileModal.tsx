@@ -104,6 +104,13 @@ export const UserProfileModal: React.FC<UserProfileModalProps> = ({ isOpen, onCl
                     </div>
 
                     <div className="grid gap-2 mb-4">
+                      <Label htmlFor="ma_nhan_vien" className="text-slate-600 font-medium">Mã nhân viên (VNPT)</Label>
+                      <div className="relative">
+                        <Input id="ma_nhan_vien" value={profile.ma_nhan_vien || "Chưa cập nhật"} disabled className="bg-slate-100/50" />
+                      </div>
+                    </div>
+
+                    <div className="grid gap-2 mb-4">
                       <Label htmlFor="name" className="text-slate-600 font-medium">Tên hiển thị</Label>
                       <Input 
                         id="name" 

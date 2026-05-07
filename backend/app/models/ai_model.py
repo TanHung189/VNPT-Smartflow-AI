@@ -5,8 +5,9 @@
 #         Ví dụ: gemini-1.5-flash (cloud), qwen2.5-coder:3b (nội bộ).
 # =============================================================
 
-from typing import Optional
-from sqlmodel import Field
+from typing import Optional, Dict
+from sqlmodel import Field, Column
+from sqlalchemy.dialects.postgresql import JSONB
 from datetime import datetime
 
 from app.database.base import Base
@@ -30,6 +31,15 @@ class MoHinhAI(Base, table=True):
 
     # Trạng thái hoạt động (True = đang dùng, False = vô hiệu hóa)
     trang_thai_hoat_dong: bool = Field(default=True)
+
+    # Endpoint URL tùy chỉnh (VD: Ollama custom remote URL)
+    endpoint_url: Optional[str] = Field(default=None, max_length=255)
+
+    # Tham số cấu hình nâng cao dạng JSON
+    tham_so_cau_hinh: Optional[Dict] = Field(
+        default=None,
+        sa_column=Column(JSONB, nullable=True)
+    )
 
     # Thời điểm đăng ký mô hình vào hệ thống
     ngay_tao: datetime = Field(default_factory=datetime.utcnow)

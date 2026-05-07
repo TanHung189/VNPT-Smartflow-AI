@@ -1,8 +1,10 @@
-import React, { memo } from "react";
-import { Handle, Position } from "@xyflow/react";
-import { Play, CheckCircle2, AlertCircle, Settings } from "lucide-react";
+import React, { memo, useState } from "react";
+import { Handle, Position, useReactFlow, NodeToolbar } from "@xyflow/react";
+import { Play, CheckCircle2, AlertCircle, Settings, Edit2, Trash2 } from "lucide-react";
 
-const SmartNode = ({ data, selected, targetPosition, sourcePosition }: any) => {
+const SmartNode = ({ id, data, selected, targetPosition, sourcePosition }: any) => {
+  const { setNodes } = useReactFlow();
+  const [isEditing, setIsEditing] = useState(false);
   const getStyle = () => {
     switch (data.type) {
       case "start":
@@ -52,11 +54,32 @@ const SmartNode = ({ data, selected, targetPosition, sourcePosition }: any) => {
           >
             {data.type} • {data.executor || "Chưa gán"}
           </span>
-          <p className="text-sm font-extrabold text-slate-800 dark:text-slate-100 leading-tight truncate">
-            {data.label}
-          </p>
+          {isEditing ? (
+            <textarea
+              className="text-sm font-extrabold text-slate-800 bg-white/60 border border-slate-300 rounded outline-none resize-none nodrag nowheel p-1 w-full"
+              value={data.label}
+              autoFocus
+              onChange={(e) => setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, label: e.target.value } } : n))}
+              onBlur={() => setIsEditing(false)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); setIsEditing(false); }
+              }}
+              rows={2}
+            />
+          ) : (
+            <p onDoubleClick={() => setIsEditing(true)} className="text-sm font-extrabold text-slate-800 dark:text-slate-100 leading-tight truncate cursor-pointer hover:text-indigo-600 transition-colors">
+              {data.label}
+            </p>
+          )}
         </div>
       </div>
+
+      <NodeToolbar isVisible={selected} position={Position.Top}>
+        <div className="flex bg-white rounded-lg shadow-lg border border-slate-200 p-1 gap-1 mb-2">
+          <button onClick={() => setIsEditing(!isEditing)} className="p-1.5 hover:bg-slate-100 rounded text-indigo-600 transition-colors"><Edit2 size={15}/></button>
+          <button onClick={() => setNodes((nds) => nds.filter((n) => n.id !== id))} className="p-1.5 hover:bg-red-50 rounded text-red-600 transition-colors"><Trash2 size={15}/></button>
+        </div>
+      </NodeToolbar>
 
       {/* Hiển thị một dòng mô tả ngắn dưới Node */}
       <p className="text-[11px] text-slate-500 dark:text-slate-400 line-clamp-1 mb-3 italic">

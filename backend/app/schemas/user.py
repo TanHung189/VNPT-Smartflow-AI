@@ -12,6 +12,7 @@ class TaoNguoiDung(BaseModel):
     ten_nguoi_dung: str          # Họ tên đầy đủ — khớp cột ten_nguoi_dung
     email: EmailStr              # Địa chỉ email dùng để đăng nhập
     mat_khau: str                # Mật khẩu chưa mã hoá
+    ma_nhan_vien: Optional[str] = None # Mã nhân viên (Tùy chọn)
 
 
 class DocNguoiDung(BaseModel):
@@ -24,6 +25,7 @@ class DocNguoiDung(BaseModel):
     id_vai_tro: Optional[int] = None          # Mã vai trò (FK → vai_tro)
     ten_vai_tro: Optional[str] = None         # Tên vai trò: 'quan_tri' / 'nhan_vien'
     ten_phong_ban: Optional[str] = None       # Tên phòng ban (nếu có)
+    ma_nhan_vien: Optional[str] = None        # Mã nhân viên
 
     model_config = {"from_attributes": True}
 

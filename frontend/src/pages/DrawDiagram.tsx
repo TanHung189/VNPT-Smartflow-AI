@@ -294,27 +294,26 @@ const DrawDiagramContent = () => {
   }, [diagramIdParam, handleLoadDiagram, nodes.length]);
 
   const handleGenerate = useCallback(
-    async (text: string, currentProvider: string) => {
+    async (text: string, currentProvider: string): Promise<{ success: boolean; errorMsg?: string }> => {
       const modelName =
         currentProvider === "gemini"
           ? "Gemini 2.0 Flash"
           : "Ollama Qwen2.5 Coder";
       setLastActionReason(`AI Generated - ${modelName}`);
 
-      // Truyền nodes/edges hiện tại (Chat-to-Edit) + diagramType để AI inject đúng system prompt
-      const success = await generateFlow(
+      // Gửi raw request và nhận về kết quả
+      const result = await generateFlow(
         text,
         currentProvider,
         nodes.length > 0 ? nodes : undefined,
         edges.length > 0 ? edges : undefined,
-        diagramTypeParam, // ← Context-Aware: the_loai được inject vào prompt AI
+        diagramTypeParam,
       );
-      if (success) {
-        setTimeout(() => fitView({ duration: 800, padding: 0.2 }), 200);
-      }
-      return !!success;
+      
+      // Auto renderer nằm trong generateFlow sẽ update hooks
+      return result;
     },
-    [generateFlow, nodes, edges, diagramTypeParam, fitView],
+    [generateFlow, nodes, edges, diagramTypeParam],
   );
 
   // ─────────────────── THUMBNAIL CAPTURE ───────────────────

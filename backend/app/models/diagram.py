@@ -45,6 +45,9 @@ class SoDo(Base, table=True):
     # Thể loại sơ đồ (ví dụ: flowchart, sequence, v.v.)
     the_loai: str = Field(max_length=50, nullable=False, default="flowchart")
 
+    # Mô tả ngắn
+    mo_ta_ngan: Optional[str] = None
+
     # Văn bản đầu vào gốc (prompt người dùng nhập vào)
     van_ban_dau_vao: Optional[str] = None
 

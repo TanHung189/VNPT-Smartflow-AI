@@ -5,6 +5,7 @@ export interface UserProfile {
   ten_nguoi_dung: string;
   email: string;
   ten_phong_ban?: string;
+  ma_nhan_vien?: string;
   anh_dai_dien?: string;
   id_vai_tro?: number;
   ngay_tao?: string;

@@ -19,6 +19,7 @@ export interface DiagramPayload {
   la_noi_bo?: boolean;                  // Chỉ dùng AI nội bộ? (mặc định false)
   van_ban_dau_vao?: string;             // Văn bản prompt gốc của người dùng
   the_loai?: string;                    // Thể loại sơ đồ (default: "flowchart")
+  mo_ta_ngan?: string;                  // Mô tả ngắn sơ đồ
 }
 
 /**
@@ -32,6 +33,7 @@ export interface DiagramApiResponse {
   du_lieu_so_do: Record<string, any>;   // Dữ liệu React Flow
   la_noi_bo: boolean;                   // Cờ AI nội bộ
   la_mau_chuan: boolean;               // Là template chuẩn?
+  mo_ta_ngan?: string;                  // Mô tả ngắn sơ đồ
   ngay_tao: string;                     // ISO datetime
   ngay_cap_nhat: string;               // ISO datetime
   message?: string;                     // Thông báo tùy chọn
@@ -47,6 +49,7 @@ export interface DiagramListItem {
   the_loai: string;
   la_noi_bo: boolean;
   la_mau_chuan: boolean;
+  mo_ta_ngan?: string;
   ngay_cap_nhat: string;
   anh_thu_nho?: string;
 }
