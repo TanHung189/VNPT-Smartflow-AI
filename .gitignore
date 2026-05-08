@@ -29,7 +29,6 @@ out/
 .next/
 
 # --- CẤU HÌNH CÁ NHÂN & BẢO MẬT ---
-# ⚠️  QUAN TRỌNG: Không bao giờ commit file .env có chứa secret keys!
 .env
 .env.local
 .env.*.local
@@ -51,4 +50,4 @@ redis_data/
 Thumbs.db
 
 # Alembic (__pycache__ trong migrations)
-backend/migrations/__pycache__/
+backend/migrations/__pycache__/

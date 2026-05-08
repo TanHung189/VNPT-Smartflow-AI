@@ -142,7 +142,7 @@ const DashboardLayout: React.FC<DashboardLayoutProps> = ({
           </button>
           <button
             onClick={logout}
-            className="w-full text-left px-3 py-2 text-[14px] text-red-600 hover:bg-red-50 rounded-lg font-bold transition-colors"
+            className="w-full text-center px-3 py-2 text-[14px] text-red-600 hover:bg-red-50 rounded-lg font-bold transition-colors"
           >
             Đăng xuất
           </button>
