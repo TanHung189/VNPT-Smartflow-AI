@@ -7,9 +7,9 @@ import {
   type Node,
   type Edge,
 } from "@xyflow/react";
-import dagre from "@dagrejs/dagre";
 import { toast } from "sonner";
 import { diagramApi } from "../services/diagramApi";
+import { getElkLayoutedElements } from "../utils/elkLayout";
 
 // ─── NODE TYPE MAP ──────────────────────────────────────────────────────────
 // Map từ `the_loai` → React Flow node type key (registered in FlowCanvas nodeTypes)
@@ -75,195 +75,6 @@ const resolveNodeType = (theLoai?: string): string => {
   if (!theLoai) return "customNode";
   const key = theLoai.toLowerCase().trim();
   return NODE_TYPE_MAP[key] ?? "customNode";
-};
-
-/**
- * getLayoutedElements — Tự động chọn hướng dựa trên the_loai
- * TB (Top-Bottom): Org Chart, UML, Layered
- * LR (Left-Right): Process, iOffice, Workflow
- */
-export const calculateLayout = (
-  nodes: Node[],
-  edges: Edge[],
-  structure: string = "logic",
-) => {
-  const t = structure.toLowerCase();
-  const isMindMap = t === "mindmap";
-  const isOrgChart = t === "org-chart" || t === "org";
-  const isHorizontal = t === "process" || t === "ioffice" || t === "layered" || t === "logic";
-  
-  // Tự động điều chỉnh kiểu liên kết (edge type) theo cấu trúc
-  const finalEdges = edges.map((e) => ({
-    ...e,
-    type: isMindMap ? "bezier" : (isOrgChart ? "smoothstep" : "step"),
-  }));
-
-  // ── 1. THUẬT TOÁN ĐẶC QUYỀN CHO MINDMAP (Toả ra 2 bên) ──
-  if (isMindMap && nodes.length > 0) {
-    // Bước 1: Tìm Node Gốc
-    const inDegrees: Record<string, number> = {};
-    nodes.forEach(n => inDegrees[n.id] = 0);
-    finalEdges.forEach(e => { if (inDegrees[e.target] !== undefined) inDegrees[e.target]++; });
-    
-    let root = nodes.find(n => inDegrees[n.id] === 0);
-    if (!root) root = nodes[0]; // Fallback
-
-    if (root) {
-      // Bước 2: Chia nhánh con thành Left và Right
-      const rootEdges = finalEdges.filter(e => e.source === root!.id);
-      const leftChildren = new Set<string>();
-      const rightChildren = new Set<string>();
-      
-      rootEdges.forEach((e, index) => {
-        // Chia đều sang hai bên
-        if (index % 2 === 0) rightChildren.add(e.target);
-        else leftChildren.add(e.target);
-      });
-
-      // BFS lan truyền
-      const buildSet = (startNodes: Set<string>, targetSet: Set<string>) => {
-        let queue = Array.from(startNodes);
-        while (queue.length > 0) {
-          const curr = queue.shift()!;
-          targetSet.add(curr);
-          finalEdges.filter(e => e.source === curr).forEach(e => {
-            if (!targetSet.has(e.target)) queue.push(e.target);
-          });
-        }
-      };
-      
-      const leftNodesSet = new Set<string>();
-      buildSet(leftChildren, leftNodesSet);
-      
-      const rightNodesSet = new Set<string>();
-      buildSet(rightChildren, rightNodesSet);
-
-      const nodeW = 280;
-      const nodeH = 120;
-
-      // Bước 3: Chạy Dagre 2 lần (Trái sang Phải và Phải sang Trái)
-      const runDagre = (dir: "LR" | "RL", nodeSet: Set<string>) => {
-        const g = new dagre.graphlib.Graph();
-        g.setGraph({ rankdir: dir, nodesep: 60, ranksep: 150 });
-        g.setDefaultEdgeLabel(() => ({}));
-        g.setNode(root!.id, { width: nodeW, height: nodeH });
-        
-        nodeSet.forEach(id => g.setNode(id, { width: nodeW, height: nodeH }));
-        finalEdges.forEach(e => {
-          if (e.source === root!.id && nodeSet.has(e.target)) g.setEdge(e.source, e.target);
-          else if (nodeSet.has(e.source) && nodeSet.has(e.target)) g.setEdge(e.source, e.target);
-        });
-        dagre.layout(g);
-        return g;
-      };
-
-      const gRight = runDagre("LR", rightNodesSet);
-      const gLeft = runDagre("RL", leftNodesSet);
-      
-      const rootRightPos = gRight.node(root.id);
-      const rootLeftPos = gLeft.node(root.id);
-
-      // Bước 4: Gộp tọa độ và inject Smooth Transition Style
-      const outNodes = nodes.map(node => {
-        let x = 0;
-        let y = 0;
-        let targetP = "left";
-        let sourceP = "right";
-        let isRoot = false;
-
-        if (node.id === root!.id) {
-          isRoot = true;
-          x = 0;
-          y = 0;
-        } else if (rightNodesSet.has(node.id)) {
-          const p = gRight.node(node.id);
-          x = p.x - rootRightPos.x;
-          y = p.y - rootRightPos.y;
-          targetP = "left";
-          sourceP = "right";
-        } else if (leftNodesSet.has(node.id)) {
-          const p = gLeft.node(node.id);
-          x = p.x - rootLeftPos.x;
-          y = p.y - rootLeftPos.y;
-          targetP = "right";
-          sourceP = "left";
-        }
-
-        return {
-          ...node,
-          targetPosition: targetP,
-          sourcePosition: sourceP,
-          data: { ...node.data, isRoot }, // truyền cờ isRoot để CustomNode render 2 Handle
-          style: { 
-            ...node.style, 
-            transition: "transform 0.5s ease-in-out, opacity 0.5s ease-in-out" 
-          },
-          position: { x: Math.round(x), y: Math.round(y) }
-        };
-      });
-
-      return { nodes: outNodes, edges: finalEdges };
-    }
-  }
-
-  // ── 2 + 3. THUẬT TOÁN CHUẨN DAGRE (Org Chart = TB, Process = LR) ──
-  const rankDir = isHorizontal ? "LR" : "TB";
-  const dagreGraph = new dagre.graphlib.Graph();
-  dagreGraph.setDefaultEdgeLabel(() => ({}));
-
-  // Node size hints
-  const nodeW = rankDir === "LR" ? 260 : 300;
-  const nodeH = rankDir === "LR" ? 130 : 170;
-
-  let customNodeSep = rankDir === "LR" ? 80 : 100;
-  let customRankSep = rankDir === "LR" ? 150 : 200;
-
-  if (isOrgChart) {
-    customNodeSep = 150;
-    customRankSep = 150;
-  }
-
-  dagreGraph.setGraph({
-    rankdir: rankDir,
-    nodesep: customNodeSep,
-    ranksep: customRankSep,
-    align: undefined,
-  });
-
-  nodes.forEach((node) => {
-    dagreGraph.setNode(node.id, { width: nodeW, height: nodeH });
-  });
-  finalEdges.forEach((edge) => dagreGraph.setEdge(edge.source, edge.target));
-  dagre.layout(dagreGraph);
-
-  // Hiệu ứng Smooth Transition
-  return {
-    nodes: nodes.map((node) => {
-      const pos = dagreGraph.node(node.id);
-      if (!pos) return node;
-      return {
-        ...node,
-        // Ép vị trí Target/Source strict theo hướng luồng
-        targetPosition: rankDir === "LR" ? "left" : "top",
-        sourcePosition: rankDir === "LR" ? "right" : "bottom",
-        style: { 
-          ...node.style, 
-          transition: "transform 0.5s ease-in-out, opacity 0.5s ease-in-out" 
-        },
-        position: {
-          x: Math.round(pos.x - nodeW / 2),
-          y: Math.round(pos.y - nodeH / 2),
-        },
-      };
-    }),
-    edges: finalEdges,
-  };
-};
-
-/** Resolve layout direction from the_loai */
-const resolveLayoutDirection = (theLoai?: string): "TB" | "LR" => {
-  if (!theLoai) return "TB";
-  return LAYOUT_DIRECTION_MAP[theLoai.toLowerCase()] ?? "TB";
 };
 
 export const useFlowLogic = () => {
@@ -405,6 +216,10 @@ export const useFlowLogic = () => {
   // --- 4. API CALLS ---
   /**
    * Sinh / chỉnh sửa sơ đồ bằng AI.
+   *
+   * ELK là async: chúng ta await Promise trước khi gọi setNodes / setEdges
+   * để đảm bảo canvas chỉ nhận vị trí đã được tính toán đầy đủ.
+   *
    * @param text          Prompt của người dùng
    * @param provider      gemini | ollama
    * @param currentNodes  Nodes hiện tại trên canvas (Chat-to-Edit)
@@ -437,27 +252,42 @@ export const useFlowLogic = () => {
           console.log("[useFlowLogic] Normalized:", normalized);
 
           if (!normalized.nodes || normalized.nodes.length === 0) {
-            return { success: false, errorMsg: "AI trả về dữ liệu trống. Vui lòng thử lại với prompt chi tiết hơn." };
+            return {
+              success: false,
+              errorMsg:
+                "AI trả về dữ liệu trống. Vui lòng thử lại với prompt chi tiết hơn.",
+            };
           }
 
-          // ─ Auto-layout direction based on diagram type ─
-          const { nodes: lNodes, edges: lEdges } = calculateLayout(
-            normalized.nodes,
-            normalized.edges,
-            diagramType || "logic",
-          );
-          // TRỰC TIẾP RENDER SƠ ĐỒ LÊN CANVAS THÔNG QUA THAO TÁC STATE
+          // ─ ELK async layout: await Promise trước khi render ─────────────
+          const { nodes: lNodes, edges: lEdges } =
+            await getElkLayoutedElements(
+              normalized.nodes,
+              normalized.edges,
+              diagramType || "logic",
+            );
+
+          // Chỉ gọi setNodes / setEdges SAU KHI ELK Promise đã resolve
           setNodes(lNodes as Node[]);
           setEdges(lEdges as Edge[]);
           setTimeout(() => fitView({ padding: 0.2, duration: 800 }), 50);
           setTimeout(takeSnapshot, 100);
           return { success: true };
         } else {
-          return { success: false, errorMsg: resData.message ?? "AI không thể xử lý yêu cầu định dạng lược đồ, vui lòng cung cấp phân rã chi tiết hơn." };
+          return {
+            success: false,
+            errorMsg:
+              resData.message ??
+              "AI không thể xử lý yêu cầu định dạng lược đồ, vui lòng cung cấp phân rã chi tiết hơn.",
+          };
         }
       } catch (error) {
         console.error("AI Generate Error Pipeline:", error);
-        return { success: false, errorMsg: "Lỗi phân tích JSON hoặc mất kết nối tới AI backend. Xin hãy thử lại với một prompt cô đọng hơn." };
+        return {
+          success: false,
+          errorMsg:
+            "Lỗi phân tích JSON hoặc mất kết nối tới AI backend. Xin hãy thử lại với một prompt cô đọng hơn.",
+        };
       } finally {
         setIsGenerating(false);
       }
@@ -477,18 +307,24 @@ export const useFlowLogic = () => {
         const resData = response;
         if (resData.result === "SUCCESS") {
           const normalized = normalizeGraph(resData.data);
-          const { nodes: lNodes, edges: lEdges } = calculateLayout(
-            normalized.nodes,
-            normalized.edges,
-            "logic"
-          );
+
+          // ─ ELK async layout ───────────────────────────────────────────────
+          const { nodes: lNodes, edges: lEdges } =
+            await getElkLayoutedElements(
+              normalized.nodes,
+              normalized.edges,
+              "logic",
+            );
+
           setNodes(lNodes as Node[]);
           setEdges(lEdges as Edge[]);
           setTimeout(() => fitView({ padding: 0.2, duration: 800 }), 50);
           setTimeout(takeSnapshot, 100);
           return true;
         } else {
-          toast.error(resData.message ?? "Không thể phân tích file. Vui lòng thử lại.");
+          toast.error(
+            resData.message ?? "Không thể phân tích file. Vui lòng thử lại.",
+          );
           return false;
         }
       } catch (error) {
@@ -498,25 +334,32 @@ export const useFlowLogic = () => {
         setIsGenerating(false);
       }
     },
-    [setNodes, setEdges, takeSnapshot],
+    [setNodes, setEdges, takeSnapshot, fitView],
   );
 
-  const applyAutoLayout = useCallback((diagramType?: string) => {
-    try {
-      const { nodes: lNodes, edges: lEdges } = calculateLayout(
-        nodes,
-        edges,
-        diagramType || "logic",
-      );
-      setNodes(lNodes as Node[]);
-      setEdges(lEdges as Edge[]);
-      setTimeout(() => fitView({ padding: 0.2, duration: 800 }), 50);
-      // snapshot after layout
-      setTimeout(takeSnapshot, 100);
-    } catch (err) {
-      console.error("applyAutoLayout failed", err);
-    }
-  }, [nodes, edges, setNodes, setEdges, takeSnapshot]);
+  /**
+   * applyAutoLayout — gọi thủ công từ toolbar.
+   * Async vì ELK trả về Promise; hàm ngoài có thể await nếu cần.
+   */
+  const applyAutoLayout = useCallback(
+    async (diagramType?: string) => {
+      try {
+        const { nodes: lNodes, edges: lEdges } = await getElkLayoutedElements(
+          nodes,
+          edges,
+          diagramType || "logic",
+        );
+        setNodes(lNodes as Node[]);
+        setEdges(lEdges as Edge[]);
+        setTimeout(() => fitView({ padding: 0.2, duration: 800 }), 50);
+        // snapshot after layout
+        setTimeout(takeSnapshot, 100);
+      } catch (err) {
+        console.error("applyAutoLayout failed", err);
+      }
+    },
+    [nodes, edges, setNodes, setEdges, takeSnapshot, fitView],
+  );
 
   const clearAll = useCallback(() => {
     setNodes([]);

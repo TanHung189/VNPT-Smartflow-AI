@@ -51,13 +51,6 @@ const DrawDiagramContent = () => {
   );
   const { fitView, getNodes } = useReactFlow();
 
-  // Custom hook Export
-  const {
-    downloadImage,
-    copyImageToClipboard,
-    isExporting: isUiExporting,
-  } = useExportImage();
-
   const {
     nodes,
     edges,
@@ -93,6 +86,13 @@ const DrawDiagramContent = () => {
     addNoteAtCenter,
     updateNodeData,
   } = useFlowLogic();
+
+  // Custom hook Export, need to pass strokes to it so that they get rendered during export
+  const {
+    downloadImage,
+    copyImageToClipboard,
+    isExporting: isUiExporting,
+  } = useExportImage(strokes);
 
   // ─────────────────── LOAD DIAGRAM FROM HISTORY ───────────────────
   const handleLoadDiagram = useCallback(
