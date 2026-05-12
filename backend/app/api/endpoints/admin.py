@@ -64,6 +64,13 @@ class AiUsageStatDTO(BaseModel):
     name: str
     value: int
 
+class ActivityLogDTO(BaseModel):
+    id: str
+    name: str
+    creator: str
+    time: str
+    status: str
+
 class AdminStatsDTO(BaseModel):
     total_users: int
     total_diagrams: int
@@ -343,3 +350,43 @@ async def delete_ai_model(model_id: int, db: Session = Depends(get_db), current_
     except Exception as e:
         await db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/logs", response_model=List[ActivityLogDTO])
+async def get_activity_logs(db: Session = Depends(get_db), current_user: NguoiDung = Depends(get_current_user)):
+    """Lấy danh sách nhật ký hoạt động (Quy trình gần đây)."""
+    try:
+        stmt = select(SoDo, NguoiDung).join(
+            NguoiDung, SoDo.id_chu_so_huu == NguoiDung.id_nguoi_dung
+        ).where(SoDo.ngay_xoa == None).order_by(desc(SoDo.ngay_cap_nhat)).limit(20)
+        
+        result = await db.execute(stmt)
+        rows = result.all()
+        
+        logs = []
+        now = datetime.datetime.utcnow()
+        for sodo, user in rows:
+            time_str = "Vừa xong"
+            if sodo.ngay_cap_nhat:
+                diff = now - sodo.ngay_cap_nhat
+                minutes = max(0, diff.total_seconds() / 60)
+                if minutes < 1:
+                    time_str = "Vừa xong"
+                elif minutes < 60:
+                    time_str = f"{int(minutes)} phút trước"
+                elif minutes < 1440:
+                    time_str = f"{int(minutes/60)} giờ trước"
+                else:
+                    time_str = f"{int(minutes/1440)} ngày trước"
+            
+            logs.append(ActivityLogDTO(
+                id=str(sodo.id_so_do)[:8].upper(),
+                name=sodo.tieu_de,
+                creator=user.ten_nguoi_dung,
+                time=time_str,
+                status="success"
+            ))
+            
+        return logs
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+

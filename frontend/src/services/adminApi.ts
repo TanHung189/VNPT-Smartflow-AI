@@ -55,6 +55,14 @@ export interface UserAdminUpdateDTO {
   trang_thai_hoat_dong?: boolean;
 }
 
+export interface ActivityLogDTO {
+  id: string;
+  name: string;
+  creator: string;
+  time: string;
+  status: 'success' | 'error' | 'pending';
+}
+
 export const AdminApi = {
   getStats: async (): Promise<AdminStatsDTO> => {
     const res = await api.get("/admin/stats");
@@ -99,5 +107,10 @@ export const AdminApi = {
   deleteAiModel: async (id: number): Promise<{ message: string }> => {
     const res = await api.delete(`/admin/ai-models/${id}`);
     return res.data;
+  },
+
+  getLogs: async (): Promise<ActivityLogDTO[]> => {
+    const res = await api.get("/admin/logs");
+    return res.data?.data || res.data;
   },
 };
