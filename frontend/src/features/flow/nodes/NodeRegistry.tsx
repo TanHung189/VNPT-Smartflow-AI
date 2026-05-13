@@ -10,8 +10,10 @@
  *   4. REGISTRY    – Central export map for React Flow nodeTypes prop
  * ─────────────────────────────────────────────────────────────────────────────
  */
+/* eslint-disable import/first */
 
 import React, { memo } from "react";
+
 import {
   Handle,
   Position,
@@ -44,6 +46,7 @@ import {
   Edit2,
   Trash2,
 } from "lucide-react";
+import MindmapNode from "./MindmapNode";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. INTERFACES
@@ -1074,14 +1077,14 @@ export const NODE_REGISTRY = {
   uml: UMLNode,
   process: ProcessNode,
   infographic: InfographicNode,
-  mindmap: InfographicNode, // Em có thể dùng tạm Infographic cho Mindmap hoặc viết component riêng
+  mindmap: MindmapNode,
 
   // 2. THE MISSING LINK: Mapping CHÍNH XÁC các type mà AI Backend (Gemini/Claude) sinh ra!
   orgNode: OrgNode,
   layerNode: LayerNode,
   umlNode: UMLNode,
   processNode: ProcessNode,
-  mindmapNode: InfographicNode, // Tạm map vào InfographicNode
+  mindmapNode: MindmapNode,
 
   // 3. Aliases cho dữ liệu cũ (Backward compatibility)
   org: OrgNode,

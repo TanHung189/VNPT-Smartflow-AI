@@ -49,6 +49,8 @@ const DrawDiagramContent = () => {
   const [lastActionReason, setLastActionReason] = useState<string>(
     "Tạo mới/Cập nhật thủ công",
   );
+  // Lưu văn bản gốc người dùng nhập vào để dùng cho AI Re-render khi đổi domain
+  const [originalText, setOriginalText] = useState<string>("");
   const { fitView, getNodes } = useReactFlow();
 
   const {
@@ -61,6 +63,7 @@ const DrawDiagramContent = () => {
     isGenerating,
     generateFlow,
     uploadFileAndGenerate,
+    uploadImageAndGenerate,
     drawMode,
     setDrawMode,
     undo,
@@ -300,6 +303,11 @@ const DrawDiagramContent = () => {
           ? "Gemini 2.0 Flash"
           : "Ollama Qwen2.5 Coder";
       setLastActionReason(`AI Generated - ${modelName}`);
+
+      // Lưu lại originalText để dùng cho AI transformation khi đổi domain sau
+      if (text && text.trim()) {
+        setOriginalText(text.trim());
+      }
 
       // Gửi raw request và nhận về kết quả
       const result = await generateFlow(
@@ -593,6 +601,9 @@ const DrawDiagramContent = () => {
           addNoteAtCenter={addNoteAtCenter}
           updateNodeData={updateNodeData}
           onDragStart={onDragStart}
+          originalText={originalText}
+          generateFlow={generateFlow}
+          provider={provider}
         />
       </main>
 
@@ -637,6 +648,7 @@ const DrawDiagramContent = () => {
             onClose={() => setAiSidebarOpen(false)}
             onGenerate={handleGenerate}
             onUpload={uploadFileAndGenerate}
+            onUploadImage={uploadImageAndGenerate}
             loading={isGenerating}
             provider={provider}
             setProvider={setProvider}

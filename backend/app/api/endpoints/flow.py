@@ -11,6 +11,7 @@ import docx
 import PyPDF2
 import io
 import logging
+import hashlib
 from typing import Optional
 
 from app.services.ai_service import ai_service
@@ -84,10 +85,16 @@ async def generate_flow(req: GenerateRequest):
 async def upload_process(
     file: UploadFile = File(...),
     provider: str = Form("gemini"),
-    is_internal: bool = Form(False)
+    is_internal: bool = Form(False),
+    the_loai: str = Form("process"),   # ← Loại sơ đồ được FE truyền xuống
 ):
-    """Đọc nội dung file và chuyển đổi thành sơ đồ React Flow qua AI."""
-    # Cường chế chuyển sang Local AI nếu là quy trình nội bộ
+    """Đọc nội dung file và chuyển đổi thành sơ đồ React Flow qua AI.
+    
+    Đặc điểm:
+    - Với file ngắn (<6000 chars): gọi AI 1 lần, trả ngay.
+    - Với file dài (>=6000 chars): chia chunk, gọi AI song song, gộp kết quả.
+      Đảm bảo không bỏ sót entity nào từ tài liệu gốc.
+    """
     if is_internal:
         provider = "ollama"
         logger.info("🔒 [SECURITY] Upload nội bộ -> Cưỡng bức dùng Ollama.")
@@ -95,45 +102,142 @@ async def upload_process(
     text = ""
     filename = file.filename.lower()
     content = await file.read()
+    content_hash = hashlib.md5(content).hexdigest()[:12]
 
     try:
-        # Nếu là hình ảnh, gán thẳng vào vision AI
-        if filename.endswith(".png") or filename.endswith(".jpg") or filename.endswith(".jpeg"):
+        # Ảnh → Vision AI
+        if any(filename.endswith(ext) for ext in (".png", ".jpg", ".jpeg")):
             logger.info("📸 Gọi Vision AI cho file hình ảnh.")
             data = await ai_service.generate_flow_from_image(content, file.content_type)
             return {"result": "SUCCESS", "data": data}
 
+        # Trích xuất text từ file
         if filename.endswith(".txt"):
-            text = content.decode("utf-8")
+            text = content.decode("utf-8", errors="ignore")
         elif filename.endswith(".docx"):
             doc = docx.Document(io.BytesIO(content))
-            text = "\n".join([para.text for para in doc.paragraphs])
+            # Lấy cả nội dung bảng (table) để không bỏ sót thông tin
+            parts = []
+            for para in doc.paragraphs:
+                if para.text.strip():
+                    parts.append(para.text.strip())
+            for table in doc.tables:
+                for row in table.rows:
+                    row_text = " | ".join(
+                        cell.text.strip() for cell in row.cells if cell.text.strip()
+                    )
+                    if row_text:
+                        parts.append(row_text)
+            text = "\n".join(parts)
         elif filename.endswith(".pdf"):
             reader = PyPDF2.PdfReader(io.BytesIO(content))
-            pages = [p.extract_text() or "" for p in reader.pages]
-            text = "\n".join(pages)
+            text = "\n".join(p.extract_text() or "" for p in reader.pages)
 
-        # Dùng AI tương ứng
-        data = await ai_service.generate_smart_flow(text, provider=provider)
+        text = text.strip()
+        if not text:
+            return {"result": "ERROR", "message": "Không đọc được nội dung từ file."}
+
+        logger.info(f"[upload_process] Extracted {len(text)} chars | the_loai={the_loai} | hash={content_hash}")
+
+        # ─── Xử lý file dài: chunk + merge ─────────────────────────────────
+        CHUNK_LIMIT = 6000  # ký tự tối đa mỗi lần gọi AI
+
+        if len(text) <= CHUNK_LIMIT:
+            # File ngắn: xử lý bình thường
+            text_with_hash = f"[FILE_HASH:{content_hash}]\n{text}"
+            data = await ai_service.generate_smart_flow(
+                text_with_hash, provider=provider, the_loai=the_loai,
+            )
+        else:
+            # File dài: chia theo dòng để không cắt giữa câu
+            lines = text.splitlines()
+            chunks: list[str] = []
+            current = []
+            current_len = 0
+            for line in lines:
+                line_len = len(line) + 1
+                if current_len + line_len > CHUNK_LIMIT and current:
+                    chunks.append("\n".join(current))
+                    current = [line]
+                    current_len = line_len
+                else:
+                    current.append(line)
+                    current_len += line_len
+            if current:
+                chunks.append("\n".join(current))
+
+            logger.info(f"[upload_process] File dài → {len(chunks)} chunks để xử lý song song")
+
+            # Gọi AI song song cho tất cả chunks
+            import asyncio
+            tasks = [
+                ai_service.generate_smart_flow(
+                    f"[FILE_HASH:{content_hash}_chunk{i}]\n{chunk}",
+                    provider=provider,
+                    the_loai=the_loai,
+                )
+                for i, chunk in enumerate(chunks)
+            ]
+            results = await asyncio.gather(*tasks, return_exceptions=True)
+
+            # Gộp tất cả nodes và edges, đặt lại ID để không trùng
+            merged_nodes: list = []
+            merged_edges: list = []
+            node_id_offset = 0
+
+            for chunk_idx, res in enumerate(results):
+                if isinstance(res, Exception):
+                    logger.warning(f"[upload_process] Chunk {chunk_idx} lỗi: {res}")
+                    continue
+                chunk_nodes = res.get("nodes", [])
+                chunk_edges = res.get("edges", [])
+
+                # Remap IDs để tránh trùng giữa các chunk
+                id_map: dict = {}
+                for node in chunk_nodes:
+                    old_id = str(node.get("id", ""))
+                    new_id = f"c{chunk_idx}_{old_id}"
+                    id_map[old_id] = new_id
+                    node["id"] = new_id
+                    merged_nodes.append(node)
+
+                for edge in chunk_edges:
+                    src = str(edge.get("source", ""))
+                    tgt = str(edge.get("target", ""))
+                    edge["source"] = id_map.get(src, f"c{chunk_idx}_{src}")
+                    edge["target"] = id_map.get(tgt, f"c{chunk_idx}_{tgt}")
+                    edge["id"] = f"c{chunk_idx}_{edge.get('id', f'e{src}-{tgt}')}"
+                    merged_edges.append(edge)
+
+            data = {"nodes": merged_nodes, "edges": merged_edges}
+            logger.info(f"[upload_process] Merged: {len(merged_nodes)} nodes, {len(merged_edges)} edges")
+
         return {"result": "SUCCESS", "data": data}
 
     except Exception as e:
-        logger.error(f"[upload_process] Lỗi đọc file: {e}", exc_info=True)
-        return {"result": "ERROR", "message": f"Lỗi đọc file: {str(e)}"}
+        logger.error(f"[upload_process] Lỗi: {e}", exc_info=True)
+        return {"result": "ERROR", "message": f"Lỗi xử lý file: {str(e)}"}
     
+
 
 @router.post(
     "/generate-flow-from-image",
     summary="Nhận diện hình ảnh quy trình (Computer Vision)",
 )
-async def generate_flow_from_image(file: UploadFile = File(...)):
+async def generate_flow_from_image(
+    file: UploadFile = File(...),
+    the_loai: str = Form("process"),   # Loại sơ đồ FE truyền để AI dùng đúng system prompt
+):
     """Phân tích hình ảnh quy trình và trả về cấu trúc React Flow."""
     try:
-        if not file.content_type.startswith("image/"):
-            return {"result": "ERROR", "message": "File phải là định dạng hình ảnh (JPG, PNG)."}
+        if not file.content_type or not file.content_type.startswith("image/"):
+            return {"result": "ERROR", "message": "File phải là định dạng hình ảnh (JPG, PNG, WEBP)."}
 
         content = await file.read()
-        data = await ai_service.generate_flow_from_image(content, file.content_type)
+        if len(content) > 20 * 1024 * 1024:  # 20MB limit
+            return {"result": "ERROR", "message": "Ảnh quá lớn (tối đa 20MB)."}
+
+        data = await ai_service.generate_flow_from_image(content, file.content_type, the_loai)
         return {"result": "SUCCESS", "data": data}
 
     except Exception as e:

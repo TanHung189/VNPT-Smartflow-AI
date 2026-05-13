@@ -31,7 +31,8 @@ const DIRECTION_MAP: Record<string, LayoutDirection> = {
   ioffice: "LR",
   "quy-trinh": "LR",
   workflow: "LR",
-  mindmap: "TB",
+  mindmap: "LR",      // Mindmap cũ: horizontal
+  mindmapNode: "LR",  // Mindmap mới: cây ngang
   network: "TB",
   infrastructure: "TB",
   cloud: "TB",
@@ -51,7 +52,7 @@ const NODE_H_TB = 170;
 // ─── Edge type per diagram structure ─────────────────────────────────────────
 const resolveEdgeType = (diagramType: string): string => {
   const t = diagramType.toLowerCase();
-  if (t === "mindmap") return "bezier";
+  if (t === "mindmap" || t === "mindmapnode") return "smoothstep";
   if (t === "org-chart" || t === "org") return "smoothstep";
   return "default";
 };
@@ -223,8 +224,8 @@ const standardLayout = async (
   const nodeW = direction === "LR" ? NODE_W_LR : NODE_W_TB;
   const nodeH = direction === "LR" ? NODE_H_LR : NODE_H_TB;
 
-  const nodeSep = isOrgChart ? "150" : direction === "LR" ? "80" : "100";
-  const layerSep = isOrgChart ? "150" : direction === "LR" ? "150" : "200";
+  const nodeSep = isOrgChart ? "50" : direction === "LR" ? "50" : "80";
+  const layerSep = isOrgChart ? "100" : direction === "LR" ? "150" : "150";
 
   const elkGraph: ElkNode = {
     id: "root",
@@ -290,7 +291,8 @@ export const getElkLayoutedElements = async (
   if (nodes.length === 0) return { nodes, edges };
 
   const t = diagramType.toLowerCase();
-  const isMindMap = t === "mindmap";
+  // Mindmap và mindmapNode đều dùng horizontal tree layout
+  const isMindMap = t === "mindmap" || t === "mindmapnode";
 
   if (isMindMap) {
     return mindmapLayout(nodes, edges);

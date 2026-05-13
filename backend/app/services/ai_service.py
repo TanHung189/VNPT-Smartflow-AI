@@ -84,14 +84,15 @@ DIAGRAM_PROMPT_CONFIG: Dict[str, Dict[str, Any]] = {
     "mindmap": {
         "role": (
             "BẠN LÀ CHUYÊN GIA SÁNG TẠO VÀ TƯ DUY TRỰC QUAN TẠI VNPT.\n"
-            "Nhiệm vụ: Xây dựng sơ đồ tư duy (Mindmap)."
+            "Nhiệm vụ: Xây dựng sơ đồ tư duy (Mindmap) dạng cây ngang (Horizontal Tree) từ Trái sang Phải."
         ),
-        "node_types": ["mindmap"],
-        "data_fields": '{ "label": "Ý tưởng", "level": "root|branch|leaf" }',
+        "node_types": ["mindmapNode"],
+        "data_fields": '{ "label": "Ý tưởng", "isRoot": false, "isExpanded": true, "level": "root|branch|leaf" }',
         "extra_rules": (
-            "- Ràng buộc cấu trúc cha-con (Central idea -> branches).\n"
-            "- Cấu trúc phải xuất phát từ 1 ý chính (root) tỏa ra nhiều nhánh (branch) và cuối cùng là lá (leaf).\n"
-            "- [TOPOLOGY RULES]: Cấu trúc Tỏa tròn (Star Topology). Chỉ có duy nhất 1 Node trung tâm (Central Idea - root) là nguồn phát hướng tới các ý chính (branch). Dây nối tỏa ra, không được khép vòng. Bắt buộc 'type' của tất cả các node phải là 'mindmap'.\n"
+            "- Node gốc (trung tâm): `\"isRoot\": true`, `\"level\": \"root\"`, `\"isExpanded\": true`.\n"
+            "- Nút nhánh (branch): `\"level\": \"branch\"`, `\"isExpanded\": true`.\n"
+            "- Nút lá (leaf): `\"level\": \"leaf\"`, không có node con.\n"
+            "- [TOPOLOGY RULES]: Cấu trúc Cây ngang (Horizontal Tree). 1 Node gốc (ở bên trái) phân nhánh sang phải. Tất cả các node phải có 'type': 'mindmapNode'. Không khép vòng.\n"
         ),
     },
     "infrastructure": {
@@ -159,41 +160,56 @@ class AIService:
         api_key = settings.GEMINI_API_KEYS[self.current_key_index]
         return genai.Client(api_key=api_key)
 
-    # --- Centralized Dynamic Prompt ---
+# --- Centralized Dynamic Prompt ---
     def _build_system_prompt(self, text: str, the_loai: str = "process") -> str:
         """
         Dynamic context-aware system prompt.
         The_loai determines which domain expert persona is injected.
         """
+        # Lấy cấu hình từ điển, mặc định fallback về _DEFAULT_CONFIG
         cfg = DIAGRAM_PROMPT_CONFIG.get(the_loai.lower(), _DEFAULT_CONFIG)
-        node_type_str = " | ".join(cfg["node_types"])
+        node_types = cfg.get("node_types", ["process"])
+        node_type_str = " | ".join(node_types)
         
-        return (
-            f"{cfg['role']}\n\n"
+        # Đảm bảo node_type đầu tiên an toàn để làm ví dụ
+        first_node_type = node_types[0] if node_types else "process"
+        
+        # Sử dụng chuỗi thô (Raw string) hoặc gán biến độc lập để tránh lỗi f-string escape
+        data_fields_example = cfg.get("data_fields", '{"label": "Tên nút"}')
+        
+        # Xây dựng System Persona & Định dạng bằng tiếng Việt tường minh
+        prompt = (
+            f"{cfg.get('role', 'BẠN LÀ CHUYÊN GIA PHÂN TÍCH QUY TRÌNH.')}\n\n"
             f"--- QUY TẮC BẮT BUỘC VỀ ĐỊNH DẠNG JSON ---\n"
-            f"TRẢ VỀ DUY NHẤT 1 KHỐI JSON THEO CẤU TRÚC SAU:\n"
+            f"Hệ thống yêu cầu xuất dữ liệu tuân thủ nghiêm ngặt theo cấu trúc JSON đồ thị sau:\n"
             f"{{\n"
             f"  \"nodes\": [\n"
             f"    {{\n"
             f"      \"id\": \"1\",\n"
-            f"      \"type\": \"{cfg['node_types'][0]}\",\n"
+            f"      \"type\": \"{first_node_type}\",\n"
             f"      \"position\": {{\"x\": 0, \"y\": 0}},\n"
-            f"      \"data\": {cfg['data_fields']}\n"
+            f"      \"data\": {data_fields_example}\n"
             f"    }}\n"
             f"  ],\n"
             f"  \"edges\": [\n"
-            f"    {{\"id\": \"e1-2\", \"source\": \"1\", \"target\": \"2\", \"label\": \"nhãn (tuỳ chọn)\"}}\n"
+            f"    {{\"id\": \"e1-2\", \"source\": \"1\", \"target\": \"2\", \"label\": \"nhãn (tùy chọn)\"}}\n"
             f"  ]\n"
             f"}}\n\n"
-            f"--- LOẠI NODE HỢP LỆ ---\n"
-            f"Chỉ dùng các type sau: {node_type_str}\n\n"
-            f"--- QUY TẮC RIÊNG CHO LOẠI SƠ ĐỒ `{the_loai}` ---\n"
-            f"{cfg['extra_rules']}\n"
-            f"--- VĂN BẢN ĐẦU VÀO ---\n{text}\n\n"
-            f"--- RÀNG BUỘC CHỐNG HALLUCINATION ---\n"
-            f"Strictly preserve all entities, locations, and names from user input. Do not generalize or swap locations (e.g., if user says 'Hà Tiên', do not output 'Hà Nội').\n\n"
-            f"YÊU CẦU: TRẢ VỀ DUY NHẤT 1 KHỐI JSON, KHÔNG CÓ MARKDOWN HAY CHỮ THỪA."
+            f"--- DANH SÁCH LOẠI NODE HỢP LỆ ---\n"
+            f"CHỈ ĐƯỢC PHÉP sử dụng các giá trị 'type' sau cho mảng nodes: {node_type_str}\n\n"
+            f"--- QUY TẮC CHUYÊN BIỆT CHO LOẠI SƠ ĐỒ `{the_loai.upper()}` ---\n"
+            f"{cfg.get('extra_rules', '')}\n\n"
+            f"--- RÀNG BUỘC CHỐNG ẢO GIÁC (HALLUCINATION CONSTRAINTS) ---\n"
+            f"1. BẮT BUỘC GIỮ NGUYÊN văn bản gốc đối với tên thực thể, địa danh, phòng ban, cá nhân. NGHIÊM CẤM tự ý viết tắt, thay thế hoặc lược bỏ.\n"
+            f"2. Mỗi đơn vị, cá nhân, bước quy trình hoặc thực thể độc lập xuất hiện trong văn bản PHẢI được ánh xạ thành một Node riêng biệt.\n"
+            f"3. Nếu văn bản liệt kê cụ thể N thực thể (ví dụ: 15 chi nhánh/địa phương), mảng 'nodes' bắt buộc phải kết xuất chính xác N phần tử tương ứng.\n"
+            f"4. TUYỆT ĐỐI KHÔNG sáng tạo hoặc suy diễn thêm các bước/thực thể không được đề cập trong văn bản đầu vào.\n"
+            f"5. Không giới hạn số lượng Node sinh ra nhằm bảo đảm tính toàn vẹn tuyệt đối của dữ liệu nguồn.\n\n"
+            f"--- VĂN BẢN ĐẦU VÀO CẦN PHÂN TÍCH ---\n"
+            f"{text}\n\n"
+            f"YÊU CẦU TỐI HẬU: TRẢ VỀ DUY NHẤT 1 KHỐI JSON HỢP LỆ. KHÔNG BỌC TRONG THẺ MARKDOWN (```json), KHÔNG SINH CÂU DẪN GIẢI HOẶC BẤT KỲ KÝ TỰ THỪA NÀO KHÁC."
         )
+        return prompt
 
     async def generate_smart_flow(
         self,
@@ -243,27 +259,44 @@ class AIService:
             logger.warning(f"⚠️ Redis error: {e}")
 
         result = None
-        
-        nha_cung_cap = provider
+
+        # ─── PROVIDER ROUTING ────────────────────────────────────────────────────
+        # FE gửi provider = tên model (ví dụ: 'qwen2.5-coder:1.5b') hoặc 'ollama'/'gemini'.
+        # Tra cứu DB để biết nha_cung_cap thực sự, đồng thời cập nhật endpoint và model name.
+        nha_cung_cap = provider  # fallback: giữ nguyên nếu DB không có
+
         try:
             async_session_maker = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
             async with async_session_maker() as db:
-                stmt = select(MoHinhAI).where(MoHinhAI.ten_mo_hinh == provider, MoHinhAI.trang_thai_hoat_dong == True)
+                stmt = select(MoHinhAI).where(
+                    MoHinhAI.ten_mo_hinh == provider,
+                    MoHinhAI.trang_thai_hoat_dong == True,
+                )
                 db_model = (await db.execute(stmt)).scalar_one_or_none()
                 if db_model:
                     nha_cung_cap = db_model.nha_cung_cap
-                    # Gán model name dynamic để override .env if supported
                     if nha_cung_cap == "ollama":
                         self.ollama_model = db_model.ten_mo_hinh
                         if db_model.endpoint_url:
                             self.ollama_url = db_model.endpoint_url
                     elif nha_cung_cap == "gemini":
                         self.model_name = db_model.ten_mo_hinh
-                        
-                    # Lưu tham số cấu hình vào instance nếu cần thiết ở hàm gọi
                     self._current_config = db_model.tham_so_cau_hinh or {}
+                    logger.info(f"[AI] DB lookup OK: '{provider}' → nha_cung_cap='{nha_cung_cap}'")
+                else:
+                    logger.warning(f"[AI] Không tìm thấy model '{provider}' trong DB, dùng fallback routing.")
         except Exception as e:
             logger.error(f"[AI] Lỗi query DB model: {e}")
+
+        # ─── FALLBACK: Nếu DB lookup thất bại, phân loại provider theo heuristic ─
+        # Các chuỗi chứa ':' hoặc model name nội bộ đặc trưng → route về Ollama
+        OLLAMA_KEYWORDS = ["ollama", "qwen", "llama", "mistral", "phi", "gemma", "deepseek"]
+        if nha_cung_cap not in ("ollama", "gemini"):
+            is_ollama_model = any(kw in nha_cung_cap.lower() for kw in OLLAMA_KEYWORDS)
+            if is_ollama_model:
+                logger.warning(f"[AI] Heuristic routing: '{nha_cung_cap}' → ollama")
+                self.ollama_model = nha_cung_cap  # dùng tên model trực tiếp
+                nha_cung_cap = "ollama"
 
         if nha_cung_cap == "ollama":
             logger.info("🛡️ [Local AI] Ollama processing...")
@@ -357,11 +390,38 @@ class AIService:
                 result = response.json()
                 raw_response = result.get('response', '')
                 logger.info(f"✅ [Local AI] Ollama finished in {duration:.2f}s | Response: {raw_response[:100]}...")
-                return json.loads(raw_response)
+
+                parsed = json.loads(raw_response)
+
+                # Ollama đôi khi trả về {"nodes": [...], "edges": [...]}
+                # hoặc bọc trong {"data": {"nodes": [...], "edges": [...]}}
+                # Chuẩn hóa về dạng {"nodes": [...], "edges": [...]}
+                if "data" in parsed and isinstance(parsed["data"], dict):
+                    parsed = parsed["data"]
+
+                # Đảm bảo luôn có keys nodes và edges
+                if "nodes" not in parsed:
+                    parsed["nodes"] = []
+                if "edges" not in parsed:
+                    parsed["edges"] = []
+
+                # Thêm trường data nếu node thiếu (Ollama nhỏ hay bỏ qua)
+                for node in parsed["nodes"]:
+                    if "data" not in node:
+                        node["data"] = {
+                            "label": node.get("label", node.get("id", "Node")),
+                            "executor": node.get("executor", ""),
+                            "description": node.get("description", ""),
+                        }
+                    if "position" not in node:
+                        node["position"] = {"x": 0, "y": 0}
+
+                return parsed
             except httpx.ConnectError:
-                raise Exception("KHÔNG THỂ KẾT NỐI: Hãy đảm bảo Ollama đã được bật!")
-            except json.JSONDecodeError:
-                raise Exception("Ollama trả về dữ liệu không đúng định dạng JSON.")
+                raise Exception("KHONG THE KET NOI: Hay dam bao Ollama da duoc bat!")
+            except json.JSONDecodeError as e:
+                logger.error(f"[Ollama] JSON parse error: {e} | raw: {raw_response[:500]}")
+                raise Exception(f"Ollama tra ve du lieu khong dung dinh dang JSON: {str(e)}")
             except Exception as e:
                 logger.error(f"Ollama error: {str(e)}")
                 raise e
@@ -374,41 +434,33 @@ class AIService:
             from pydantic import BaseModel, create_model, Field
             from typing import List, Optional, Dict
 
+            # --- Schema Pydantic linh ho\u1ea1t: t\u1ea5t c\u1ea3 tr\u01b0\u1eddng extra \u0111\u1ec1u Optional ---
+            # Thi\u1ebft k\u1ebf n\u00e0y tr\u00e1nh vi\u1ec7c AI b\u1ecb \u00e9p t\u1ea1o field kh\u00f4ng c\u00f3 trong d\u1eef li\u1ec7u
             NodeDataFields = {
                 "label": (str, ...),
                 "executor": (Optional[str], None),
-                "description": (Optional[str], None)
+                "description": (Optional[str], None),
+                # Org-chart fields
+                "position_title": (Optional[str], None),
+                "department": (Optional[str], None),
+                "level": (Optional[str], None),
+                # UML fields
+                "attributes": (Optional[List[str]], None),
+                "methods": (Optional[List[str]], None),
+                "uml_type": (Optional[str], None),
+                "visibility": (Optional[str], None),
+                # Process/iOffice fields
+                "process_type": (Optional[str], None),
+                "status": (Optional[str], None),
+                "duration": (Optional[str], None),
+                "document_ref": (Optional[str], None),
+                # Mindmap fields
+                "isRoot": (Optional[bool], None),
+                "isExpanded": (Optional[bool], None),
+                # Layered fields
+                "layer_type": (Optional[str], None),
+                "tech_stack": (Optional[List[str]], None),
             }
-
-            if the_loai == "org-chart":
-                NodeDataFields.update({
-                    "position_title": (str, ...),
-                    "department": (str, ...),
-                    "level": (str, ...)
-                })
-            elif the_loai == "uml":
-                NodeDataFields.update({
-                    "attributes": (List[str], ...),
-                    "methods": (List[str], ...),
-                    "uml_type": (str, ...),
-                    "visibility": (str, ...)
-                })
-            elif the_loai == "ioffice":
-                NodeDataFields.update({
-                    "process_type": (str, ...),
-                    "status": (str, ...),
-                    "duration": (Optional[str], None),
-                    "document_ref": (Optional[str], None)
-                })
-            elif the_loai == "mindmap":
-                NodeDataFields.update({
-                    "level": (str, ...)
-                })
-            elif the_loai == "layered":
-                NodeDataFields.update({
-                    "layer_type": (str, ...),
-                    "tech_stack": (List[str], ...)
-                })
 
             DynamicNodeData = create_model("DynamicNodeData", **NodeDataFields)
 
@@ -528,29 +580,56 @@ class AIService:
             "edges": [{"id": "e1-2", "source": "1", "target": "2"}]
         }
 
-    async def generate_flow_from_image(self, image_content: bytes, content_type: str) -> Dict[str, Any]:
-        """Vision AI - phân tích hình ảnh quy trình"""
+    async def generate_flow_from_image(
+        self, image_content: bytes, content_type: str, the_loai: str = "process"
+    ) -> Dict[str, Any]:
+        """Vision AI - ph\u00e2n t\u00edch h\u00ecnh \u1ea3nh s\u01a1 \u0111\u1ed3 b\u1eb1ng Gemini multimodal"""
         try:
+            cfg = DIAGRAM_PROMPT_CONFIG.get(the_loai, _DEFAULT_CONFIG)
+            node_type = cfg.get("node_types", ["process"])[0]
+            data_fields = cfg.get("data_fields", '{ "label": "T\u00ean b\u01b0\u1edbc" }')
+
             client = self._get_current_client()
             image_part = types.Part.from_bytes(data=image_content, mime_type=content_type)
+
             prompt_text = (
-                "Phân tích hình ảnh này. Nếu đây là sơ đồ quy trình, UML, hoặc flowchart, "
-                "hãy chuyển đổi nó thành JSON React Flow với nodes và edges. "
-                "Trả về DUY NHẤT 1 khối JSON {nodes: [...], edges: [...]}."
+                f"B\u1ea1n l\u00e0 chuy\u00ean gia ph\u00e2n t\u00edch s\u01a1 \u0111\u1ed3 t\u1ea1i VNPT.\n\n"
+                f"H\u00e3y ph\u00e2n t\u00edch k\u1ef9 h\u00ecnh \u1ea3nh n\u00e0y v\u00e0 th\u1ef1c hi\u1ec7n:\n"
+                f"1. Nh\u1eadn di\u1ec7n TH\u1ee4C TH\u1ec2 t\u1eeb \u1ea3nh (c\u00e1c h\u1ed9p, n\u00fat, k\u1ebft n\u1ed1i, c\u00e1c b\u01b0\u1edbc).\n"
+                f"2. Chuy\u1ec3n \u0111\u1ed5i th\u00e0nh JSON React Flow v\u1edbi c\u1ea5u tr\u00fac {{\"nodes\": [...], \"edges\": [...]}}.\n"
+                f"3. M\u1ed7i node MUST c\u00f3 c\u1ea5u tr\u00fac:\n"
+                f"   {{\"id\": \"1\", \"type\": \"{node_type}\", \"position\": {{\"x\": 0, \"y\": 0}}, \"data\": {data_fields}}}\n\n"
+                f"QUY T\u1eaec NODE TYPE:\n"
+                f"- Lo\u1ea1i s\u01a1 \u0111\u1ed3 \u0111\u01b0\u1ee3c y\u00eau c\u1ea7u: '{the_loai}'\n"
+                f"- T\u1ea5t c\u1ea3 nodes MUST d\u00f9ng type='{node_type}'.\n\n"
+                f"QUY T\u1eaec EDGES:\n"
+                f"- M\u1ed7i edge: {{\"id\": \"e1-2\", \"source\": \"1\", \"target\": \"2\", \"label\": \"T\u00ean k\u1ebft n\u1ed1i (n\u1ebfu c\u00f3)\"}}\n\n"
+                f"TR\u1ea2 V\u1ec0 DUY NH\u1ea4T 1 KH\u1ed0I JSON H\u1ee2P L\u1ec6. KH\u00d4NG markdown (```), kh\u00f4ng gi\u1ea3i th\u00edch."
             )
+
             response = client.models.generate_content(
                 model=self.model_name,
                 contents=[image_part, prompt_text],
-                config=types.GenerateContentConfig(temperature=0.1, response_mime_type="application/json"),
+                config=types.GenerateContentConfig(
+                    temperature=0.1,
+                    response_mime_type="application/json",
+                ),
             )
+
             raw_text = response.text.strip()
             json_match = re.search(r'(\{.*\})', raw_text, re.DOTALL)
             clean_json = json_match.group(0) if json_match else raw_text
             data = json.loads(clean_json)
-            return self._post_processing(data)
+            result = self._post_processing(data)
+            logger.info(
+                f"[Vision AI] Nh\u1eadn di\u1ec7n \u1ea3nh th\u00e0nh c\u00f4ng: "
+                f"{len(result.get('nodes', []))} nodes, {len(result.get('edges', []))} edges"
+            )
+            return result
+
         except Exception as e:
             logger.error(f"Vision AI error: {e}")
-            return {"nodes": [], "edges": []}
+            raise e
 
 
-ai_service = AIService()
+ai_service = AIService()
