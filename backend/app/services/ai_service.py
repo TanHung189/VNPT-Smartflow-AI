@@ -15,7 +15,9 @@ from app.database.session import engine
 from sqlmodel.ext.asyncio.session import AsyncSession
 from sqlalchemy.orm import sessionmaker
 from app.models.ai_model import MoHinhAI
+from app.models.ai_usage_log import NhatKySuDungAI
 from sqlalchemy import select
+import uuid as uuid_module
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -152,9 +154,10 @@ _DEFAULT_CONFIG = {
 class AIService:
     def __init__(self):
         self.current_key_index = 0
-        self.model_name = 'gemini-3.0-flash-preview'
-        self.ollama_url = "http://100.94.87.76:11434/api/generate"
-        self.ollama_model = "qwen2.5-coder:1.5b"
+        self.model_name = 'gemini-2.0-flash'
+        # Đọc từ settings — KHÔNG hardcode IP hoặc model name
+        self.ollama_url = settings.OLLAMA_BASE_URL
+        self.ollama_model = settings.OLLAMA_MODEL
 
     def _get_current_client(self):
         api_key = settings.GEMINI_API_KEYS[self.current_key_index]
@@ -216,8 +219,14 @@ class AIService:
         text: str,
         provider: str = "gemini",
         the_loai: str = "process",
+        user_id: str = None,  # Để ghi AI usage log
     ) -> Dict[str, Any]:
         logger.info(f"[AI] Loại sơ đồ: {the_loai} | Provider: {provider} | Text: {text[:60]}...")
+
+        # ── Input Validation ─────────────────────────────────────────────────
+        MAX_TEXT_LENGTH = 5000
+        if len(text) > MAX_TEXT_LENGTH:
+            raise ValueError(f"Văn bản quá dài ({len(text)} ký tự). Tối đa {MAX_TEXT_LENGTH} ký tự.")
 
         if the_loai == "auto":
             detected_type = await self._detect_diagram_intent(text, provider)
@@ -320,6 +329,19 @@ class AIService:
                 await redis_client.setex(cache_key, 86400, json.dumps(result))
             except Exception as e:
                 logger.warning(f"⚠️ Redis write error: {e}")
+
+            # ── Ghi AI Usage Log vào DB ──────────────────────────────────
+            try:
+                await self._log_ai_usage(
+                    user_id=user_id,
+                    provider=nha_cung_cap,
+                    prompt_text=text[:500],  # Chỉ lưu 500 ký tự đầu
+                    token_in=len(text.split()),
+                    token_out=len(str(result)),
+                    status="success",
+                )
+            except Exception as e:
+                logger.warning(f"⚠️ AI Usage log error: {e}")
 
         return result or {"nodes": [], "edges": []}
 
@@ -569,6 +591,53 @@ class AIService:
         except Exception as ex:
             logger.exception(f"Post-processing error: {ex}")
             return {"nodes": [], "edges": []}
+
+    # ── AI Usage Logging ─────────────────────────────────────────
+    async def _log_ai_usage(
+        self,
+        user_id: str,
+        provider: str,
+        prompt_text: str,
+        token_in: int = 0,
+        token_out: int = 0,
+        status: str = "success",
+        duration_ms: int = 0,
+    ) -> None:
+        """
+        Ghi nhật ký sử dụng AI vào bảng nhat_ky_su_dung_ai.
+        Chạy bất đồng bộ, lỗi không ảnh hưởng request chính.
+        """
+        try:
+            async_session_maker = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
+            async with async_session_maker() as db:
+                # Tìm id_mo_hinh tương ứng với provider
+                stmt = select(MoHinhAI).where(
+                    MoHinhAI.nha_cung_cap == provider,
+                    MoHinhAI.trang_thai_hoat_dong == True,
+                ).limit(1)
+                db_model = (await db.execute(stmt)).scalar_one_or_none()
+
+                user_uuid = None
+                if user_id:
+                    try:
+                        user_uuid = uuid_module.UUID(user_id)
+                    except ValueError:
+                        pass
+
+                log = NhatKySuDungAI(
+                    id_nguoi_dung=user_uuid,
+                    id_mo_hinh=db_model.id_mo_hinh if db_model else None,
+                    so_token_dau_vao=token_in,
+                    so_token_dau_ra=token_out,
+                    thoi_gian_xu_ly_ms=duration_ms,
+                    trang_thai=status,
+                    cau_lenh_prompt=prompt_text,
+                )
+                db.add(log)
+                await db.commit()
+                logger.info(f"[AI Log] Đã ghi nhật ký AI: provider={provider}, status={status}")
+        except Exception as e:
+            logger.warning(f"[AI Log] Không thể ghi nhật ký: {e}")
 
     def _get_mock_erp_data(self):
         """Hàm dự phòng khi demo"""

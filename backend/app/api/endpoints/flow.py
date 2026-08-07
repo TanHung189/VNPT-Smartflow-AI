@@ -5,8 +5,10 @@
 #         app/api/endpoints/diagram_router.py
 #==============================================================
 
-from fastapi import APIRouter, UploadFile, File, HTTPException
-from pydantic import BaseModel
+from fastapi import APIRouter, UploadFile, File, HTTPException, Request, Depends
+from pydantic import BaseModel, field_validator
+from slowapi import Limiter
+from slowapi.util import get_remote_address
 import docx
 import PyPDF2
 import io
@@ -15,13 +17,22 @@ import hashlib
 from typing import Optional
 
 from app.services.ai_service import ai_service
+from app.api.dependency import get_current_user
+from app.models.user import NguoiDung
+from app.core.config import settings
 from fastapi import Form
 
 # -----------------------------------------------------------
-# Khởi tạo logger và router
+# Khởi tạo logger, router và rate limiter
 # -----------------------------------------------------------
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["Flow-AI"])
+limiter = Limiter(key_func=get_remote_address)
+
+# Giới hạn ký tự tối đa cho text input
+MAX_TEXT_LENGTH = 5000
+MAX_FILE_SIZE_MB = 20
+
 
 class GenerateRequest(BaseModel):
     text: str
@@ -33,6 +44,21 @@ class GenerateRequest(BaseModel):
     current_nodes: Optional[list] = None
     current_edges: Optional[list] = None
 
+    @field_validator("text")
+    @classmethod
+    def validate_text_length(cls, v: str) -> str:
+        """Giới hạn độ dài text để tránh lạm dụng API và prompt injection."""
+        v = v.strip()
+        if not v:
+            raise ValueError("Văn bản không được để trống.")
+        if len(v) > MAX_TEXT_LENGTH:
+            raise ValueError(
+                f"Văn bản quá dài ({len(v):,} ký tự). "
+                f"Tối đa {MAX_TEXT_LENGTH:,} ký tự mỗi lần gọi."
+            )
+        return v
+
+
 # ==============================================================
 # [1] NHÓM API AI — Tạo sơ đồ tự động
 # ==============================================================
@@ -41,11 +67,15 @@ class GenerateRequest(BaseModel):
     "/generate/text",
     summary="Tạo sơ đồ từ văn bản thuần túy",
 )
-
-async def generate_flow(req: GenerateRequest):
+@limiter.limit(f"{settings.AI_RATE_LIMIT_PER_MINUTE}/minute")
+async def generate_flow(
+    request: Request,
+    req: GenerateRequest,
+    current_user: NguoiDung = Depends(get_current_user),
+):
     """Nhận văn bản mô tả quy trình và trả về JSON React Flow từ AI (Gemini/Ollama)."""
     try:
-        # Cường chế chuyển sang Local AI nếu là quy trình nội bộ
+        # Cưỡng chế chuyển sang Local AI nếu là quy trình nội bộ
         if req.is_internal:
             req.provider = "ollama"
             logger.info("🔒 [SECURITY] Quy trình nội bộ -> Cưỡng bức dùng Ollama (KHÔNG gửi lên Cloud).")
@@ -65,13 +95,18 @@ async def generate_flow(req: GenerateRequest):
             )
             logger.info(f"[Chat-to-Edit] Context inject: {len(req.current_nodes or [])} nodes, {len(req.current_edges or [])} edges")
 
+        user_id = str(current_user.id_nguoi_dung)
         data = await ai_service.generate_smart_flow(
             text_with_context,
             req.provider,
             the_loai=req.the_loai or "process",
+            user_id=user_id,
         )
-        logger.info(f"[Context-Aware] the_loai={req.the_loai} → prompt injected.")
+        logger.info(f"[Context-Aware] the_loai={req.the_loai} | user_id={user_id}")
         return {"result": "SUCCESS", "data": data}
+    except ValueError as e:
+        # Lỗi validation (text quá dài) → 400
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"[generate_flow] Lỗi AI ({req.provider}): {e}", exc_info=True)
         return {"result": "ERROR", "message": str(e)}
@@ -82,11 +117,14 @@ async def generate_flow(req: GenerateRequest):
     "/upload-process",
     summary="Tạo sơ đồ từ file (TXT / DOCX / PDF / PNG / JPG)",
 )
+@limiter.limit(f"{settings.AI_RATE_LIMIT_PER_MINUTE}/minute")
 async def upload_process(
+    request: Request,
     file: UploadFile = File(...),
     provider: str = Form("gemini"),
     is_internal: bool = Form(False),
-    the_loai: str = Form("process"),   # ← Loại sơ đồ được FE truyền xuống
+    the_loai: str = Form("process"),
+    current_user: NguoiDung = Depends(get_current_user),
 ):
     """Đọc nội dung file và chuyển đổi thành sơ đồ React Flow qua AI.
     
@@ -102,7 +140,16 @@ async def upload_process(
     text = ""
     filename = file.filename.lower()
     content = await file.read()
+
+    # Kiểm tra kích thước file
+    if len(content) > MAX_FILE_SIZE_MB * 1024 * 1024:
+        raise HTTPException(
+            status_code=400,
+            detail=f"File quá lớn. Tối đa {MAX_FILE_SIZE_MB}MB."
+        )
+
     content_hash = hashlib.md5(content).hexdigest()[:12]
+    user_id = str(current_user.id_nguoi_dung)
 
     try:
         # Ảnh → Vision AI
@@ -140,13 +187,13 @@ async def upload_process(
         logger.info(f"[upload_process] Extracted {len(text)} chars | the_loai={the_loai} | hash={content_hash}")
 
         # ─── Xử lý file dài: chunk + merge ─────────────────────────────────
-        CHUNK_LIMIT = 6000  # ký tự tối đa mỗi lần gọi AI
+        CHUNK_LIMIT = 4000  # Giảm xuống 4000 để mỗi chunk an toàn hơn
 
         if len(text) <= CHUNK_LIMIT:
             # File ngắn: xử lý bình thường
             text_with_hash = f"[FILE_HASH:{content_hash}]\n{text}"
             data = await ai_service.generate_smart_flow(
-                text_with_hash, provider=provider, the_loai=the_loai,
+                text_with_hash, provider=provider, the_loai=the_loai, user_id=user_id,
             )
         else:
             # File dài: chia theo dòng để không cắt giữa câu
@@ -175,6 +222,7 @@ async def upload_process(
                     f"[FILE_HASH:{content_hash}_chunk{i}]\n{chunk}",
                     provider=provider,
                     the_loai=the_loai,
+                    user_id=user_id,
                 )
                 for i, chunk in enumerate(chunks)
             ]
@@ -183,7 +231,6 @@ async def upload_process(
             # Gộp tất cả nodes và edges, đặt lại ID để không trùng
             merged_nodes: list = []
             merged_edges: list = []
-            node_id_offset = 0
 
             for chunk_idx, res in enumerate(results):
                 if isinstance(res, Exception):
@@ -214,6 +261,8 @@ async def upload_process(
 
         return {"result": "SUCCESS", "data": data}
 
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         logger.error(f"[upload_process] Lỗi: {e}", exc_info=True)
         return {"result": "ERROR", "message": f"Lỗi xử lý file: {str(e)}"}
@@ -224,9 +273,12 @@ async def upload_process(
     "/generate-flow-from-image",
     summary="Nhận diện hình ảnh quy trình (Computer Vision)",
 )
+@limiter.limit(f"{settings.AI_RATE_LIMIT_PER_MINUTE}/minute")
 async def generate_flow_from_image(
+    request: Request,
     file: UploadFile = File(...),
-    the_loai: str = Form("process"),   # Loại sơ đồ FE truyền để AI dùng đúng system prompt
+    the_loai: str = Form("process"),
+    current_user: NguoiDung = Depends(get_current_user),
 ):
     """Phân tích hình ảnh quy trình và trả về cấu trúc React Flow."""
     try:
@@ -234,8 +286,8 @@ async def generate_flow_from_image(
             return {"result": "ERROR", "message": "File phải là định dạng hình ảnh (JPG, PNG, WEBP)."}
 
         content = await file.read()
-        if len(content) > 20 * 1024 * 1024:  # 20MB limit
-            return {"result": "ERROR", "message": "Ảnh quá lớn (tối đa 20MB)."}
+        if len(content) > MAX_FILE_SIZE_MB * 1024 * 1024:
+            return {"result": "ERROR", "message": f"Ảnh quá lớn (tối đa {MAX_FILE_SIZE_MB}MB)."}
 
         data = await ai_service.generate_flow_from_image(content, file.content_type, the_loai)
         return {"result": "SUCCESS", "data": data}
@@ -243,4 +295,3 @@ async def generate_flow_from_image(
     except Exception as e:
         logger.error(f"[generate_flow_from_image] Lỗi AI vision: {e}", exc_info=True)
         return {"result": "ERROR", "message": str(e)}
-

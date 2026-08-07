@@ -195,13 +195,16 @@ export const useFlowLogic = () => {
 
     const nodesOut = rawNodes.map((n: any) => ({
       ...n,
-      // ưu tiên type đã có sẵn trong data (nếu AI trả về explicit type)
-      type: n.type && n.type !== "customNode" ? n.type : resolvedType,
+      // Giữ lại type nếu nó đã được map trong NODE_TYPE_MAP (từ AI trả về đúng schema)
+      // Fallback về resolvedType nếu type chưa biết hoặc là giá trị lạ
+      type: (n.type && NODE_TYPE_MAP[n.type.toLowerCase()]) ? NODE_TYPE_MAP[n.type.toLowerCase()] : resolvedType,
       data: {
         ...n.data,                         // bảo toàn isRoot, isExpanded, level từ AI
         label: n.label || n.data?.label || "",
         // Đảm bảo isExpanded mặc định là true cho tất cả nodes mới tạo
         isExpanded: n.data?.isExpanded ?? true,
+        // Bảo tồn process_type từ AI (dùng bởi ProcessNode)
+        process_type: n.data?.process_type || n.data?.type || n.type,
       },
     }));
 
@@ -430,7 +433,7 @@ export const useFlowLogic = () => {
   const onConnect = useCallback(
     (params: any) => {
       setEdges((eds) =>
-        addEdge({ ...params, animated: true, type: "bezier" }, eds),
+        addEdge({ ...params, animated: true, type: "smoothstep" }, eds),
       );
       if (takeSnapshot) takeSnapshot();
     },

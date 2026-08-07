@@ -12,10 +12,18 @@ DB_URL = os.getenv("DATABASE_URL") or os.getenv("DB_URL")
 
 engine = create_async_engine(DB_URL, echo=False)
 
+from sqlalchemy import text
+
 async def init_db():
     async with engine.begin() as conn:
         # Tự động tạo bảng nếu chưa có
         await conn.run_sync(Base.metadata.create_all)
+        # Đảm bảo các cột mới phát sinh được cập nhật trên DB hiện có
+        await conn.execute(text("ALTER TABLE nguoi_dung ADD COLUMN IF NOT EXISTS ma_nhan_vien VARCHAR(50);"))
+        await conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_nguoi_dung_ma_nhan_vien ON nguoi_dung(ma_nhan_vien);"))
+        
+        await conn.execute(text("ALTER TABLE mo_hinh_ai ADD COLUMN IF NOT EXISTS endpoint_url VARCHAR(255);"))
+        await conn.execute(text("ALTER TABLE mo_hinh_ai ADD COLUMN IF NOT EXISTS tham_so_cau_hinh JSONB;"))
     
     # Seeding dữ liệu mẫu (Vai trò)
     from app.models.role import VaiTro
@@ -55,13 +63,14 @@ async def init_db():
             print("🌱 Seeding default AI models...")
             gemini = MoHinhAI(
                 nha_cung_cap="gemini",
-                ten_mo_hinh="gemini-3-flash",
-                mo_ta="Google Gemini 1.5 Flash (Cloud)"
+                # Khớp với model_name trong ai_service.py
+                ten_mo_hinh="gemini-3.0-flash-preview",
+                mo_ta="Google Gemini 3.0 Flash Preview (Cloud AI)"
             )
             ollama = MoHinhAI(
                 nha_cung_cap="ollama",
                 ten_mo_hinh="qwen2.5-coder:1.5b",
-                mo_ta="Ollama Qwen2.5 Coder (Local AI)"
+                mo_ta="Ollama Qwen2.5 Coder 1.5B (Local AI)"
             )
             session.add(gemini)
             session.add(ollama)

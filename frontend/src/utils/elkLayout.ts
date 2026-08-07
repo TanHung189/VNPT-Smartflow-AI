@@ -204,7 +204,7 @@ const mindmapLayout = async (
     };
   });
 
-  const outEdges = edges.map((e) => ({ ...e, type: "bezier" }));
+  const outEdges = edges.map((e) => ({ ...e, type: "smoothstep" }));
   return { nodes: outNodes, edges: outEdges };
 };
 

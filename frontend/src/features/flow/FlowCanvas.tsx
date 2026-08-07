@@ -303,13 +303,16 @@ const FlowContent = ({
   };
 
   // Smooth fitView transition after generation completes
+  // Chỉ trigger khi isGenerating chuyển từ true → false (vừa xong generate)
+  const wasGenerating = useRef(false);
   useEffect(() => {
-    if (!isGenerating && nodes.length > 0) {
+    if (wasGenerating.current && !isGenerating && nodes.length > 0) {
       setTimeout(() => {
         fitView({ duration: 1000, padding: 0.2 });
       }, 100);
     }
-  }, [isGenerating, nodes.length, fitView]);
+    wasGenerating.current = isGenerating;
+  }, [isGenerating, fitView]);
 
   // Export handlers
   const getExportConfig = () => {
@@ -882,8 +885,13 @@ const FlowContent = ({
 };
 
 // 6. COMPONENT EXPORT (BẮT BUỘC CÓ PROVIDER)
+// FlowContent dùng useReactFlow() — phải được bọc trong ReactFlowProvider
 const FlowCanvas = (props: any) => {
-  return <FlowContent {...props} />;
+  return (
+    <ReactFlowProvider>
+      <FlowContent {...props} />
+    </ReactFlowProvider>
+  );
 };
 
 export default FlowCanvas;
