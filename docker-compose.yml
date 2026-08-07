@@ -1,4 +1,7 @@
 services:
+  # ──────────────────────────────────────────────────────────────
+  # DATABASE — PostgreSQL 15
+  # ──────────────────────────────────────────────────────────────
   postgres:
     image: postgres:15-alpine
     container_name: vnpt_postgres
@@ -11,7 +14,16 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-admin} -d ${POSTGRES_DB:-vnpt_smartflow_v1}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
 
+  # ──────────────────────────────────────────────────────────────
+  # CACHE — Redis 7
+  # ──────────────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     container_name: vnpt_redis
@@ -20,7 +32,16 @@ services:
     volumes:
       - redis_data:/data
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
 
+  # ──────────────────────────────────────────────────────────────
+  # BACKEND — FastAPI + Uvicorn
+  # ──────────────────────────────────────────────────────────────
   backend:
     build:
       context: ./backend
@@ -31,28 +52,54 @@ services:
     environment:
       - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin123}@postgres:5432/${POSTGRES_DB:-vnpt_smartflow_v1}
       - REDIS_URL=redis://redis:6379/0
-      - OLLAMA_HOST=host.docker.internal:11434
-      - SECRET_KEY=${SECRET_KEY:-your-super-secret-key}
+      - OLLAMA_HOST=${OLLAMA_HOST:-host.docker.internal:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5-coder:1.5b}
+      - SECRET_KEY=${SECRET_KEY:-your-super-secret-key-change-in-production}
       - ALGORITHM=HS256
-      - ACCESS_TOKEN_EXPIRE_MINUTES=1440
+      - ACCESS_TOKEN_EXPIRE_MINUTES=${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
       - GEMINI_API_KEYS=${GEMINI_API_KEYS}
-      # FIX: Truyền Google OAuth2 credentials vào backend container
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      # CORS: Production nên điền cụ thể, VD: https://smartflow.vnpt.vn
+      - CORS_ORIGINS=${CORS_ORIGINS:-}
+      # Frontend URL dùng cho email reset password
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      # Email service (forgot password)
+      - MAIL_USERNAME=${MAIL_USERNAME:-}
+      - MAIL_PASSWORD=${MAIL_PASSWORD:-}
+      - MAIL_FROM=${MAIL_FROM:-noreply@vnpt.vn}
+      - MAIL_FROM_NAME=${MAIL_FROM_NAME:-VNPT SmartFlow AI}
+      - MAIL_PORT=${MAIL_PORT:-587}
+      - MAIL_SERVER=${MAIL_SERVER:-smtp.gmail.com}
+      - MAIL_STARTTLS=${MAIL_STARTTLS:-true}
+      - MAIL_SSL_TLS=${MAIL_SSL_TLS:-false}
+      # Rate limiting
+      - AI_RATE_LIMIT_PER_MINUTE=${AI_RATE_LIMIT_PER_MINUTE:-15}
+      - PASSWORD_RESET_TOKEN_EXPIRE_MINUTES=${PASSWORD_RESET_TOKEN_EXPIRE_MINUTES:-30}
     depends_on:
-      - postgres
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
     restart: unless-stopped
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
+  # ──────────────────────────────────────────────────────────────
+  # FRONTEND — React + Nginx
+  # Lưu ý: REACT_APP_API_BASE_URL phải là URL public của backend
+  #         VD: http://YOUR_VPS_IP:8000/api hoặc https://api.yourdomain.com/api
+  # ──────────────────────────────────────────────────────────────
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
+        # URL mà BROWSER của người dùng dùng để gọi API (không phải container-to-container)
+        # Local:  http://localhost:8000/api
+        # VPS:    http://<VPS_IP>:8000/api  hoặc  https://api.<domain>/api
+        - REACT_APP_API_BASE_URL=${REACT_APP_API_BASE_URL:-http://localhost:8000/api}
         - REACT_APP_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-        - REACT_APP_API_BASE_URL=http://localhost:8000/api
     container_name: vnpt_frontend
     ports:
       - "3000:80"

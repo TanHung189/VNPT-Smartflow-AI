@@ -7,7 +7,8 @@ import { UserManagementTable } from "./components/UserManagementTable";
 import { DiagramManagementTable } from "./components/DiagramManagementTable";
 import { AiModelManagement } from "./components/AiModelManagement";
 import { AiUsageChart, AiUsageStatDTO } from "./components/AiUsageChart";
-import { AdminApi } from "../../services/adminApi";
+import { RecentActivitiesTable } from "./components/RecentActivitiesTable";
+import { AdminApi, ActivityLogDTO } from "../../services/adminApi";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,6 +18,7 @@ export const AdminDashboard: React.FC = () => {
   const [stats, setStats] = useState<StatData[]>([]);
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [aiUsageStats, setAiUsageStats] = useState<AiUsageStatDTO[]>([]);
+  const [logs, setLogs] = useState<ActivityLogDTO[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -56,6 +58,9 @@ export const AdminDashboard: React.FC = () => {
       ]);
       setChartData(data.chart_data || []);
       setAiUsageStats(data.ai_usage_stats || []);
+      
+      const logsData = await AdminApi.getLogs();
+      setLogs(logsData || []);
     } catch (error) {
       console.error(error);
       toast.error("Lỗi khi tải dữ liệu tổng quan");
@@ -80,8 +85,9 @@ export const AdminDashboard: React.FC = () => {
               <StatsCards stats={stats} />
             </section>
             <section className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-              <div className="xl:col-span-2 h-full">
+              <div className="xl:col-span-2 h-full flex flex-col gap-8">
                 <PerformanceChart data={chartData} />
+                <RecentActivitiesTable activities={logs} />
               </div>
               <div className="xl:col-span-1 h-full">
                 <AiUsageChart data={aiUsageStats} />

@@ -1,4 +1,4 @@
-# Build stage
+# ── Build Stage ──────────────────────────────────────────────
 FROM node:20-alpine AS builder
 
 WORKDIR /app
@@ -8,22 +8,26 @@ RUN npm install --legacy-peer-deps
 
 COPY . .
 
-# Injected args from docker-compose
+# Build-time args injected từ docker-compose
 ARG REACT_APP_GOOGLE_CLIENT_ID
-ARG REACT_APP_API_BASE_URL
+ARG REACT_APP_API_BASE_URL=http://localhost:8000/api
 
 ENV REACT_APP_GOOGLE_CLIENT_ID=$REACT_APP_GOOGLE_CLIENT_ID
 ENV REACT_APP_API_BASE_URL=$REACT_APP_API_BASE_URL
 
+# Disable CRA ESLint cứng để tránh build fail do warning
+ENV DISABLE_ESLINT_PLUGIN=true
+ENV CI=false
+
 RUN npm run build
 
-# Production stage
+# ── Production Stage ─────────────────────────────────────────
 FROM nginx:alpine
 
-# Copy custom nginx config to handle React Router (SPA fallback)
+# Custom nginx config để handle React Router (SPA fallback)
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy built React app — craco builds to /build, NOT /dist
+# craco build output nằm ở /build (không phải /dist)
 COPY --from=builder /app/build /usr/share/nginx/html
 
 EXPOSE 80

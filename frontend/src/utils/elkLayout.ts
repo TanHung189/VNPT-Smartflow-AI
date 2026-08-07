@@ -21,22 +21,23 @@ const elk = new ELK();
 export type LayoutDirection = "TB" | "LR";
 
 const DIRECTION_MAP: Record<string, LayoutDirection> = {
-  "org-chart":      "TB",
-  "org":            "TB",
-  "layered":        "TB",
-  "layer":          "TB",
-  "uml":            "TB",
-  "uml-class":      "TB",
-  "process":        "LR",
-  "ioffice":        "LR",
-  "quy-trinh":      "LR",
-  "workflow":       "LR",
-  "mindmap":        "TB",
-  "network":        "TB",
-  "infrastructure": "TB",
-  "cloud":          "TB",
-  "iot":            "LR",
-  "smart-city":     "LR",
+  "org-chart": "TB",
+  org: "TB",
+  layered: "TB",
+  layer: "TB",
+  uml: "TB",
+  "uml-class": "TB",
+  process: "LR",
+  ioffice: "LR",
+  "quy-trinh": "LR",
+  workflow: "LR",
+  mindmap: "LR",      // Mindmap cũ: horizontal
+  mindmapNode: "LR",  // Mindmap mới: cây ngang
+  network: "TB",
+  infrastructure: "TB",
+  cloud: "TB",
+  iot: "LR",
+  "smart-city": "LR",
 };
 
 const resolveDirection = (diagramType: string): LayoutDirection =>
@@ -51,7 +52,7 @@ const NODE_H_TB = 170;
 // ─── Edge type per diagram structure ─────────────────────────────────────────
 const resolveEdgeType = (diagramType: string): string => {
   const t = diagramType.toLowerCase();
-  if (t === "mindmap") return "bezier";
+  if (t === "mindmap" || t === "mindmapnode") return "smoothstep";
   if (t === "org-chart" || t === "org") return "smoothstep";
   return "default";
 };
@@ -68,18 +69,18 @@ const runElkOnce = async (
   const graph: ElkNode = {
     id: "root",
     layoutOptions: {
-      "elk.algorithm":                         "layered",
-      "elk.direction":                          direction,
-      "elk.edgeRouting":                       "ORTHOGONAL",
-      "elk.spacing.nodeNode":                  "60",
+      "elk.algorithm": "layered",
+      "elk.direction": direction,
+      "elk.edgeRouting": "ORTHOGONAL",
+      "elk.spacing.nodeNode": "60",
       "elk.layered.spacing.nodeNodeBetweenLayers": "150",
     },
     children: elkNodes,
-    edges:    elkEdges,
+    edges: elkEdges,
   };
   return elk.layout(graph);
 };
-
+// dành cho mindmap
 const mindmapLayout = async (
   nodes: Node[],
   edges: Edge[],
@@ -97,16 +98,16 @@ const mindmapLayout = async (
   // ── Split root children into Right / Left halves ──
   const rootEdges = edges.filter((e) => e.source === root.id);
   const rightChildSet = new Set<string>();
-  const leftChildSet  = new Set<string>();
+  const leftChildSet = new Set<string>();
   rootEdges.forEach((e, i) => {
     if (i % 2 === 0) rightChildSet.add(e.target);
-    else              leftChildSet.add(e.target);
+    else leftChildSet.add(e.target);
   });
 
   // BFS to collect all descendants of a starting set
   const bfsDescendants = (seeds: Set<string>): Set<string> => {
     const result = new Set<string>(seeds);
-    const queue  = Array.from(seeds);
+    const queue = Array.from(seeds);
     while (queue.length > 0) {
       const curr = queue.shift()!;
       edges
@@ -122,7 +123,7 @@ const mindmapLayout = async (
   };
 
   const rightSet = bfsDescendants(rightChildSet);
-  const leftSet  = bfsDescendants(leftChildSet);
+  const leftSet = bfsDescendants(leftChildSet);
 
   const nodeW = NODE_W_LR;
   const nodeH = NODE_H_LR;
@@ -144,26 +145,30 @@ const mindmapLayout = async (
   };
 
   const rightInputs = buildHalfInputs(rightSet);
-  const leftInputs  = buildHalfInputs(leftSet);
+  const leftInputs = buildHalfInputs(leftSet);
 
   const [gRight, gLeft] = await Promise.all([
     runElkOnce(rightInputs.elkNodes, rightInputs.elkEdges, "RIGHT"),
-    runElkOnce(leftInputs.elkNodes, leftInputs.elkEdges,  "LEFT"),
+    runElkOnce(leftInputs.elkNodes, leftInputs.elkEdges, "LEFT"),
   ]);
 
   // Extract root position from each half layout to use as origin offset
   const rootRight = gRight.children?.find((n) => n.id === root.id);
-  const rootLeft  = gLeft.children?.find((n)  => n.id === root.id);
+  const rootLeft = gLeft.children?.find((n) => n.id === root.id);
   const rootRightX = rootRight?.x ?? 0;
   const rootRightY = rootRight?.y ?? 0;
-  const rootLeftX  = rootLeft?.x  ?? 0;
-  const rootLeftY  = rootLeft?.y  ?? 0;
+  const rootLeftX = rootLeft?.x ?? 0;
+  const rootLeftY = rootLeft?.y ?? 0;
 
   // Build position lookup from ELK outputs
   const posRight: Record<string, { x: number; y: number }> = {};
-  const posLeft:  Record<string, { x: number; y: number }> = {};
-  gRight.children?.forEach((n) => (posRight[n.id] = { x: n.x ?? 0, y: n.y ?? 0 }));
-  gLeft.children?.forEach((n)  => (posLeft[n.id]  = { x: n.x ?? 0, y: n.y ?? 0 }));
+  const posLeft: Record<string, { x: number; y: number }> = {};
+  gRight.children?.forEach(
+    (n) => (posRight[n.id] = { x: n.x ?? 0, y: n.y ?? 0 }),
+  );
+  gLeft.children?.forEach(
+    (n) => (posLeft[n.id] = { x: n.x ?? 0, y: n.y ?? 0 }),
+  );
 
   const outNodes: Node[] = nodes.map((node) => {
     let x = 0;
@@ -199,7 +204,7 @@ const mindmapLayout = async (
     };
   });
 
-  const outEdges = edges.map((e) => ({ ...e, type: "bezier" }));
+  const outEdges = edges.map((e) => ({ ...e, type: "smoothstep" }));
   return { nodes: outNodes, edges: outEdges };
 };
 
@@ -211,29 +216,29 @@ const standardLayout = async (
   edges: Edge[],
   diagramType: string,
 ): Promise<{ nodes: Node[]; edges: Edge[] }> => {
-  const direction  = resolveDirection(diagramType);
-  const elkDir     = direction === "LR" ? "RIGHT" : "DOWN";
+  const direction = resolveDirection(diagramType);
+  const elkDir = direction === "LR" ? "RIGHT" : "DOWN";
   const isOrgChart = diagramType === "org-chart" || diagramType === "org";
-  const edgeType   = resolveEdgeType(diagramType);
+  const edgeType = resolveEdgeType(diagramType);
 
   const nodeW = direction === "LR" ? NODE_W_LR : NODE_W_TB;
   const nodeH = direction === "LR" ? NODE_H_LR : NODE_H_TB;
 
-  const nodeSep   = isOrgChart ? "150" : direction === "LR" ? "80"  : "100";
-  const layerSep  = isOrgChart ? "150" : direction === "LR" ? "150" : "200";
+  const nodeSep = isOrgChart ? "50" : direction === "LR" ? "50" : "80";
+  const layerSep = isOrgChart ? "100" : direction === "LR" ? "150" : "150";
 
   const elkGraph: ElkNode = {
     id: "root",
     layoutOptions: {
-      "elk.algorithm":                              "layered",
-      "elk.direction":                               elkDir,
-      "elk.edgeRouting":                            "ORTHOGONAL",
-      "elk.spacing.nodeNode":                       nodeSep,
-      "elk.layered.spacing.nodeNodeBetweenLayers":  layerSep,
+      "elk.algorithm": "layered",
+      "elk.direction": elkDir,
+      "elk.edgeRouting": "ORTHOGONAL",
+      "elk.spacing.nodeNode": nodeSep,
+      "elk.layered.spacing.nodeNodeBetweenLayers": layerSep,
     },
     children: nodes.map((n) => ({ id: n.id, width: nodeW, height: nodeH })),
     edges: edges.map((e) => ({
-      id:      e.id,
+      id: e.id,
       sources: [e.source],
       targets: [e.target],
     })),
@@ -242,14 +247,16 @@ const standardLayout = async (
   const result = await elk.layout(elkGraph);
 
   const posMap: Record<string, { x: number; y: number }> = {};
-  result.children?.forEach((n) => (posMap[n.id] = { x: n.x ?? 0, y: n.y ?? 0 }));
+  result.children?.forEach(
+    (n) => (posMap[n.id] = { x: n.x ?? 0, y: n.y ?? 0 }),
+  );
 
   const outNodes: Node[] = nodes.map((node) => {
     const pos = posMap[node.id];
     if (!pos) return node;
     return {
       ...node,
-      targetPosition: (direction === "LR" ? "left"  : "top")    as any,
+      targetPosition: (direction === "LR" ? "left" : "top") as any,
       sourcePosition: (direction === "LR" ? "right" : "bottom") as any,
       style: {
         ...node.style,
@@ -284,7 +291,8 @@ export const getElkLayoutedElements = async (
   if (nodes.length === 0) return { nodes, edges };
 
   const t = diagramType.toLowerCase();
-  const isMindMap = t === "mindmap";
+  // Mindmap và mindmapNode đều dùng horizontal tree layout
+  const isMindMap = t === "mindmap" || t === "mindmapnode";
 
   if (isMindMap) {
     return mindmapLayout(nodes, edges);

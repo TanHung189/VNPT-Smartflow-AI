@@ -1,8 +1,21 @@
 import React, { memo, useState } from "react";
 import { Handle, Position, useReactFlow, NodeToolbar } from "@xyflow/react";
-import { Play, CheckCircle2, AlertCircle, Settings, Edit2, Trash2 } from "lucide-react";
+import {
+  Play,
+  CheckCircle2,
+  AlertCircle,
+  Settings,
+  Edit2,
+  Trash2,
+} from "lucide-react";
 
-const SmartNode = ({ id, data, selected, targetPosition, sourcePosition }: any) => {
+const SmartNode = ({
+  id,
+  data,
+  selected,
+  targetPosition,
+  sourcePosition,
+}: any) => {
   const { setNodes } = useReactFlow();
   const [isEditing, setIsEditing] = useState(false);
   const getStyle = () => {
@@ -59,15 +72,29 @@ const SmartNode = ({ id, data, selected, targetPosition, sourcePosition }: any) 
               className="text-sm font-extrabold text-slate-800 bg-white/60 border border-slate-300 rounded outline-none resize-none nodrag nowheel p-1 w-full"
               value={data.label}
               autoFocus
-              onChange={(e) => setNodes((nds) => nds.map((n) => n.id === id ? { ...n, data: { ...n.data, label: e.target.value } } : n))}
+              onChange={(e) =>
+                setNodes((nds) =>
+                  nds.map((n) =>
+                    n.id === id
+                      ? { ...n, data: { ...n.data, label: e.target.value } }
+                      : n,
+                  ),
+                )
+              }
               onBlur={() => setIsEditing(false)}
               onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); setIsEditing(false); }
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  setIsEditing(false);
+                }
               }}
               rows={2}
             />
           ) : (
-            <p onDoubleClick={() => setIsEditing(true)} className="text-sm font-extrabold text-slate-800 dark:text-slate-100 leading-tight truncate cursor-pointer hover:text-indigo-600 transition-colors">
+            <p
+              onDoubleClick={() => setIsEditing(true)}
+              className="text-sm font-extrabold text-slate-800 dark:text-slate-100 leading-tight truncate cursor-pointer hover:text-indigo-600 transition-colors"
+            >
               {data.label}
             </p>
           )}
@@ -76,8 +103,18 @@ const SmartNode = ({ id, data, selected, targetPosition, sourcePosition }: any) 
 
       <NodeToolbar isVisible={selected} position={Position.Top}>
         <div className="flex bg-white rounded-lg shadow-lg border border-slate-200 p-1 gap-1 mb-2">
-          <button onClick={() => setIsEditing(!isEditing)} className="p-1.5 hover:bg-slate-100 rounded text-indigo-600 transition-colors"><Edit2 size={15}/></button>
-          <button onClick={() => setNodes((nds) => nds.filter((n) => n.id !== id))} className="p-1.5 hover:bg-red-50 rounded text-red-600 transition-colors"><Trash2 size={15}/></button>
+          <button
+            onClick={() => setIsEditing(!isEditing)}
+            className="p-1.5 hover:bg-slate-100 rounded text-indigo-600 transition-colors"
+          >
+            <Edit2 size={15} />
+          </button>
+          <button
+            onClick={() => setNodes((nds) => nds.filter((n) => n.id !== id))}
+            className="p-1.5 hover:bg-red-50 rounded text-red-600 transition-colors"
+          >
+            <Trash2 size={15} />
+          </button>
         </div>
       </NodeToolbar>
 
@@ -95,7 +132,6 @@ const SmartNode = ({ id, data, selected, targetPosition, sourcePosition }: any) 
 
       {/* Handles linh hoạt theo position */}
       {data.isRoot ? (
-        // Root Node (Mindmap): cần 2 Handle Source để tỏa ra 2 bên
         <>
           <Handle
             type="source"

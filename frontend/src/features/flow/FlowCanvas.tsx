@@ -48,6 +48,8 @@ import UmlNode from "./nodes/UmlNode";
 import StickyNode from "./nodes/StickyNode";
 import { NODE_REGISTRY } from "./nodes/NodeRegistry";
 import { useTheme } from "next-themes";
+import { useMindmapLayout } from "../../hooks/useMindmapLayout";
+import { toast } from "sonner";
 
 const MindMapIcon = () => (
   <svg
@@ -159,26 +161,27 @@ const PRESET_COLORS = [
 // NODE_REGISTRY chứa các Context-Aware nodes mới (OrgNode, LayerNode, UMLNode, ProcessNode)
 // được spread đầu tiên, các legacy nodes bên dưới sẽ ghi đè nếu trùng key.
 const nodeTypes = {
-  // ── Context-Aware Template Nodes (NodeRegistry.tsx) ──
-  ...NODE_REGISTRY,
-
   // ── Legacy / generic (SmartNode fallback) ──
-  taskNode: SmartNode,
-  conditionNode: SmartNode,
   customNode: SmartNode,
-  start: SmartNode,
-  end: SmartNode,
-  step: SmartNode,
-  decision: SmartNode,
-  infographic: SmartNode,
-
+  
   // ── Enterprise node types (cũ) ──
   networkNode: NetworkNode, // Hạ tầng mạng VNPT
   iofficeNode: IofficeNode, // Quy trình iOffice (legacy key)
   cloudNode: CloudNode, // Kiến trúc VNPT Cloud (glassmorphism)
   iotNode: IotNode, // Smart City / IoT
-  umlNode: UmlNode, // UML / UseCase diagrams (legacy key)
   stickyNode: StickyNode, // Sticky notes
+
+  // ── ĐỒNG BỘ: Kéo thả từ toolbar & AI fallback sang Process Node (node trắng) ──
+  taskNode: NODE_REGISTRY.processNode,
+  conditionNode: NODE_REGISTRY.processNode,
+  start: NODE_REGISTRY.processNode,
+  end: NODE_REGISTRY.processNode,
+  step: NODE_REGISTRY.processNode,
+  decision: NODE_REGISTRY.processNode,
+
+  // ── Context-Aware Template Nodes (NodeRegistry.tsx) ──
+  // Để ở cuối để đảm bảo các định nghĩa mới trong Registry ghi đè các legacy keys (như infographic, umlNode...)
+  ...NODE_REGISTRY,
 };
 
 const FlowContent = ({
@@ -221,6 +224,10 @@ const FlowContent = ({
   onOpenAI,
   aiMode,
   onDragStart,
+  // Props cho Smart Structure Change
+  originalText,
+  generateFlow,
+  provider,
 }: any) => {
   const { theme, setTheme } = useTheme();
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -234,21 +241,78 @@ const FlowContent = ({
   const [currentBgColor, setCurrentBgColor] = useState<string>("");
   const { screenToFlowPosition, getNodes, fitView } = useReactFlow();
 
-  const handleStructureChange = (
+  // Hook layout cho mindmap dạng ngang — chỉ active khi đang ở mode mindmap
+  useMindmapLayout(
+    structure === "mindmap" ? nodes : [],
+    structure === "mindmap" ? edges : []
+  );
+
+  const handleStructureChange = async (
     newStructure: "org-chart" | "process" | "mindmap",
   ) => {
+    const prevStructure = structure;
     setStructure(newStructure);
-    if (autoLayout) autoLayout(newStructure);
+
+    // ─────────────────────────────────────────────────────────
+    // Kịch bản A: Local Layout Optimization
+    // Điều kiện: Trong cùng domain mindmap hoặc không có originalText
+    // ─────────────────────────────────────────────────────────
+    const isSameDomain = prevStructure === newStructure;
+    const hasOriginalText = originalText && originalText.trim().length > 0;
+    const hasNodes = nodes && nodes.length > 0;
+
+    if (!hasNodes || !hasOriginalText || isSameDomain) {
+      // Chỉ tính toán lại ELK, không gọi API
+      if (autoLayout) autoLayout(newStructure);
+      return;
+    }
+
+    // ─────────────────────────────────────────────────────────
+    // Kịch bản B: Remote AI Transformation
+    // Điều kiện: Đổi domain hoàn toàn (ví dụ: mindmap → org-chart)
+    // ─────────────────────────────────────────────────────────
+    const backupNodes = nodes;
+    const backupEdges = edges;
+
+    try {
+      // Hiển thị loading
+      const result = await generateFlow(
+        originalText,
+        provider || "gemini",
+        undefined, // Không truyền current nodes — AI tạo lại hoàn toàn
+        undefined,
+        newStructure, // Truyền domain mới để AI dùng Schema tương ứng
+      );
+
+      if (!result.success) {
+        // Fallback về cấu trúc cũ nếu lỗi
+        setStructure(prevStructure);
+        setNodes(backupNodes);
+        setEdges(backupEdges);
+        toast.error(`Đổi cấu trúc thất bại: ${result.errorMsg || 'Vui lòng thử lại.'}`);
+      } else {
+        toast.success(`Đã chuyển sang sơ đồ ${newStructure} thành công!`);
+      }
+    } catch (err) {
+      // Fallback khi exception
+      setStructure(prevStructure);
+      setNodes(backupNodes);
+      setEdges(backupEdges);
+      toast.error('Lỗi kết nối: Không thể chuyển đổi cấu trúc sơ đồ.');
+    }
   };
 
   // Smooth fitView transition after generation completes
+  // Chỉ trigger khi isGenerating chuyển từ true → false (vừa xong generate)
+  const wasGenerating = useRef(false);
   useEffect(() => {
-    if (!isGenerating && nodes.length > 0) {
+    if (wasGenerating.current && !isGenerating && nodes.length > 0) {
       setTimeout(() => {
         fitView({ duration: 1000, padding: 0.2 });
       }, 100);
     }
-  }, [isGenerating, nodes.length, fitView]);
+    wasGenerating.current = isGenerating;
+  }, [isGenerating, fitView]);
 
   // Export handlers
   const getExportConfig = () => {
@@ -782,27 +846,27 @@ const FlowContent = ({
                 Nhãn bước
               </label>
               <input
-                className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-500"
+                className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm text-slate-800 outline-none focus:border-indigo-500"
                 value={selectedNode.data.label}
                 onChange={(e) => updateNodeData("label", e.target.value)}
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase">
+              <label className="text-[10px] font-bold text-slate-400 uppercase ">
                 Người thực hiện
               </label>
               <input
-                className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm outline-none focus:border-indigo-500"
+                className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm text-slate-800 outline-none focus:border-indigo-500"
                 value={selectedNode.data.executor}
                 onChange={(e) => updateNodeData("executor", e.target.value)}
               />
             </div>
             <div className="space-y-1">
-              <label className="text-[10px] font-bold text-slate-400 uppercase">
+              <label className="text-[10px] font-bold text-slate-400 uppercase ">
                 Mô tả quy trình
               </label>
               <textarea
-                className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm h-32 resize-none"
+                className="w-full p-3 bg-slate-50 border border-slate-100 rounded-xl text-sm text-slate-800 h-32 resize-none outline-none focus:border-indigo-500"
                 value={selectedNode.data.description}
                 onChange={(e) => updateNodeData("description", e.target.value)}
               />
@@ -821,8 +885,13 @@ const FlowContent = ({
 };
 
 // 6. COMPONENT EXPORT (BẮT BUỘC CÓ PROVIDER)
+// FlowContent dùng useReactFlow() — phải được bọc trong ReactFlowProvider
 const FlowCanvas = (props: any) => {
-  return <FlowContent {...props} />;
+  return (
+    <ReactFlowProvider>
+      <FlowContent {...props} />
+    </ReactFlowProvider>
+  );
 };
 
 export default FlowCanvas;

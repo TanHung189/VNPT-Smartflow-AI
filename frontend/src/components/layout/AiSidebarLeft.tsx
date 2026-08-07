@@ -11,6 +11,8 @@ import {
   Server,
   ChevronDown,
   Lightbulb,
+  ImagePlus,
+  ScanSearch,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { getDiagramConfig, DIAGRAM_CONFIGS, type SamplePrompt } from "../../features/flow/diagramConfig";
@@ -25,7 +27,9 @@ interface AiSidebarLeftProps {
   isOpen: boolean;
   onClose: () => void;
   onGenerate: (text: string, provider: string) => Promise<ReactFlowAIPayload>;
-  onUpload: (file: File, provider: string) => Promise<boolean>;
+  onUpload: (file: File, provider: string, diagramType: string) => Promise<boolean>;
+  /** Vision AI: nhận ảnh PNG/JPG/WEBP và chuyển thành sơ đồ */
+  onUploadImage?: (imageFile: File, diagramType: string) => Promise<boolean>;
   loading: boolean;
   provider: string;
   setProvider: (provider: string) => void;
@@ -44,6 +48,7 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
   onClose,
   onGenerate,
   onUpload,
+  onUploadImage,
   loading,
   provider,
   setProvider,
@@ -54,7 +59,10 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
   const [showPrompts, setShowPrompts] = useState(true);
   const [activeModels, setActiveModels] = useState<AiModelDTO[]>([]);
   const [isModelsLoading, setIsModelsLoading] = useState(true);
-  const [isDark, setIsDark] = useState(false); // Global Theme state for Chatbot
+  const [isDark, setIsDark] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null); // Object URL chỉ dùng cho preview
+  const [imageName, setImageName] = useState<string>("");
+  const [imageFile, setImageFile] = useState<File | null>(null); // Lưu File thực tế, tránh fetch lại blob
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -356,8 +364,63 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
 
           {/* ─── CHAT INPUT ─── */}
           <div className={`p-3 pt-2 bg-transparent border-t ${theme.border}`}>
+
+            {/* ─── IMAGE PREVIEW STRIP (hiện khi có ảnh đã chọn) ─── */}
+            {imagePreview && imageFile && (
+              <div className="mb-2 flex items-center gap-2 p-2 bg-indigo-50 border border-indigo-200 rounded-xl">
+                <img src={imagePreview} alt="preview" className="w-12 h-12 object-cover rounded-lg border border-indigo-300 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] font-bold text-indigo-700 truncate">{imageName}</p>
+                  <p className="text-[10px] text-indigo-400">Sẵn sàng phân tích bằng Vision AI</p>
+                </div>
+                <button
+                  disabled={loading}
+                  onClick={async () => {
+                    if (!onUploadImage || !imageFile) return;
+                    // Dùng trực tiếp File object — không fetch lại blob URL
+                    setMessages(prev => [
+                      ...prev,
+                      { id: Date.now().toString(), role: "user", content: `🖼️ Phân tích ảnh: ${imageName}` },
+                    ]);
+                    setShowPrompts(false);
+                    const fileToSend = imageFile; // capture trước khi reset state
+                    setImagePreview(null);
+                    setImageName("");
+                    setImageFile(null);
+                    const ok = await onUploadImage(fileToSend, diagramType);
+                    setMessages(prev => [
+                      ...prev,
+                      {
+                        id: Date.now().toString(),
+                        role: "ai",
+                        content: ok
+                          ? "✅ Vision AI đã nhận diện sơ đồ từ ảnh và render thành công!"
+                          : "❌ Không thể nhận diện sơ đồ trong ảnh. Hãy thử ảnh rõ hơn.",
+                      },
+                    ]);
+                  }}
+                  className="flex-shrink-0 flex items-center gap-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[11px] font-bold rounded-lg transition-all disabled:opacity-50"
+                >
+                  {loading ? <Loader2 size={12} className="animate-spin" /> : <ScanSearch size={12} />}
+                  Quét
+                </button>
+                <button
+                  onClick={() => {
+                    setImagePreview(null);
+                    setImageName("");
+                    setImageFile(null);
+                  }}
+                  className="flex-shrink-0 p-1 hover:bg-indigo-100 rounded-md text-indigo-400"
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            )}
+
             <div className={`relative flex items-end gap-2 ${theme.inputBox} border rounded-xl p-1.5 shadow-sm focus-within:ring-2 focus-within:ring-[#0066cc]/30 transition-all`}>
-              <label className="p-2 hover:bg-slate-400/20 rounded-lg text-slate-400 hover:text-[#0066cc] cursor-pointer transition-colors">
+
+              {/* Nút upload file (PDF/DOCX/TXT) */}
+              <label title="Tải lên tài liệu (PDF, DOCX, TXT)" className="p-2 hover:bg-slate-400/20 rounded-lg text-slate-400 hover:text-[#0066cc] cursor-pointer transition-colors">
                 <FileUp size={15} />
                 <input
                   type="file"
@@ -370,18 +433,47 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
                         { id: Date.now().toString(), role: "user", content: `📎 ${file.name}` },
                       ]);
                       setShowPrompts(false);
-                      const success = await onUpload(file, provider);
+                      const success = await onUpload(file, provider, diagramType);
                       if (success) {
                         setMessages((prev) => [
                           ...prev,
                           { id: Date.now().toString(), role: "ai", content: "✅ Đã phân tích nội dung file, tự động layout sơ đồ hoàn tất!" },
                         ]);
                       }
+                      e.target.value = "";
                     }
                   }}
                   className="hidden"
                 />
               </label>
+
+              {/* Nút upload ảnh (Vision AI) */}
+              {onUploadImage && (
+                <label
+                  title="Tải lên ảnh sơ đồ để AI nhận diện (PNG, JPG, WEBP)"
+                  className="p-2 hover:bg-indigo-50 rounded-lg text-slate-400 hover:text-indigo-600 cursor-pointer transition-colors relative"
+                >
+                  <ImagePlus size={15} />
+                  <input
+                    type="file"
+                    accept="image/png,image/jpeg,image/jpg,image/webp,image/gif"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        // Revoke URL cũ nếu có để tránh memory leak
+                        if (imagePreview) URL.revokeObjectURL(imagePreview);
+                        const url = URL.createObjectURL(file);
+                        setImageFile(file);      // Lưu File object thực tế
+                        setImagePreview(url);    // Chỉ dùng cho <img> preview
+                        setImageName(file.name);
+                        e.target.value = "";
+                      }
+                    }}
+                    className="hidden"
+                  />
+                  <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-indigo-500 rounded-full" />
+                </label>
+              )}
               <textarea
                 ref={textareaRef}
                 value={text}

@@ -25,7 +25,9 @@ export const NODE_TYPE_MAP: Record<string, string> = {
   "ioffice":    "process",
   "quy-trinh":  "process",
   "workflow":   "process",
-  "mindmap":    "mindmap",
+  "mindmap":    "mindmapNode",   // Mindmap → MindmapNode component mới
+  "mindmapNode":"mindmapNode",   // Đã có sẵn type đúng từ AI
+
   // ── Legacy / enterprise node keys ──
   "network":         "networkNode",
   "ha-tang-mang":    "networkNode",
@@ -189,13 +191,21 @@ export const useFlowLogic = () => {
     const rawNodes = data?.nodes ?? [];
     const rawEdges = data?.edges ?? [];
     const resolvedType = resolveNodeType(diagramType);
+    const isMindmap = diagramType === "mindmap" || diagramType === "mindmapNode";
 
     const nodesOut = rawNodes.map((n: any) => ({
       ...n,
-      // Ưu tiên type đã có sẵn trong data (nếu AI trả về explicit type)
-      // Nếu không có → dùng resolvedType từ NODE_TYPE_MAP
-      type: n.type && n.type !== "customNode" ? n.type : resolvedType,
-      data: { ...n.data, label: n.label || n.data?.label || "" },
+      // Giữ lại type nếu nó đã được map trong NODE_TYPE_MAP (từ AI trả về đúng schema)
+      // Fallback về resolvedType nếu type chưa biết hoặc là giá trị lạ
+      type: (n.type && NODE_TYPE_MAP[n.type.toLowerCase()]) ? NODE_TYPE_MAP[n.type.toLowerCase()] : resolvedType,
+      data: {
+        ...n.data,                         // bảo toàn isRoot, isExpanded, level từ AI
+        label: n.label || n.data?.label || "",
+        // Đảm bảo isExpanded mặc định là true cho tất cả nodes mới tạo
+        isExpanded: n.data?.isExpanded ?? true,
+        // Bảo tồn process_type từ AI (dùng bởi ProcessNode)
+        process_type: n.data?.process_type || n.data?.type || n.type,
+      },
     }));
 
     const edgesOut = rawEdges
@@ -203,9 +213,10 @@ export const useFlowLogic = () => {
         id: e.id || `e${i}`,
         source: String(e.source || ""),
         target: String(e.target || ""),
-        type: "default",
-        animated: true,
-        style: { stroke: "#6366f1", strokeWidth: 3 },
+        // Mindmap dùng smoothstep, các loại khác dùng default
+        type: isMindmap ? "smoothstep" : "default",
+        animated: !isMindmap,
+        style: { stroke: "#6366f1", strokeWidth: isMindmap ? 2 : 3 },
         markerEnd: { type: "arrowclosed", color: "#6366f1" },
       }))
       .filter((ed: any) => ed.source && ed.target);
@@ -296,24 +307,25 @@ export const useFlowLogic = () => {
   );
 
   const uploadFileAndGenerate = useCallback(
-    async (file: File, provider: string = "gemini") => {
+    async (file: File, provider: string = "gemini", diagramType: string = "process") => {
       setIsGenerating(true);
       const formData = new FormData();
       formData.append("file", file);
       formData.append("provider", provider);
       formData.append("is_internal", provider === "ollama" ? "true" : "false");
+      formData.append("the_loai", diagramType); // ← truyền loại sơ đồ để backend dùng đúng prompt
       try {
         const response = await diagramApi.uploadProcessImage(formData);
         const resData = response;
         if (resData.result === "SUCCESS") {
-          const normalized = normalizeGraph(resData.data);
+          const normalized = normalizeGraph(resData.data, diagramType);
 
           // ─ ELK async layout ───────────────────────────────────────────────
           const { nodes: lNodes, edges: lEdges } =
             await getElkLayoutedElements(
               normalized.nodes,
               normalized.edges,
-              "logic",
+              diagramType, // ← dùng đúng loại sơ đồ thay vì hard-code "logic"
             );
 
           setNodes(lNodes as Node[]);
@@ -329,6 +341,55 @@ export const useFlowLogic = () => {
         }
       } catch (error) {
         toast.error("Lỗi kết nối tới server khi xử lý file!");
+        return false;
+      } finally {
+        setIsGenerating(false);
+      }
+    },
+    [setNodes, setEdges, takeSnapshot, fitView],
+  );
+
+  /**
+   * uploadImageAndGenerate — Vision AI
+   * Upload ảnh (PNG/JPG/JPEG/WEBP) → Gemini Vision phân tích → Render sơ đồ
+   */
+  const uploadImageAndGenerate = useCallback(
+    async (imageFile: File, diagramType: string = "process"): Promise<boolean> => {
+      const ALLOWED = ["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif"];
+      if (!ALLOWED.includes(imageFile.type)) {
+        toast.error("Chỉ hỗ trợ ảnh PNG, JPG, WEBP, GIF!");
+        return false;
+      }
+      if (imageFile.size > 20 * 1024 * 1024) {
+        toast.error("Ảnh không được vượt quá 20MB!");
+        return false;
+      }
+
+      setIsGenerating(true);
+      try {
+        const response = await diagramApi.generateFlowFromImage(imageFile, diagramType);
+        if (response.result === "SUCCESS") {
+          const normalized = normalizeGraph(response.data, diagramType);
+          if (!normalized.nodes || normalized.nodes.length === 0) {
+            toast.error("AI không tìm thấy sơ đồ trong ảnh. Hãy thử ảnh rõ hơn!");
+            return false;
+          }
+          const { nodes: lNodes, edges: lEdges } = await getElkLayoutedElements(
+            normalized.nodes,
+            normalized.edges,
+            diagramType,
+          );
+          setNodes(lNodes as Node[]);
+          setEdges(lEdges as Edge[]);
+          setTimeout(() => fitView({ padding: 0.2, duration: 800 }), 50);
+          setTimeout(takeSnapshot, 100);
+          return true;
+        } else {
+          toast.error(response.message ?? "Vision AI không thể phân tích ảnh này.");
+          return false;
+        }
+      } catch (err) {
+        toast.error("Lỗi kết nối tới Vision AI!");
         return false;
       } finally {
         setIsGenerating(false);
@@ -372,7 +433,7 @@ export const useFlowLogic = () => {
   const onConnect = useCallback(
     (params: any) => {
       setEdges((eds) =>
-        addEdge({ ...params, animated: true, type: "bezier" }, eds),
+        addEdge({ ...params, animated: true, type: "smoothstep" }, eds),
       );
       if (takeSnapshot) takeSnapshot();
     },
@@ -479,6 +540,7 @@ export const useFlowLogic = () => {
     isGenerating,
     generateFlow,
     uploadFileAndGenerate,
+    uploadImageAndGenerate,
     // history
     undo,
     redo,

@@ -11,7 +11,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-# Grant execution permission to the startup script
-RUN chmod +x start.sh
+# Fix Windows CRLF → Unix LF line endings để script chạy được trên Linux
+RUN sed -i 's/\r//' start.sh && chmod +x start.sh
 
 CMD ["./start.sh"]

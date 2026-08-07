@@ -145,6 +145,20 @@ export const diagramApi = {
     return response.data;
   },
 
+  /**
+   * Tạo sơ đồ từ hình ảnh (Vision AI — Gemini multimodal).
+   * POST /api/ai/generate-flow-from-image
+   */
+  generateFlowFromImage: async (imageFile: File, theLoai: string = "process") => {
+    const formData = new FormData();
+    formData.append("file", imageFile);
+    formData.append("the_loai", theLoai);
+    const response = await api.post("/ai/generate-flow-from-image", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return response.data;
+  },
+
   // ============================================================
   // TRASH BIN API (THÙNG RÁC)
   // ============================================================
