@@ -12,8 +12,63 @@
 [![Gemini](https://img.shields.io/badge/Google_Gemini-AI-4285F4?style=for-the-badge&logo=google)](https://ai.google.dev/)
 
 *Cho phép người dùng mô tả quy trình bằng văn bản tiếng Việt hoặc hình ảnh, AI tự động chuyển đổi thành sơ đồ tương tác (interactive flowchart) trong vài giây.*
+<br/>
+
+<!-- HERO SHOWCASE -->
+<img src="https://res.cloudinary.com/ditpj0bdr/image/upload/v1786122086/1786121663868_2066465573720047035_8161052299121474647_2dcee48618947a9e9321c6b5e98e52fe_sj1cix.jpg" alt="VNPT SmartFlow Canvas Editor" width="100%" style="border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.15);" />
 
 </div>
+
+---
+
+## 📸 Giao diện Người dùng (User Interface)
+
+| Landing Page | Quản lý Workspace & Dashboard |
+| :---: | :---: |
+| <img src="https://res.cloudinary.com/ditpj0bdr/image/upload/v1786122085/1786121598999_2066465573720047035_8161052299121474647_567c928aab1c58b16900cf4163fbbe37_k05plt.jpg" alt="Landing Page" width="100%"/> | <img src="https://res.cloudinary.com/ditpj0bdr/image/upload/v1786122086/1786121650900_2066465573720047035_8161052299121474647_0376be0d55eb4b93dad74ceaaac1e064_tr6amh.jpg" alt="Dashboard Workspace" width="100%"/> |
+
+| Lựa chọn Template chuẩn | Danh sách Sơ đồ gần đây |
+| :---: | :---: |
+| <img src="https://res.cloudinary.com/ditpj0bdr/image/upload/v1786122085/1786121645290_2066465573720047035_8161052299121474647_1afed6687e9dcceaf82629e071681dd4_rbhjoq.jpg" alt="Templates" width="100%"/> | <img src="https://res.cloudinary.com/ditpj0bdr/image/upload/v1786122086/1786121658835_2066465573720047035_8161052299121474647_7e2fd83f2b8d7dee9aedc693dd12eeea_amtvne.jpg" alt="Recent Diagrams List" width="100%"/> |
+
+| Màn hình Đăng nhập (JWT/OAuth) | Màn hình Đăng ký Tài khoản |
+| :---: | :---: |
+| <img src="https://res.cloudinary.com/ditpj0bdr/image/upload/v1786122085/1786121630281_2066465573720047035_8161052299121474647_418273ac33f7ca65885417500a19ae7d_flkutc.jpg" alt="Login Page" width="100%"/> | <img src="https://res.cloudinary.com/ditpj0bdr/image/upload/v1786122085/1786121637024_2066465573720047035_8161052299121474647_329d8a468b9c6b66a39fa82f6ef3b581_wabe3i.jpg" alt="Register Page" width="100%"/> |
+
+---
+
+## 🤖 Trợ lý AI & Trình vẽ Sơ đồ (AI Assistant)
+
+| Chatbot Phân tích Nghiệp vụ AI | Lựa chọn Model AI (Gemini / Ollama) |
+| :---: | :---: |
+| <img src="https://res.cloudinary.com/ditpj0bdr/image/upload/v1786122087/1786121684882_2066465573720047035_8161052299121474647_2582ade8397a5b40c36fed0886dd805b_genm4k.jpg" alt="AI Chatbot" width="100%"/> | <img src="https://res.cloudinary.com/ditpj0bdr/image/upload/v1786122086/1786121678194_2066465573720047035_8161052299121474647_421b3ff3f06f7594678f163c624c16fd_zd4l6c.jpg" alt="AI Model Selection" width="100%"/> |
+
+---
+
+## 👑 Hệ thống Quản trị (Admin Panel)
+
+| Dashboard Thống kê | Quản lý Người dùng & Phân quyền |
+| :---: | :---: |
+| <img src="https://res.cloudinary.com/ditpj0bdr/image/upload/v1786122087/1786121695145_2066465573720047035_8161052299121474647_5d474aa4d059da271956fe72c083ab17_wnwaqr.jpg" alt="Admin Stats" width="100%"/> | <img src="https://res.cloudinary.com/ditpj0bdr/image/upload/v1786122087/1786121700857_2066465573720047035_8161052299121474647_a5be809ea498defa673fb55398c6c094_u4eyrj.jpg" alt="User Management" width="100%"/> |
+
+| Quản lý Kho Sơ đồ & Mẫu chuẩn | Cấu hình Theme Template JSON |
+| :---: | :---: |
+| <img src="https://res.cloudinary.com/ditpj0bdr/image/upload/v1786122087/1786121706934_2066465573720047035_8161052299121474647_f78be7c31d8e2e62f0f51deba3050a76_g5rpgv.jpg" alt="Diagram Management" width="100%"/> | <img src="https://res.cloudinary.com/ditpj0bdr/image/upload/v1786122087/1786121723140_2066465573720047035_8161052299121474647_a452f2eeb12a8d70fafc7df82e536d95_fvph4y.jpg" alt="Theme Template JSON" width="100%"/> |
+
+<div align="center">
+  <b>Thêm mới Model AI (Hỗ trợ Tailscale & GPU xử lý từ xa)</b><br/>
+  <img src="https://res.cloudinary.com/ditpj0bdr/image/upload/v1786122087/1786121717625_2066465573720047035_8161052299121474647_fe4e74487d0280f3df7a0cab8ac13360_he9zwx.jpg" alt="Add AI Model" width="70%" style="border-radius: 6px; margin-top: 8px;" />
+</div>
+
+---
+
+## 📊 Kết quả Đầu ra (Exported Diagrams)
+
+Một vài mẫu kết quả sơ đồ tư duy thực tế được tạo hoàn toàn tự động thông qua AI tạo sinh của hệ thống:
+
+| Mẫu kết quả 1 | Mẫu kết quả 2 |
+| :---: | :---: |
+| <img src="https://res.cloudinary.com/ditpj0bdr/image/upload/v1786122086/S%C6%A1_%C4%91%E1%BB%93_tr%C6%B0%E1%BB%9Dng_%C4%91%E1%BA%A1i_h%E1%BB%8Dc_s%C3%A0i_g%C3%B2n_fodncf.png" alt="SGU Diagram" width="100%"/> | <img src="https://res.cloudinary.com/ditpj0bdr/image/upload/v1786122086/vnpt-diagram-1778650097713_qesquj.png" alt="DTHU Diagram" width="100%"/> |
 
 ---
 
