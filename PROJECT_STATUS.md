@@ -129,22 +129,11 @@ Layer 2 — Diagram Cache (diagram_service.py):
 
 ## 4. Đang phát triển (Status: 🔄 WIP)
 
-### 4.1 Google OAuth COOP Policy
+### 4.1 Frontend API Integration hoàn chỉnh
 
-- **Lỗi:** `Cross-Origin-Opener-Policy policy would block the window.postMessage call.`
-- **Nguyên nhân:** Trình duyệt chặn popup của Google Sign-In do chính sách `COOP: same-origin` không tương thích với `window.postMessage` cross-origin.
-- **Trạng thái:** _Chưa xử lý_. Cần thêm header `Cross-Origin-Opener-Policy: same-origin-allow-popups` trong response FastAPI CORS hoặc dùng redirect flow thay vì popup flow.
+- Tính năng quản lý người dùng `users.py` đang phát triển.
+- Các module xuất dữ liệu (PDF/PNG export) ở frontend cần hoàn thiện UI.
 
-### 4.2 Frontend API Integration hoàn chỉnh
-
-- `getAll()` trong `diagramApi.ts` (gọi `/diagrams/list`) chưa được dùng trong UI — cần tích hợp vào trang quản lý sơ đồ.
-- Chưa có trang `My Diagrams` để người dùng xem danh sách và load lại sơ đồ đã lưu.
-
-### 4.3 FutureWarning — google-generativeai
-
-- **Cảnh báo:** `FutureWarning: All support for the 'google.generativeai' package has ended.`
-- **Nguyên nhân:** Đang dùng SDK cũ `google-generativeai==0.8.6` thay vì `google-genai` mới.
-- **Trạng thái:** _Chưa migrate_. Cần refactor `ai_service.py` sang `from google import genai` API mới.
 
 ---
 
@@ -155,8 +144,8 @@ Layer 2 — Diagram Cache (diagram_service.py):
 | 1   | `ImportError: cannot import name 'get_session' from 'app.database'` | `dependency.py` và `__init__.py` dùng `get_session`, nhưng `session.py` định nghĩa `get_db`. | ✅ **Đã sửa** — Đồng bộ về `get_db`                                         |
 | 2   | Frontend 404 khi lưu sơ đồ (`/save-diagram`)                        | `diagramApi.ts` hardcode endpoint cũ, chưa cập nhật theo router mới `/diagrams/save`         | ✅ **Đã sửa** — Đổi sang `/diagrams/save`                                   |
 | 3   | Mũi tên gãy hình chữ Z                                              | Handle không được căn giữa tuyệt đối do box-model CSS                                        | ✅ **Đã sửa** — Thêm `style={{ left:'50%', transform:'translateX(-50%)' }}` |
-| 4   | `COOP: window.postMessage` blocked                                  | Google OAuth popup bị chặn bởi browser security policy                                       | ⚠️ WIP                                                                      |
-| 5   | `FutureWarning: google-generativeai deprecated`                     | Dùng SDK cũ thay vì `google-genai`                                                           | ⚠️ WIP                                                                      |
+| 4   | `COOP: window.postMessage` blocked                                  | Google OAuth popup bị chặn bởi browser security policy                                       | ✅ **Đã sửa** — Đổi COOP thành `same-origin-allow-popups` |
+| 5   | `FutureWarning: google-generativeai deprecated`                     | Dùng SDK cũ thay vì `google-genai`                                                           | ✅ **Đã sửa** — Đã migrate sang `google-genai`              |
 | 6   | Response field mismatch                                             | Frontend expect `diagram_id`, backend trả `id`                                               | ✅ **Đã sửa** — Frontend đọc `result.id`                                    |
 
 ---
@@ -165,9 +154,7 @@ Layer 2 — Diagram Cache (diagram_service.py):
 
 | Ưu tiên  | Tính năng                           | Mô tả                                                                        | Phụ thuộc                |
 | -------- | ----------------------------------- | ---------------------------------------------------------------------------- | ------------------------ |
-| 🔴 Cao   | **Migrate sang `google-genai` SDK** | Xóa deprecated warning, đảm bảo long-term support                            | `ai_service.py` refactor |
-| 🔴 Cao   | **Trang "My Diagrams"**             | UI để xem danh sách, load lại và xóa sơ đồ                                   | `/diagrams/list` đã có   |
-| 🔴 Cao   | **Fix COOP Google OAuth**           | Thêm header `same-origin-allow-popups` hoặc chuyển sang redirect flow        | FastAPI CORS/middleware  |
+| 🔴 Cao   | **Hoàn thiện xuất file**            | Export PNG / PDF cho các sơ đồ                                               | Frontend                 |
 | 🟡 Trung | **Export PNG / PDF**                | Dùng `html2canvas` + `jsPDF` để xuất sơ đồ                                   | Frontend                 |
 | 🟡 Trung | **Collaboration (Real-time)**       | WebSocket để nhiều người cùng chỉnh sơ đồ                                    | FastAPI WebSocket        |
 | 🟡 Trung | **Docker Compose deployment**       | Đóng gói toàn bộ (FastAPI + PostgreSQL + Redis) thành 1 `docker-compose.yml` | DevOps                   |

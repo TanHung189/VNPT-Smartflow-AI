@@ -164,7 +164,7 @@ const LEVEL_CONFIG: Record<
   },
 };
 
-const OrgNodeComponent = ({ id, data, selected }: NodeProps) => {
+const OrgNodeComponent = ({ id, data, selected, targetPosition, sourcePosition }: any) => {
   const { setNodes } = useReactFlow();
   const [isEditing, setIsEditing] = React.useState(false);
 
@@ -274,12 +274,12 @@ const OrgNodeComponent = ({ id, data, selected }: NodeProps) => {
       {/* Handles */}
       <Handle
         type="target"
-        position={Position.Top}
+        position={targetPosition || Position.Top}
         className={HANDLE_STYLE.target}
       />
       <Handle
         type="source"
-        position={Position.Bottom}
+        position={sourcePosition || Position.Bottom}
         className={HANDLE_STYLE.source}
       />
       <Handle
@@ -336,7 +336,7 @@ const LAYER_CONFIG: Record<
   },
 };
 
-const LayerNodeComponent = ({ id, data, selected }: NodeProps) => {
+const LayerNodeComponent = ({ id, data, selected, targetPosition, sourcePosition }: any) => {
   const { setNodes } = useReactFlow();
   const [isEditing, setIsEditing] = React.useState(false);
 
@@ -420,28 +420,16 @@ const LayerNodeComponent = ({ id, data, selected }: NodeProps) => {
           </div>
         )}
 
-        {/* Handles — all 4 sides so nested layout works */}
+        {/* Handles */}
         <Handle
           type="target"
-          position={Position.Top}
+          position={targetPosition || Position.Left}
           className={HANDLE_STYLE.target}
         />
         <Handle
           type="source"
-          position={Position.Bottom}
+          position={sourcePosition || Position.Right}
           className={HANDLE_STYLE.source}
-        />
-        <Handle
-          type="target"
-          position={Position.Left}
-          className={HANDLE_STYLE.target}
-          style={{ top: "50%" }}
-        />
-        <Handle
-          type="source"
-          position={Position.Right}
-          className={HANDLE_STYLE.source}
-          style={{ top: "50%" }}
         />
       </div>
 
@@ -465,7 +453,8 @@ const VISIBILITY_SYMBOL: Record<string, string> = {
   protected: "#",
 };
 
-const UMLNodeComponent = ({ data, selected }: NodeProps) => {
+const UMLNodeComponent = ({ id, data, selected, targetPosition, sourcePosition }: any) => {
+  const { setNodes } = useReactFlow();
   const d = data as unknown as UMLNodeData;
   const visSymbol = VISIBILITY_SYMBOL[d.visibility ?? "public"];
   const isInterface = d.uml_type === "interface";
@@ -488,10 +477,10 @@ const UMLNodeComponent = ({ data, selected }: NodeProps) => {
         </span>
         <Handle
           type="source"
-          position={Position.Bottom}
+          position={sourcePosition || Position.Bottom}
           className="opacity-0"
         />
-        <Handle type="target" position={Position.Top} className="opacity-0" />
+        <Handle type="target" position={targetPosition || Position.Top} className="opacity-0" />
       </div>
     );
   }
@@ -700,7 +689,7 @@ const PROCESS_TYPE_STYLE: Record<
   },
 };
 
-const ProcessNodeComponent = ({ id, data, selected }: NodeProps) => {
+const ProcessNodeComponent = ({ id, data, selected, targetPosition, sourcePosition }: any) => {
   const { setNodes } = useReactFlow();
   const [isEditing, setIsEditing] = React.useState(false);
 
@@ -733,23 +722,13 @@ const ProcessNodeComponent = ({ id, data, selected }: NodeProps) => {
         </p>
         <Handle
           type="target"
-          position={Position.Top}
-          className="!w-3 !h-3 !bg-white !border-2 !border-slate-300"
+          position={targetPosition || Position.Left}
+          className={HANDLE_STYLE.target}
         />
         <Handle
           type="source"
-          position={Position.Bottom}
-          className="!w-3 !h-3 !bg-white !border-2 !border-slate-300"
-        />
-        <Handle
-          type="target"
-          position={Position.Left}
-          className="!w-3 !h-3 !bg-white !border-2 !border-slate-300"
-        />
-        <Handle
-          type="source"
-          position={Position.Right}
-          className="!w-3 !h-3 !bg-white !border-2 !border-slate-300"
+          position={sourcePosition || Position.Right}
+          className={HANDLE_STYLE.source}
         />
       </div>
     );
@@ -775,27 +754,13 @@ const ProcessNodeComponent = ({ id, data, selected }: NodeProps) => {
         </p>
         <Handle
           type="target"
-          position={Position.Top}
+          position={targetPosition || Position.Left}
           className="!w-3 !h-3 !bg-white !border-2 !border-purple-400"
-          style={{ top: "0%" }}
         />
         <Handle
           type="source"
-          position={Position.Bottom}
+          position={sourcePosition || Position.Right}
           className="!w-3 !h-3 !bg-purple-500 !border-2 !border-white"
-          style={{ bottom: "0%" }}
-        />
-        <Handle
-          type="source"
-          position={Position.Right}
-          className="!w-3 !h-3 !bg-purple-500 !border-2 !border-white"
-          style={{ right: "0%", top: "50%" }}
-        />
-        <Handle
-          type="source"
-          position={Position.Left}
-          className="!w-3 !h-3 !bg-purple-500 !border-2 !border-white"
-          style={{ left: "0%", top: "50%" }}
         />
       </div>
     );
@@ -928,22 +893,12 @@ const ProcessNodeComponent = ({ id, data, selected }: NodeProps) => {
 
       <Handle
         type="target"
-        position={Position.Top}
+        position={targetPosition || Position.Left}
         className={HANDLE_STYLE.target}
       />
       <Handle
         type="source"
-        position={Position.Bottom}
-        className={HANDLE_STYLE.source}
-      />
-      <Handle
-        type="target"
-        position={Position.Left}
-        className={HANDLE_STYLE.target}
-      />
-      <Handle
-        type="source"
-        position={Position.Right}
+        position={sourcePosition || Position.Right}
         className={HANDLE_STYLE.source}
       />
     </div>

@@ -313,7 +313,7 @@ export const useFlowLogic = () => {
       formData.append("file", file);
       formData.append("provider", provider);
       formData.append("is_internal", provider === "ollama" ? "true" : "false");
-      formData.append("the_loai", diagramType); // ← truyền loại sơ đồ để backend dùng đúng prompt
+      formData.append("the_loai", "auto"); // Đổi thành auto để Backend tự động nhận diện loại sơ đồ phù hợp với file (VD: CV -> Mindmap)
       try {
         const response = await diagramApi.uploadProcessImage(formData);
         const resData = response;

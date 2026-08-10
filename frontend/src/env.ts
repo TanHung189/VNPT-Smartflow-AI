@@ -30,7 +30,7 @@ export const env = {
   GOOGLE_CLIENT_ID: getEnv(
     "REACT_APP_GOOGLE_CLIENT_ID",
     "VITE_GOOGLE_CLIENT_ID",
-    "1089169398506-4hgs32j24larko51ok6dsc4rk4016b07.apps.googleusercontent.com",
+    "1089169398506-gcukhs2knqpkq72p2qiiucbgmvjhkkno.apps.googleusercontent.com",
   ),
 };
 

@@ -414,17 +414,7 @@ const FlowContent = ({
     >
       {isGenerating && <FlowSkeleton />}
 
-      <style>{`
-        /* Smooth Layout Transitions cho mặt UI - di chuyển các nodes */
-        .react-flow__node {
-          transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1), opacity 0.4s ease;
-        }
-        /* Ngăn lag khi user chủ động nắm kéo vào các objects */
-        .react-flow__node.dragging {
-          transition: none !important;
-          z-index: 1000 !important;
-        }
-      `}</style>
+
 
       {/*<div className="absolute left-6 top-6 z-40">
         <button
@@ -884,14 +874,7 @@ const FlowContent = ({
   );
 };
 
-// 6. COMPONENT EXPORT (BẮT BUỘC CÓ PROVIDER)
-// FlowContent dùng useReactFlow() — phải được bọc trong ReactFlowProvider
-const FlowCanvas = (props: any) => {
-  return (
-    <ReactFlowProvider>
-      <FlowContent {...props} />
-    </ReactFlowProvider>
-  );
-};
-
-export default FlowCanvas;
+// 6. COMPONENT EXPORT
+// Bỏ ReactFlowProvider ở đây vì DrawDiagram.tsx đã bọc ReactFlowProvider rồi.
+// Nếu bọc 2 lần, state getNodes() ở DrawDiagram sẽ bị tách rời với state bên trong FlowCanvas, gây lỗi "Sơ đồ rỗng".
+export default FlowContent;

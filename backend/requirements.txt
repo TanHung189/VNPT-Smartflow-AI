@@ -1,4 +1,4 @@
-# ── SERVER ──
+﻿# â”€â”€ SERVER â”€â”€
 fastapi==0.133.1
 uvicorn==0.41.0
 starlette==0.52.1
@@ -6,38 +6,38 @@ anyio==4.12.1
 slowapi                     # Rate limiting for FastAPI
 fastapi-mail               # Email service (forgot password)
 
-# ── DATABASE ──
+# â”€â”€ DATABASE â”€â”€
 asyncpg                     # SQLAlchemy async engine driver
 psycopg2-binary             # Alembic sync driver
 SQLAlchemy==2.0.48
 sqlmodel==0.0.37
 
-# ── DATABASE MIGRATIONS ──
+# â”€â”€ DATABASE MIGRATIONS â”€â”€
 alembic
 
-# ── CACHE & REDIS ──
+# â”€â”€ CACHE & REDIS â”€â”€
 redis[hiredis]
 
-# ── AI ──
+# â”€â”€ AI â”€â”€
 google-genai                # New Google GenAI SDK
 httpx                       # Async HTTP client
 
-# ── AUTH & SECURITY ──
+# â”€â”€ AUTH & SECURITY â”€â”€
 python-jose[cryptography]   # JWT token handling
 cryptography==46.0.5
 python-multipart==0.0.22
 passlib[bcrypt]             # Password Hashing Backend
 
-# ── ENV & CONFIG ──
+# â”€â”€ ENV & CONFIG â”€â”€
 python-dotenv==1.2.1
-pydantic-settings           # Bắt buộc cho Pydantic v2 BaseSettings
+pydantic-settings           # Báº¯t buá»™c cho Pydantic v2 BaseSettings
 
-# ── GOOGLE API (OAuth2) ──
+# â”€â”€ GOOGLE API (OAuth2) â”€â”€
 google-auth==2.38.0
 google-auth-httplib2==0.3.0
 google-api-python-client==2.190.0
 
-# ── UTILITIES ──
+# â”€â”€ UTILITIES â”€â”€
 pydantic==2.12.5
 pydantic_core==2.41.5
 PyPDF2==3.0.1
@@ -47,3 +47,21 @@ tqdm==4.67.3
 typing_extensions==4.15.0
 email-validator
 itsdangerous               # URL-safe token for password reset
+
+# â”€â”€ MONITORING & OBSERVABILITY â”€â”€
+sentry-sdk[fastapi]         # Error tracking & performance monitoring
+
+# â”€â”€ BACKGROUND TASK QUEUE â”€â”€
+celery[redis]               # Distributed task queue
+flower                      # Celery web monitoring UI
+
+# â”€â”€ TESTING â”€â”€
+pytest
+pytest-asyncio
+pytest-cov                  # Coverage report
+httpx                       # Async test client for FastAPI
+factory-boy                 # Test data factory
+aiosqlite                   # SQLite async driver (test khong can PostgreSQL that)
+
+# â”€â”€ CODE QUALITY â”€â”€
+ruff                        # Fast Python linter & formatter

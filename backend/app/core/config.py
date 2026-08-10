@@ -88,4 +88,12 @@ class Settings:
     # Số request AI tối đa mỗi phút / IP (0 = tắt rate limit)
     AI_RATE_LIMIT_PER_MINUTE: int = int(os.getenv("AI_RATE_LIMIT_PER_MINUTE", "15"))
 
+    # ── Monitoring / Sentry ────────────────────────────────────────
+    # Lấy tại https://sentry.io → Project Settings → Client Keys → DSN
+    # Để trống nếu chưa muốn dùng Sentry (không crash app)
+    SENTRY_DSN: str = os.getenv("SENTRY_DSN", "")
+    SENTRY_ENVIRONMENT: str = os.getenv("SENTRY_ENVIRONMENT", "development")
+    # Tỷ lệ lấy mẫu performance trace (0.0–1.0). 0.1 = 10% request
+    SENTRY_TRACES_SAMPLE_RATE: float = float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.1"))
+
 settings = Settings()

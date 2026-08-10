@@ -51,7 +51,7 @@ const DrawDiagramContent = () => {
   );
   // Lưu văn bản gốc người dùng nhập vào để dùng cho AI Re-render khi đổi domain
   const [originalText, setOriginalText] = useState<string>("");
-  const { fitView, getNodes } = useReactFlow();
+  const { fitView, getNodes, getEdges } = useReactFlow();
 
   const {
     nodes,
@@ -115,7 +115,7 @@ const DrawDiagramContent = () => {
       setCurrentDiagramId(id);
       setTimeout(() => {
         takeSnapshot();
-        fitView({ duration: 800, padding: 0.2 });
+        fitView({ duration: 0, padding: 0.2 });
       }, 100);
       toast.success("Đã tải sơ đồ lên canvas thành công!");
     },
@@ -378,8 +378,8 @@ const DrawDiagramContent = () => {
         tieu_de: diagramTitle,
         la_noi_bo: provider === "ollama",
         du_lieu_so_do: {
-          nodes,
-          edges,
+          nodes: nodes,
+          edges: edges,
           strokes: strokes as StrokeData[],
         },
         van_ban_dau_vao: "AI generated",
@@ -393,7 +393,7 @@ const DrawDiagramContent = () => {
 
       return payload;
     },
-    [diagramTitle, provider, nodes, edges, strokes, captureThumbnailBase64],
+    [diagramTitle, provider, strokes, captureThumbnailBase64, nodes, edges, lastActionReason],
   );
 
   // ─────────────────── SAVE / UPDATE ───────────────────
@@ -404,12 +404,16 @@ const DrawDiagramContent = () => {
         if (!isAutoSave) toast.error("Bạn cần đăng nhập để lưu sơ đồ!");
         return;
       }
-      if (!nodes || nodes.length === 0) {
+      
+      const currentNodes = nodes;
+      const currentEdges = edges;
+      
+      if (!currentNodes || currentNodes.length === 0) {
         if (!isAutoSave) toast.warning("Sơ đồ đang trống, chưa có gì để lưu.");
         return;
       }
 
-      if (!edges) {
+      if (!currentEdges) {
         if (!isAutoSave) toast.error("Lỗi cấu trúc dữ liệu! Vui lòng thử lại.");
         return;
       }
@@ -470,14 +474,10 @@ const DrawDiagramContent = () => {
       }
     },
     [
+      currentDiagramId,
+      buildDiagramPayload,
       nodes,
       edges,
-      strokes,
-      diagramTitle,
-      provider,
-      currentDiagramId,
-      lastActionReason,
-      buildDiagramPayload,
     ],
   );
 

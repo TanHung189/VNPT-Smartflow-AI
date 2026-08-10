@@ -44,7 +44,6 @@ class TraLoiSoDo(BaseModel):
     la_mau_chuan: bool = False                        # Là template chuẩn?
     van_ban_dau_vao: Optional[str] = None             # Prompt gốc
     mo_ta_ngan: Optional[str] = None                  # Mô tả ngắn
-    anh_thu_nho: Optional[str] = None                 # Thumbnail URL
     ngay_tao: datetime                                # Ngày tạo
     ngay_cap_nhat: datetime                           # Ngày cập nhật
 
@@ -59,7 +58,6 @@ class TraLoiDanhSachSoDo(BaseModel):
     la_noi_bo: bool = False                           # Cờ nội bộ
     la_mau_chuan: bool = False                        # Template?
     mo_ta_ngan: Optional[str] = None                  # Mô tả ngắn
-    anh_thu_nho: Optional[str] = None                 # Ảnh thu nhỏ (Thumbnail Preview)
     ngay_cap_nhat: datetime                           # Lần cuối cập nhật
 
     model_config = ConfigDict(from_attributes=True)

@@ -8,27 +8,51 @@ from app.database.base import Base
 load_dotenv()
 
 # docker-compose truyền DATABASE_URL, local .env dùng DB_URL
-DB_URL = os.getenv("DATABASE_URL") or os.getenv("DB_URL")
+DB_URL = os.getenv("DATABASE_URL") or os.getenv("DB_URL", "")
 
 engine = create_async_engine(DB_URL, echo=False)
 
 from sqlalchemy import text
 
 async def init_db():
+    """
+    Khởi tạo database: tạo bảng + seeding dữ liệu mặc định.
+    Bỏ qua ALTER TABLE nếu đang dùng SQLite (môi trường test).
+    """
+    is_postgres = "postgresql" in DB_URL or "asyncpg" in DB_URL
+
     async with engine.begin() as conn:
         # Tự động tạo bảng nếu chưa có
         await conn.run_sync(Base.metadata.create_all)
-        # Đảm bảo các cột mới phát sinh được cập nhật trên DB hiện có
-        await conn.execute(text("ALTER TABLE nguoi_dung ADD COLUMN IF NOT EXISTS ma_nhan_vien VARCHAR(50);"))
-        await conn.execute(text("CREATE UNIQUE INDEX IF NOT EXISTS ix_nguoi_dung_ma_nhan_vien ON nguoi_dung(ma_nhan_vien);"))
-        
-        await conn.execute(text("ALTER TABLE mo_hinh_ai ADD COLUMN IF NOT EXISTS endpoint_url VARCHAR(255);"))
-        await conn.execute(text("ALTER TABLE mo_hinh_ai ADD COLUMN IF NOT EXISTS tham_so_cau_hinh JSONB;"))
-    
+
+        # Chỉ chạy PostgreSQL-specific DDL trong môi trường production/dev
+        if is_postgres:
+            try:
+                await conn.execute(text(
+                    "ALTER TABLE nguoi_dung ADD COLUMN IF NOT EXISTS ma_nhan_vien VARCHAR(50);"
+                ))
+                await conn.execute(text(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS ix_nguoi_dung_ma_nhan_vien "
+                    "ON nguoi_dung(ma_nhan_vien);"
+                ))
+                await conn.execute(text(
+                    "ALTER TABLE mo_hinh_ai ADD COLUMN IF NOT EXISTS endpoint_url VARCHAR(255);"
+                ))
+                await conn.execute(text(
+                    "ALTER TABLE mo_hinh_ai ADD COLUMN IF NOT EXISTS tham_so_cau_hinh JSONB;"
+                ))
+                await conn.execute(text(
+                    "ALTER TABLE so_do ADD COLUMN IF NOT EXISTS mo_ta_ngan VARCHAR(255);"
+                ))
+            except Exception as e:
+                # Bỏ qua lỗi ALTER TABLE nếu cột đã tồn tại
+                import logging
+                logging.getLogger(__name__).warning(f"[init_db] ALTER TABLE warning (safe to ignore): {e}")
+
     # Seeding dữ liệu mẫu (Vai trò)
     from app.models.role import VaiTro
     from sqlalchemy import select
-    
+
     async_session = sessionmaker(
         engine, class_=AsyncSession, expire_on_commit=False
     )
@@ -36,7 +60,7 @@ async def init_db():
         # Kiểm tra xem đã có vai trò chưa
         result = await session.execute(select(VaiTro))
         roles = result.scalars().all()
-        
+
         if not roles:
             print("🌱 Seeding default roles...")
             admin_role = VaiTro(
@@ -53,19 +77,18 @@ async def init_db():
             session.add(staff_role)
             await session.commit()
             print("✅ Seeding roles completed.")
-        
+
         # Kiểm tra xem đã có mô hình AI chưa
         from app.models.ai_model import MoHinhAI
         result_ai = await session.execute(select(MoHinhAI))
         ai_models = result_ai.scalars().all()
-        
+
         if not ai_models:
             print("🌱 Seeding default AI models...")
             gemini = MoHinhAI(
                 nha_cung_cap="gemini",
-                # Khớp với model_name trong ai_service.py
-                ten_mo_hinh="gemini-3.0-flash-preview",
-                mo_ta="Google Gemini 3.0 Flash Preview (Cloud AI)"
+                ten_mo_hinh="gemini-3.5-flash",
+                mo_ta="Google Gemini 3.5 Flash (Cloud AI)"
             )
             ollama = MoHinhAI(
                 nha_cung_cap="ollama",
@@ -76,6 +99,7 @@ async def init_db():
             session.add(ollama)
             await session.commit()
             print("✅ Seeding AI models completed.")
+
 
 async def get_db():
     async_session = sessionmaker(

@@ -303,7 +303,7 @@ VNPT-Smartflow-AI/
 │   │   │   ├── Trash.tsx           # Thùng rác + Restore
 │   │   │   └── admin/              # Admin Dashboard
 │   │   ├── hooks/
-│   │   │   ├── useFlowLogic.ts     # Core: Dagre layout + Undo/Redo
+│   │   │   ├── useFlowLogic.ts     # Core: ELK layout + Undo/Redo
 │   │   │   └── useExportImage.ts   # Export PNG/JPEG
 │   │   ├── features/flow/          # React Flow Canvas + Edge Types
 │   │   ├── components/
@@ -328,7 +328,7 @@ VNPT-Smartflow-AI/
 | **AI Engine** | Google Gemini (`google-genai`) | Latest |
 | **Local AI** | Ollama (Qwen2.5-Coder) | Any |
 | **Frontend** | React + TypeScript | 19 |
-| **Graph** | React Flow + Dagre | Latest |
+| **Graph** | React Flow + ELK (elkjs) | Latest |
 | **UI** | Tailwind CSS + shadcn/ui | v3 |
 | **Database** | PostgreSQL + SQLAlchemy Async | 15 / 2.0 |
 | **Cache** | Redis | 7 |

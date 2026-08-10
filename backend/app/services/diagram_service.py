@@ -133,18 +133,41 @@ async def get_diagrams_by_user(
 
     # ── Cache MISS → DB ──
     try:
+        # Chỉ SELECT các cột cần thiết, bỏ qua du_lieu_so_do (JSON rất nặng)
         stmt = (
-            select(SoDo)
+            select(
+                SoDo.id_so_do,
+                SoDo.tieu_de,
+                SoDo.the_loai,
+                SoDo.la_noi_bo,
+                SoDo.la_mau_chuan,
+                SoDo.mo_ta_ngan,
+                SoDo.ngay_cap_nhat
+            )
             .where(
                 SoDo.id_chu_so_huu == user.id_nguoi_dung,
                 SoDo.ngay_xoa == None,  # noqa: E711
             )
             .order_by(SoDo.ngay_cap_nhat.desc())
         )
-        result  = await session.exec(stmt)          # ✅ session.exec() — SQLModel pattern
+        result  = await session.exec(stmt)
+        # Kết quả trả về là tuple (do select nhiều cột), map sang dict/model
         so_dos  = result.all()
 
-        response_list = [DiagramListResponse.model_validate(d) for d in so_dos]
+        response_list = []
+        for row in so_dos:
+            response_list.append(
+                DiagramListResponse(
+                    id_so_do=row.id_so_do,
+                    tieu_de=row.tieu_de,
+                    the_loai=row.the_loai,
+                    la_noi_bo=row.la_noi_bo,
+                    la_mau_chuan=row.la_mau_chuan,
+                    mo_ta_ngan=row.mo_ta_ngan,
+                    anh_thu_nho=None,  # Bỏ qua ảnh thu nhỏ để tối ưu tốc độ
+                    ngay_cap_nhat=row.ngay_cap_nhat
+                )
+            )
 
         try:
             serializable = [item.model_dump(mode="json") for item in response_list]
@@ -317,7 +340,15 @@ async def get_trashed_diagrams(
     """Lấy danh sách sơ đồ đã bị xóa mềm của người dùng."""
     try:
         stmt = (
-            select(SoDo)
+            select(
+                SoDo.id_so_do,
+                SoDo.tieu_de,
+                SoDo.the_loai,
+                SoDo.la_noi_bo,
+                SoDo.la_mau_chuan,
+                SoDo.mo_ta_ngan,
+                SoDo.ngay_cap_nhat
+            )
             .where(
                 SoDo.id_chu_so_huu == user.id_nguoi_dung,
                 SoDo.ngay_xoa != None,  # noqa: E711
@@ -326,7 +357,22 @@ async def get_trashed_diagrams(
         )
         result = await session.exec(stmt)
         so_dos = result.all()
-        return [DiagramListResponse.model_validate(d) for d in so_dos]
+        
+        response_list = []
+        for row in so_dos:
+            response_list.append(
+                DiagramListResponse(
+                    id_so_do=row.id_so_do,
+                    tieu_de=row.tieu_de,
+                    the_loai=row.the_loai,
+                    la_noi_bo=row.la_noi_bo,
+                    la_mau_chuan=row.la_mau_chuan,
+                    mo_ta_ngan=row.mo_ta_ngan,
+                    anh_thu_nho=None,
+                    ngay_cap_nhat=row.ngay_cap_nhat
+                )
+            )
+        return response_list
     except Exception as e:
         logger.error(f"[DiagramService] Lỗi lấy danh sách thùng rác: {e}", exc_info=True)
         raise

@@ -1,0 +1,49 @@
+# ================================================================
+# ruff.toml — Cấu hình Ruff Linter & Formatter cho VNPT SmartFlow AI
+# Ruff = ESLint + Prettier nhưng cho Python, nhanh hơn flake8 100x
+# ================================================================
+
+# Độ dài dòng tối đa
+line-length = 100
+
+# Target Python version
+target-version = "py312"
+
+# Thư mục loại trừ (không lint)
+exclude = [
+    ".venv",
+    "__pycache__",
+    "migrations",
+    ".git",
+    "htmlcov",
+]
+
+[lint]
+# Rule sets được kích hoạt:
+# E/W = pycodestyle errors/warnings
+# F   = pyflakes (unused imports, undefined variables)
+# I   = isort (import sorting)
+# B   = flake8-bugbear (common bugs)
+# UP  = pyupgrade (modern Python syntax)
+select = ["E", "W", "F", "I", "B", "UP"]
+
+# Rules bỏ qua (phù hợp codebase FastAPI tiếng Việt)
+ignore = [
+    "E501",   # Line too long (đã có line-length=100)
+    "B008",   # Do not perform function calls in default args (FastAPI Depends pattern)
+    "B904",   # Use raise from (không bắt buộc trong async context)
+    "UP007",  # Use X | Y for union type (giữ Optional để tương thích Python 3.9)
+    "E711",   # Comparison to None (SQLAlchemy dùng == None hợp lệ)
+    "F401",   # Unused import (một số import dùng cho re-export)
+]
+
+[lint.per-file-ignores]
+# Trong test files: cho phép assert statement và magic values
+"tests/*" = ["S101", "S105", "S106"]
+# Trong migrations: bỏ qua hầu hết rules
+"migrations/*" = ["E501", "F401", "I001"]
+
+[format]
+# Dùng double quotes (chuẩn Python community)
+quote-style = "double"
+indent-style = "space"

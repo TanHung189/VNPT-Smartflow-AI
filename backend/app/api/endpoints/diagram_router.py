@@ -133,6 +133,41 @@ async def list_diagrams(
 
 
 # ==============================================================
+# GET /diagrams/{diagram_id}/thumbnail — Lấy ảnh thu nhỏ
+# ==============================================================
+
+import base64
+from fastapi.responses import Response
+from sqlmodel import select
+from app.models import SoDo
+
+@router.get(
+    "/{diagram_id}/thumbnail",
+    summary="Lấy ảnh thu nhỏ của sơ đồ",
+    description="Trả về trực tiếp ảnh JPEG/PNG để gắn vào thẻ <img>, không qua JSON để tối ưu tốc độ.",
+)
+async def get_diagram_thumbnail(
+    diagram_id: uuid.UUID,
+    session: AsyncSession = Depends(get_db),
+):
+    stmt = select(SoDo.anh_thu_nho).where(SoDo.id_so_do == diagram_id)
+    result = await session.exec(stmt)
+    thumb = result.first()
+    
+    if not thumb or not thumb.startswith("data:image"):
+        raise HTTPException(status_code=404, detail="No thumbnail found")
+    
+    try:
+        header, encoded = thumb.split(",", 1)
+        media_type = header.split(":")[1].split(";")[0]
+        img_bytes = base64.b64decode(encoded)
+        return Response(content=img_bytes, media_type=media_type)
+    except Exception as e:
+        logger.error(f"[DiagramRouter] Lỗi parse thumbnail: {e}")
+        raise HTTPException(status_code=500, detail="Error parsing thumbnail")
+
+
+# ==============================================================
 # GET /diagrams/{diagram_id} — Lấy chi tiết một sơ đồ
 # ==============================================================
 

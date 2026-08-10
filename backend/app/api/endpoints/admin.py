@@ -10,7 +10,7 @@ from pydantic import BaseModel, ConfigDict
 from typing import List, Any, Optional
 import datetime
 from datetime import timedelta
-from app.api.dependency import get_current_admin  # Yêu cầu role quan_tri
+from app.api.dependency import get_current_admin, get_current_nhan_vien  # Yêu cầu role quan_tri
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -296,7 +296,7 @@ async def update_diagram_admin(
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/ai-models", response_model=List[AiModelDTO])
-async def get_ai_models(db: Session = Depends(get_db), current_user: NguoiDung = Depends(get_current_admin)):  # 🔐 Chỉ admin
+async def get_ai_models(db: Session = Depends(get_db), current_user: NguoiDung = Depends(get_current_nhan_vien)):  # Cho phép cả nhân viên xem
     try:
         stmt = select(MoHinhAI).order_by(desc(MoHinhAI.ngay_tao))
         result = await db.execute(stmt)

@@ -186,17 +186,17 @@ export const DashBoard: React.FC = () => {
                 className="group cursor-pointer flex flex-col bg-white p-3 border border-slate-200 rounded-xl shadow-sm hover:shadow-md hover:border-blue-400 transition-all duration-300"
               >
                 <div className="h-32 bg-slate-50 border border-slate-100 rounded-lg mb-3 flex items-center justify-center overflow-hidden relative">
-                  {d.anh_thu_nho ? (
-                    <img
-                      src={d.anh_thu_nho}
-                      alt={d.tieu_de}
-                      className="w-full h-full object-contain p-2 bg-white mix-blend-multiply opacity-90 group-hover:opacity-100 transition-all duration-300 group-hover:scale-105"
-                    />
-                  ) : (
-                    <FileBox className="w-8 h-8 text-slate-300" />
-                  )}
+                  <FileBox className="absolute inset-0 m-auto w-8 h-8 text-slate-300 z-0" />
+                  <img
+                    src={`${process.env.REACT_APP_API_BASE_URL}/diagrams/${d.id_so_do}/thumbnail`}
+                    alt={d.tieu_de}
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                    }}
+                    className="relative z-10 w-full h-full object-contain p-2 bg-white mix-blend-multiply opacity-90 group-hover:opacity-100 transition-all duration-300 group-hover:scale-105"
+                  />
                   {d.la_noi_bo && (
-                    <div className="absolute top-2 left-2 bg-teal-100/90 text-teal-800 text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm backdrop-blur-sm border border-teal-200/50 flex flex-center gap-1">
+                    <div className="absolute top-2 left-2 z-20 bg-teal-100/90 text-teal-800 text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm backdrop-blur-sm border border-teal-200/50 flex flex-center gap-1">
                       LOCAL AI
                     </div>
                   )}
@@ -266,15 +266,15 @@ export const DashBoard: React.FC = () => {
                 <div className="flex items-center gap-4">
                   {/* Thumbnail nhỏ xíu */}
                   <div className="w-20 h-14 bg-slate-50 border border-slate-200 rounded-lg flex items-center justify-center overflow-hidden shrink-0 relative">
-                    {d.anh_thu_nho ? (
-                      <img
-                        src={d.anh_thu_nho}
-                        alt={d.tieu_de}
-                        className="w-full h-full object-contain bg-white mix-blend-multiply"
-                      />
-                    ) : (
-                      <FileBox className="w-5 h-5 text-slate-300" />
-                    )}
+                    <FileBox className="absolute inset-0 m-auto w-5 h-5 text-slate-300 z-0" />
+                    <img
+                      src={`${process.env.REACT_APP_API_BASE_URL}/diagrams/${d.id_so_do}/thumbnail`}
+                      alt={d.tieu_de}
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                      className="relative z-10 w-full h-full object-contain bg-white mix-blend-multiply"
+                    />
                   </div>
 
                   {/* Thông tin Text */}

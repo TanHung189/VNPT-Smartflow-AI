@@ -295,3 +295,104 @@ async def generate_flow_from_image(
     except Exception as e:
         logger.error(f"[generate_flow_from_image] Lỗi AI vision: {e}", exc_info=True)
         return {"result": "ERROR", "message": str(e)}
+
+# ==============================================================
+# [2] NHOM API ASYNC -- Task Queue (Background Processing)
+#     Danh cho tac vu nang: file lon, OCR...
+#     Frontend nhan task_id, sau do polling /task-status/{task_id}
+# ==============================================================
+
+@router.post(
+    "/task/submit-text",
+    summary="[ASYNC] Gui yeu cau tao so do tu van ban vao hang doi",
+)
+@limiter.limit(f"{settings.AI_RATE_LIMIT_PER_MINUTE}/minute")
+async def submit_text_task(
+    request: Request,
+    req: GenerateRequest,
+    current_user: NguoiDung = Depends(get_current_user),
+):
+    """Dua tac vu tao so do vao hang doi Celery. Tra ve task_id ngay lap tuc."""
+    try:
+        from app.tasks.ai_tasks import generate_flow_from_text
+        provider = req.provider
+        if req.is_internal:
+            provider = "ollama"
+        task = generate_flow_from_text.delay(
+            text=req.text,
+            provider=provider,
+            the_loai=req.the_loai or "process",
+            user_id=str(current_user.id_nguoi_dung),
+            current_nodes=req.current_nodes,
+            current_edges=req.current_edges,
+        )
+        logger.info(f"[Task Queue] Da gui task | task_id={task.id}")
+        return {"result": "QUEUED", "task_id": task.id, "message": "Yeu cau da duoc gui vao hang doi."}
+    except Exception as e:
+        logger.warning(f"[submit_text_task] Celery khong kha dung -> fallback dong bo: {e}")
+        return await generate_flow(request=request, req=req, current_user=current_user)
+
+
+@router.post(
+    "/task/submit-file",
+    summary="[ASYNC] Gui file vao hang doi de trich xuat va tao so do",
+)
+@limiter.limit(f"{settings.AI_RATE_LIMIT_PER_MINUTE}/minute")
+async def submit_file_task(
+    request: Request,
+    file: UploadFile = File(...),
+    provider: str = Form("gemini"),
+    is_internal: bool = Form(False),
+    the_loai: str = Form("process"),
+    current_user: NguoiDung = Depends(get_current_user),
+):
+    """Dua tac vu xu ly file vao hang doi Celery. Tra ve task_id de Frontend polling."""
+    from app.tasks.ai_tasks import generate_flow_from_file
+    if is_internal:
+        provider = "ollama"
+    content = await file.read()
+    if len(content) > MAX_FILE_SIZE_MB * 1024 * 1024:
+        raise HTTPException(status_code=400, detail=f"File qua lon. Toi da {MAX_FILE_SIZE_MB}MB.")
+    task = generate_flow_from_file.delay(
+        file_content_hex=content.hex(),
+        filename=file.filename,
+        content_type=file.content_type or "application/octet-stream",
+        provider=provider,
+        the_loai=the_loai,
+        user_id=str(current_user.id_nguoi_dung),
+    )
+    logger.info(f"[Task Queue] Gui file task | task_id={task.id} | file={file.filename}")
+    return {"result": "QUEUED", "task_id": task.id, "filename": file.filename, "message": "File dang duoc xu ly."}
+
+
+@router.get(
+    "/task-status/{task_id}",
+    summary="Kiem tra trang thai cua task AI (Frontend polling)",
+)
+async def get_task_status(
+    task_id: str,
+    current_user: NguoiDung = Depends(get_current_user),
+):
+    """
+    Tra ve trang thai task:
+    PENDING | STARTED | SUCCESS (data) | FAILURE (error) | RETRY
+    """
+    from celery.result import AsyncResult
+    from app.core.celery_app import celery_app
+    task_result = AsyncResult(task_id, app=celery_app)
+    state = task_result.state
+    if state == "PENDING":
+        return {"task_id": task_id, "status": "PENDING", "message": "Task dang cho xu ly..."}
+    elif state == "STARTED":
+        return {"task_id": task_id, "status": "STARTED", "message": "AI dang xu ly..."}
+    elif state == "SUCCESS":
+        result = task_result.result or {}
+        if isinstance(result, dict) and result.get("status") == "FAILURE":
+            return {"task_id": task_id, "status": "FAILURE", "error": result.get("error")}
+        return {"task_id": task_id, "status": "SUCCESS", "data": result.get("data", result)}
+    elif state == "FAILURE":
+        return {"task_id": task_id, "status": "FAILURE", "error": str(task_result.result)}
+    elif state == "RETRY":
+        return {"task_id": task_id, "status": "RETRY", "message": "Dang thu lai..."}
+    else:
+        return {"task_id": task_id, "status": state}

@@ -1,7 +1,7 @@
-services:
-  # ──────────────────────────────────────────────────────────────
-  # DATABASE — PostgreSQL 15
-  # ──────────────────────────────────────────────────────────────
+﻿services:
+  # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  # DATABASE â€” PostgreSQL 15
+  # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   postgres:
     image: postgres:15-alpine
     container_name: vnpt_postgres
@@ -21,9 +21,9 @@ services:
       retries: 10
       start_period: 10s
 
-  # ──────────────────────────────────────────────────────────────
-  # CACHE — Redis 7
-  # ──────────────────────────────────────────────────────────────
+  # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  # CACHE â€” Redis 7
+  # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   redis:
     image: redis:7-alpine
     container_name: vnpt_redis
@@ -39,9 +39,9 @@ services:
       retries: 5
       start_period: 5s
 
-  # ──────────────────────────────────────────────────────────────
-  # BACKEND — FastAPI + Uvicorn
-  # ──────────────────────────────────────────────────────────────
+  # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  # BACKEND â€” FastAPI + Uvicorn
+  # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   backend:
     build:
       context: ./backend
@@ -60,9 +60,9 @@ services:
       - GEMINI_API_KEYS=${GEMINI_API_KEYS}
       - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
       - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-      # CORS: Production nên điền cụ thể, VD: https://smartflow.vnpt.vn
+      # CORS: Production nÃªn Ä‘iá»n cá»¥ thá»ƒ, VD: https://smartflow.vnpt.vn
       - CORS_ORIGINS=${CORS_ORIGINS:-}
-      # Frontend URL dùng cho email reset password
+      # Frontend URL dÃ¹ng cho email reset password
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
       # Email service (forgot password)
       - MAIL_USERNAME=${MAIL_USERNAME:-}
@@ -85,19 +85,19 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
-  # ──────────────────────────────────────────────────────────────
-  # FRONTEND — React + Nginx
-  # Lưu ý: REACT_APP_API_BASE_URL phải là URL public của backend
-  #         VD: http://YOUR_VPS_IP:8000/api hoặc https://api.yourdomain.com/api
-  # ──────────────────────────────────────────────────────────────
+  # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  # FRONTEND â€” React + Nginx
+  # LÆ°u Ã½: REACT_APP_API_BASE_URL pháº£i lÃ  URL public cá»§a backend
+  #         VD: http://YOUR_VPS_IP:8000/api hoáº·c https://api.yourdomain.com/api
+  # â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        # URL mà BROWSER của người dùng dùng để gọi API (không phải container-to-container)
+        # URL mÃ  BROWSER cá»§a ngÆ°á»i dÃ¹ng dÃ¹ng Ä‘á»ƒ gá»i API (khÃ´ng pháº£i container-to-container)
         # Local:  http://localhost:8000/api
-        # VPS:    http://<VPS_IP>:8000/api  hoặc  https://api.<domain>/api
+        # VPS:    http://<VPS_IP>:8000/api  hoáº·c  https://api.<domain>/api
         - REACT_APP_API_BASE_URL=${REACT_APP_API_BASE_URL:-http://localhost:8000/api}
         - REACT_APP_GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
     container_name: vnpt_frontend
@@ -107,6 +107,53 @@ services:
       - backend
     restart: unless-stopped
 
+
+  # ──────────────────────────────────────────────────────────────
+  # CELERY WORKER — Xu ly AI task bat dong bo
+  # Dung chung image voi Backend, chi thay doi CMD
+  # ──────────────────────────────────────────────────────────────
+  celery_worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: vnpt_celery_worker
+    command: celery -A app.core.celery_app.celery_app worker --loglevel=info --queues=ai_queue --concurrency=2
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://${POSTGRES_USER:-admin}:${POSTGRES_PASSWORD:-admin123}@postgres:5432/${POSTGRES_DB:-vnpt_smartflow_v1}
+      - REDIS_URL=redis://redis:6379/0
+      - OLLAMA_HOST=${OLLAMA_HOST:-host.docker.internal:11434}
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-qwen2.5-coder:1.5b}
+      - SECRET_KEY=${SECRET_KEY:-your-super-secret-key-change-in-production}
+      - GEMINI_API_KEYS=${GEMINI_API_KEYS}
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - SENTRY_ENVIRONMENT=${SENTRY_ENVIRONMENT:-production}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ──────────────────────────────────────────────────────────────
+  # FLOWER — Web UI giam sat Celery tasks
+  # Truy cap tai: http://YOUR_VPS_IP:5555
+  # ──────────────────────────────────────────────────────────────
+  flower:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: vnpt_flower
+    command: celery -A app.core.celery_app.celery_app flower --port=5555
+    ports:
+      - "5555:5555"
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      - redis
+      - celery_worker
+    restart: unless-stopped
 volumes:
   postgres_data:
   redis_data:

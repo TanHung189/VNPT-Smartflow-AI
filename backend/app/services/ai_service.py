@@ -154,7 +154,7 @@ _DEFAULT_CONFIG = {
 class AIService:
     def __init__(self):
         self.current_key_index = 0
-        self.model_name = 'gemini-2.0-flash'
+        self.model_name = 'gemini-3.5-flash'
         # Đọc từ settings — KHÔNG hardcode IP hoặc model name
         self.ollama_url = settings.OLLAMA_BASE_URL
         self.ollama_model = settings.OLLAMA_MODEL
@@ -701,4 +701,4 @@ class AIService:
             raise e
 
 
-ai_service = AIService()
+ai_service = AIService()
