@@ -90,12 +90,12 @@ const DrawDiagramContent = () => {
     updateNodeData,
   } = useFlowLogic();
 
-  // Custom hook Export, need to pass strokes to it so that they get rendered during export
+  // Custom hook Export, need to pass strokes and nodes so image export has correct bounds
   const {
     downloadImage,
     copyImageToClipboard,
     isExporting: isUiExporting,
-  } = useExportImage(strokes);
+  } = useExportImage(strokes, nodes);
 
   // ─────────────────── LOAD DIAGRAM FROM HISTORY ───────────────────
   const handleLoadDiagram = useCallback(
@@ -486,7 +486,7 @@ const DrawDiagramContent = () => {
     if (nodes.length === 0) return; // Chỉ auto-save khi đã có dữ liệu
     const timeoutId = setTimeout(() => {
       handleSave(true);
-    }, 3000);
+    }, 5000); // 5s để tránh race condition khi AI đang render nodes liên tục
     return () => clearTimeout(timeoutId);
   }, [nodes, edges, currentDiagramId, handleSave]);
 

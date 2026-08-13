@@ -1,14 +1,26 @@
 import { useState, useCallback } from "react";
-import { useReactFlow, getNodesBounds, getViewportForBounds } from "@xyflow/react";
+import { useReactFlow, getNodesBounds } from "@xyflow/react";
+import type { Node } from "@xyflow/react";
 import { toPng, toBlob } from "html-to-image";
 import { toast } from "sonner";
 
-export const useExportImage = (strokes: any[] = []) => {
+/**
+ * useExportImage
+ * ──────────────────────────────────────────────────────────────────────────────
+ * Hook xuất ảnh sơ đồ React Flow ra PNG.
+ *
+ * @param strokes    Danh sách nét vẽ tay (freehand) cần được render vào ảnh
+ * @param nodes      Danh sách nodes hiện tại (truyền trực tiếp thay vì dùng
+ *                   getNodes() để tránh stale closure khi bị tách khỏi Provider)
+ */
+export const useExportImage = (strokes: any[] = [], nodes: Node[] = []) => {
   const [isExporting, setIsExporting] = useState(false);
+  // Chỉ dùng getNodes() làm fallback khi nodes prop rỗng
   const { getNodes } = useReactFlow();
 
   const getExportConfig = useCallback(() => {
-    const renderNodes = getNodes();
+    // Ưu tiên nodes truyền từ bên ngoài, fallback về getNodes()
+    const renderNodes = nodes.length > 0 ? nodes : getNodes();
     if (renderNodes.length === 0) {
       toast.warning("Không có sơ đồ để xuất ảnh!");
       return null;
@@ -20,7 +32,7 @@ export const useExportImage = (strokes: any[] = []) => {
       return null;
     }
 
-    const padding = 20; // Giảm padding xuống 20 để cắt sát hơn
+    const padding = 20;
     const nodesBounds = getNodesBounds(renderNodes);
     
     // Tính toán bounds bao gồm cả các nét vẽ để khung ảnh không bị cắt mất nét vẽ
@@ -50,8 +62,8 @@ export const useExportImage = (strokes: any[] = []) => {
     const transformX = -finalBounds.x + padding;
     const transformY = -finalBounds.y + padding;
 
-    const imageWidth = finalBounds.width + padding * 2;
-    const imageHeight = finalBounds.height + padding * 2;
+    const imageWidth = Math.max(finalBounds.width + padding * 2, 400);
+    const imageHeight = Math.max(finalBounds.height + padding * 2, 300);
 
     return {
       element,
@@ -64,7 +76,7 @@ export const useExportImage = (strokes: any[] = []) => {
           height: `${imageHeight}px`,
           transform: `translate(${transformX}px, ${transformY}px) scale(1)`,
         },
-        pixelRatio: 1.5, // Nâng cao để ảnh nét
+        pixelRatio: 2, // 2x để ảnh nét hơn
         quality: 1,
         filter: (node: HTMLElement) => {
           if (
@@ -79,7 +91,7 @@ export const useExportImage = (strokes: any[] = []) => {
         }
       }
     };
-  }, [getNodes, strokes]);
+  }, [getNodes, nodes, strokes]);
 
   const injectStrokesSvg = (element: HTMLElement) => {
     if (!strokes || strokes.length === 0) return null;
@@ -113,6 +125,44 @@ export const useExportImage = (strokes: any[] = []) => {
     return svg;
   };
 
+  /**
+   * toPng với retry – html-to-image thỉnh thoảng thất bại lần đầu
+   * khi font/image chưa render xong. Retry sau 200ms thường thành công.
+   */
+  const toPngWithRetry = async (
+    element: HTMLElement,
+    config: any,
+    retries = 2,
+  ): Promise<string> => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const dataUrl = await toPng(element, config);
+        if (dataUrl && dataUrl !== "data:,") return dataUrl;
+      } catch (e) {
+        if (i === retries - 1) throw e;
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    }
+    throw new Error("toPng failed after retries");
+  };
+
+  const toBlobWithRetry = async (
+    element: HTMLElement,
+    config: any,
+    retries = 2,
+  ): Promise<Blob | null> => {
+    for (let i = 0; i < retries; i++) {
+      try {
+        const blob = await toBlob(element, config);
+        if (blob) return blob;
+      } catch (e) {
+        if (i === retries - 1) throw e;
+        await new Promise((r) => setTimeout(r, 200));
+      }
+    }
+    return null;
+  };
+
   const downloadImage = useCallback(async () => {
     const exportData = getExportConfig();
     if (!exportData) return;
@@ -121,7 +171,7 @@ export const useExportImage = (strokes: any[] = []) => {
     try {
       setIsExporting(true);
       injectedSvg = injectStrokesSvg(exportData.element);
-      const dataUrl = await toPng(exportData.element, exportData.config);
+      const dataUrl = await toPngWithRetry(exportData.element, exportData.config);
       
       const link = document.createElement("a");
       link.download = `vnpt-diagram-${Date.now()}.png`;
@@ -130,7 +180,8 @@ export const useExportImage = (strokes: any[] = []) => {
       
       toast.success("Tải ảnh PNG thành công!");
     } catch (error) {
-      toast.error("Trích xuất ảnh thất bại. Có lỗi xảy ra!");
+      console.error("[Export] downloadImage error:", error);
+      toast.error("Trích xuất ảnh thất bại. Vui lòng thử lại!");
     } finally {
       if (injectedSvg && exportData.element.contains(injectedSvg)) {
         exportData.element.removeChild(injectedSvg);
@@ -147,7 +198,7 @@ export const useExportImage = (strokes: any[] = []) => {
     try {
       setIsExporting(true);
       injectedSvg = injectStrokesSvg(exportData.element);
-      const blob = await toBlob(exportData.element, exportData.config);
+      const blob = await toBlobWithRetry(exportData.element, exportData.config);
       
       if (blob) {
         await navigator.clipboard.write([
@@ -158,6 +209,7 @@ export const useExportImage = (strokes: any[] = []) => {
         throw new Error("Không tạo được blob");
       }
     } catch (error) {
+      console.error("[Export] copyImageToClipboard error:", error);
       toast.error("Lỗi copy vào Clipboard. Vui lòng thử lại!");
     } finally {
       if (injectedSvg && exportData.element.contains(injectedSvg)) {
@@ -173,3 +225,4 @@ export const useExportImage = (strokes: any[] = []) => {
     copyImageToClipboard
   };
 };
+

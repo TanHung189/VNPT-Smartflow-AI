@@ -87,9 +87,23 @@ export const AiSidebarLeft: React.FC<AiSidebarLeftProps> = ({
       const active = dataArray.filter((m: AiModelDTO) => m.trang_thai_hoat_dong);
       setActiveModels(active);
       setIsModelsLoading(false);
-      // Auto select the first one if current provider is obsolete or standard
-      if (active.length > 0 && provider === "gemini") {
-        setProvider(active[0].ten_mo_hinh);
+
+      if (active.length === 0) return;
+
+      // ── Ưu tiên Gemini làm mặc định ──────────────────────────────────────
+      // 1. Tìm model Gemini đang hoạt động đầu tiên trong DB
+      const geminiModel = active.find((m: AiModelDTO) => m.nha_cung_cap === "gemini");
+      if (geminiModel) {
+        // Nếu provider hiện tại vẫn là chuỗi "gemini" (giá trị khởi tạo mặc định),
+        // thay bằng tên model thực tế từ DB (ví dụ: "gemini-3.5-flash")
+        if (provider === "gemini" || !active.find((m: AiModelDTO) => m.ten_mo_hinh === provider)) {
+          setProvider(geminiModel.ten_mo_hinh);
+        }
+      } else {
+        // Không có Gemini → fallback sang model đầu tiên (Ollama/local)
+        if (!active.find((m: AiModelDTO) => m.ten_mo_hinh === provider)) {
+          setProvider(active[0].ten_mo_hinh);
+        }
       }
     }).catch(e => {
        console.error("Failed to load AI Models:", e);

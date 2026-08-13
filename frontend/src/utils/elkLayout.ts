@@ -99,8 +99,12 @@ const mindmapLayout = async (
   const rootEdges = edges.filter((e) => e.source === root.id);
   const rightChildSet = new Set<string>();
   const leftChildSet = new Set<string>();
+  // ── Split root children into Right (first half) / Left (second half) ──
+  // Chia nửa đầu sang phải, nửa sau sang trái để giữ thứ tự tự nhiên.
+  // Ví dụ: 6 nhánh → 3 phải (1,2,3) + 3 trái (4,5,6) thay vì xen kẽ.
+  const mid = Math.ceil(rootEdges.length / 2);
   rootEdges.forEach((e, i) => {
-    if (i % 2 === 0) rightChildSet.add(e.target);
+    if (i < mid) rightChildSet.add(e.target);
     else leftChildSet.add(e.target);
   });
 
